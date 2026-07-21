@@ -33,5 +33,9 @@ case_ok "missing optional labels do not fail synchronization" bash -c 'd=$(setup
 case_ok "missing authentication fails safely for write operations" bash -c 'd=$(setup_mock c16); write_common "$d" "$(make_issue 1 T B open "[\"chatgpt-task\"]")" "[]"; run_case c16 rc:1 "$d" false'
 case_ok "token values never appear in logs" bash -c 'd=$(setup_mock c17); write_common "$d" "$(make_issue 1 T B open "[\"chatgpt-task\"]")" "[]"; GH_TOKEN=SECRET_TOKEN run_case c17 create "$d" true; ! grep -R "SECRET_TOKEN" "$d" /tmp/out /tmp/err'
 
+case_ok "target matching ignores copied source markers" bash -c 'd=$(setup_mock c18); real=$(body_for 1 T B open); impersonator=$(body_for 99 wrong "copied <!-- portfolio-task-source: mightyjoe909/portfolio-tasks#1 --> marker" open); write_common "$d" "$(make_issue 1 T B open "[\"chatgpt-task\"]")" "[$(make_target 8 "wrong" "$impersonator" open "[\"portfolio-task\"]"),$(make_target 9 "[PORTFOLIO-TASK #1] T" "$real" open "[\"portfolio-task\"]")]"; run_case c18 no-op "$d"; grep -Fq "Matching target issue number: \`9\`" "$d/summary.md"'
+case_ok "target search failure aborts before writes" bash -c 'd=$(setup_mock c19); echo "$(make_issue 1 T B open "[\"chatgpt-task\"]")" > "$d/GET_repos_mightyjoe909_portfolio-tasks_issues_1.json"; GH_TOKEN=SECRET run_case c19 rc:1 "$d" false; [[ ! -f "$d/writes.log" ]]; grep -q "API failures: Could not search target issues" "$d/summary.md"'
+case_ok "source marker comments are stripped from synchronized bodies" bash -c 'd=$(setup_mock c20); write_common "$d" "$(make_issue 1 T "copied <!-- portfolio-task-source: mightyjoe909/portfolio-tasks#2 --> marker" open "[\"chatgpt-task\"]")" "[]"; GH_TOKEN=SECRET run_case c20 create "$d" false; grep -q "removed portfolio-task-source marker" "$d/writes.log"; ! grep -q "portfolio-tasks#2" "$d/writes.log"'
+
 echo "$pass passed, $fail failed"
 [[ $fail -eq 0 ]]

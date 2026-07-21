@@ -73,7 +73,7 @@ validate_source() {
 }
 build_body() {
   local managed="$1" body state url
-  body=$(jq -r '.body // ""' <<<"$SOURCE_JSON")
+  body=$(jq -r '(.body // "") | gsub("<!-- portfolio-task-source: [^>]*-->"; "[removed portfolio-task-source marker]")' <<<"$SOURCE_JSON")
   state=$(jq -r '.state' <<<"$SOURCE_JSON")
   url=$(jq -r '.html_url' <<<"$SOURCE_JSON")
   jq -nr --arg body "$body" --arg sr "$SOURCE_REPO" --arg n "$SOURCE_ISSUE_NUMBER" --arg url "$url" --arg state "$state" --arg managed "$managed" '
@@ -82,8 +82,8 @@ build_body() {
 find_target() {
   local marker issues
   marker="${MARKER_PREFIX}${SOURCE_REPO}#${SOURCE_ISSUE_NUMBER} -->"
-  issues=$(api --method GET "repos/$TARGET_REPO/issues" -f state=all -f per_page=100) || { API_FAILURES+=("Could not search target issues"); return; }
-  TARGET_ISSUE_JSON=$(jq --arg marker "$marker" '[.[] | select((.pull_request? | not) and ((.body // "") | contains($marker)))] | sort_by(.number) | first // null' <<<"$issues")
+  issues=$(api --method GET "repos/$TARGET_REPO/issues" -f state=all -f per_page=100) || { API_FAILURES+=("Could not search target issues"); return 1; }
+  TARGET_ISSUE_JSON=$(jq --arg marker "$marker" '[.[] | select((.pull_request? | not) and ((.body // "") | endswith($marker)) and ((.body // "") | contains("\n## Portfolio Task Metadata\n")))] | sort_by(.number) | first // null' <<<"$issues")
   TARGET_ISSUE_NUMBER=$(jq -r '.number // empty' <<<"$TARGET_ISSUE_JSON")
   TARGET_ISSUE_STATE=$(jq -r '.state // empty' <<<"$TARGET_ISSUE_JSON")
 }
@@ -161,7 +161,7 @@ main() {
   load_source_issue
   [[ ${#VALIDATION_ERRORS[@]} -eq 0 ]] && validate_source
   if [[ "$EVENT_NAME" == "workflow_dispatch" && "$DRY_RUN" != "true" && -z "${GH_TOKEN:-}" ]]; then API_FAILURES+=("Missing SLUGGER_ISSUES_TOKEN/GH_TOKEN for non-dry-run manual write"); fi
-  if [[ ${#VALIDATION_ERRORS[@]} -eq 0 && ${#API_FAILURES[@]} -eq 0 ]]; then find_target; plan_action; apply_action || RESULT="failed"; fi
+  if [[ ${#VALIDATION_ERRORS[@]} -eq 0 && ${#API_FAILURES[@]} -eq 0 ]]; then find_target && plan_action && apply_action || RESULT="failed"; fi
   [[ ${#VALIDATION_ERRORS[@]} -eq 0 && ${#API_FAILURES[@]} -eq 0 && "$RESULT" != "failed" ]] || RESULT="failed"
   write_summary
   [[ "$RESULT" == "success" ]]
