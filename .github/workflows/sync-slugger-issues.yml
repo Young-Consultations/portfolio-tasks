@@ -1,0 +1,54 @@
+name: Sync Portfolio Tasks to Slugger Issues
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - labeled
+      - unlabeled
+      - reopened
+      - closed
+  workflow_dispatch:
+    inputs:
+      source_issue_number:
+        description: "Optional portfolio-tasks issue number to synchronize"
+        required: false
+        type: string
+      dry_run:
+        description: "Preview the synchronization without modifying Slugger"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: sync-slugger-${{ github.event.issue.number || inputs.source_issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  sync-slugger-issue:
+    name: Synchronize Slugger issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.SLUGGER_ISSUES_TOKEN }}
+      GITHUB_EVENT_ACTION: ${{ github.event.action }}
+      SOURCE_ISSUE_NUMBER: ${{ github.event.issue.number || inputs.source_issue_number }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+    steps:
+      - name: Check out portfolio-tasks
+        uses: actions/checkout@v4
+
+      - name: Validate manual dispatch inputs
+        if: github.event_name == 'workflow_dispatch' && inputs.source_issue_number == ''
+        run: |
+          set -euo pipefail
+          echo "Manual runs require source_issue_number." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      - name: Synchronize issue into Slugger
+        run: scripts/sync-slugger-issues.sh
