@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOURCE_REPO="mightyjoe909/portfolio-tasks"
-TARGET_REPO="mightyjoe909/slugger"
+SOURCE_REPO="Young-Consultations/portfolio-tasks"
+LEGACY_SOURCE_REPO="mightyjoe909/portfolio-tasks"
+TARGET_REPO="Young-Consultations/slugger"
 SOURCE_LABEL="chatgpt-task"
 TARGET_MANAGED_LABEL="portfolio-task"
 MARKER_PREFIX="<!-- portfolio-task-source: "
@@ -31,8 +32,9 @@ append_summary() { printf '%s\n' "$*" >> "$SUMMARY_FILE"; }
 contains_label() { jq -e --arg n "$1" 'any(.labels[]?.name; . == $n)' >/dev/null; }
 json_array_lines() { jq -r '.[]? // empty'; }
 require_constant_repos() {
-  [[ "$SOURCE_REPO" == "mightyjoe909/portfolio-tasks" ]] || VALIDATION_ERRORS+=("Invalid source repository constant")
-  [[ "$TARGET_REPO" == "mightyjoe909/slugger" ]] || VALIDATION_ERRORS+=("Invalid target repository constant")
+  [[ "$SOURCE_REPO" == "Young-Consultations/portfolio-tasks" ]] || VALIDATION_ERRORS+=("Invalid source repository constant")
+  [[ "$LEGACY_SOURCE_REPO" == "mightyjoe909/portfolio-tasks" ]] || VALIDATION_ERRORS+=("Invalid legacy source repository constant")
+  [[ "$TARGET_REPO" == "Young-Consultations/slugger" ]] || VALIDATION_ERRORS+=("Invalid target repository constant")
 }
 api() {
   if [[ -n "${GH_MOCK_DIR:-}" ]]; then
@@ -80,10 +82,11 @@ build_body() {
     $body + "\n\n---\n## Portfolio Task Metadata\n- Source repository: `" + $sr + "`\n- Source issue: `#" + $n + "`\n- Source URL: `" + $url + "`\n- Source state: `" + $state + "`\n- Managed automatically: " + $managed + "\n<!-- portfolio-task-source: " + $sr + "#" + $n + " -->"'
 }
 find_target() {
-  local marker issues
-  marker="${MARKER_PREFIX}${SOURCE_REPO}#${SOURCE_ISSUE_NUMBER} -->"
+  local current_marker legacy_marker issues
+  current_marker="${MARKER_PREFIX}${SOURCE_REPO}#${SOURCE_ISSUE_NUMBER} -->"
+  legacy_marker="${MARKER_PREFIX}${LEGACY_SOURCE_REPO}#${SOURCE_ISSUE_NUMBER} -->"
   issues=$(api --method GET "repos/$TARGET_REPO/issues" -f state=all -f per_page=100) || { API_FAILURES+=("Could not search target issues"); return 1; }
-  TARGET_ISSUE_JSON=$(jq --arg marker "$marker" '[.[] | select((.pull_request? | not) and ((.body // "") | endswith($marker)) and ((.body // "") | contains("\n## Portfolio Task Metadata\n")))] | sort_by(.number) | first // null' <<<"$issues")
+  TARGET_ISSUE_JSON=$(jq --arg current_marker "$current_marker" --arg legacy_marker "$legacy_marker" '[.[] | select((.pull_request? | not) and (((.body // "") | endswith($current_marker)) or ((.body // "") | endswith($legacy_marker))) and ((.body // "") | contains("\n## Portfolio Task Metadata\n")))] | sort_by(.number) | first // null' <<<"$issues")
   TARGET_ISSUE_NUMBER=$(jq -r '.number // empty' <<<"$TARGET_ISSUE_JSON")
   TARGET_ISSUE_STATE=$(jq -r '.state // empty' <<<"$TARGET_ISSUE_JSON")
 }
