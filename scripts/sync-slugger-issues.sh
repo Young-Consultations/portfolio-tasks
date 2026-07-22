@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOURCE_REPO="mightyjoe909/portfolio-tasks"
-TARGET_REPO="mightyjoe909/slugger"
+SOURCE_REPO="Young-Consultations/portfolio-tasks"
+TARGET_REPO="Young-Consultations/slugger"
 SOURCE_LABEL="chatgpt-task"
 TARGET_MANAGED_LABEL="portfolio-task"
 MARKER_PREFIX="<!-- portfolio-task-source: "
@@ -31,8 +31,8 @@ append_summary() { printf '%s\n' "$*" >> "$SUMMARY_FILE"; }
 contains_label() { jq -e --arg n "$1" 'any(.labels[]?.name; . == $n)' >/dev/null; }
 json_array_lines() { jq -r '.[]? // empty'; }
 require_constant_repos() {
-  [[ "$SOURCE_REPO" == "mightyjoe909/portfolio-tasks" ]] || VALIDATION_ERRORS+=("Invalid source repository constant")
-  [[ "$TARGET_REPO" == "mightyjoe909/slugger" ]] || VALIDATION_ERRORS+=("Invalid target repository constant")
+  [[ "$SOURCE_REPO" == "Young-Consultations/portfolio-tasks" ]] || VALIDATION_ERRORS+=("Invalid source repository constant")
+  [[ "$TARGET_REPO" == "Young-Consultations/slugger" ]] || VALIDATION_ERRORS+=("Invalid target repository constant")
 }
 api() {
   if [[ -n "${GH_MOCK_DIR:-}" ]]; then
