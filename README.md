@@ -104,3 +104,131 @@ The token should not have broader organization or repository access than those t
 - The MVP skips optional source labels instead of creating missing Slugger labels.
 - The target issue search reads the first page of open and closed Slugger issues from the REST issues endpoint; repositories with more than 100 synchronized issues may need pagination enhancement.
 - The workflow preserves comments and unrelated labels but does not synchronize comments.
+
+## ChatGPT task intake contract
+
+The issue form `.github/ISSUE_TEMPLATE/chatgpt-task.yml` is the structured intake contract for tasks authored by ChatGPT or by humans using ChatGPT-generated requirements. It captures enough context for deterministic triage, optional synchronization to Slugger, and later human approval before any implementation agent runs.
+
+The form is an intake artifact only. Submitting it does not authorize execution, does not grant Codex access to any repository, and does not replace repository-owner approval. Codex execution remains controlled by a separate approval gate, represented by the `codex-ready` label when maintainers intentionally apply it outside this form.
+
+### How ChatGPT should populate the issue
+
+When ChatGPT prepares a portfolio task, it should:
+
+1. Use the **ChatGPT Automation Task** issue form.
+2. Write the target repository exactly as `owner/repository`.
+3. Select one primary task type from the dropdown.
+4. Prefer concise, testable bullets for requirements and acceptance criteria.
+5. Separate files that are in scope from files that are explicitly out of scope.
+6. Include validation commands that a reviewer or implementation agent should run.
+7. State security and architectural constraints even when the task seems low risk.
+8. Redact sensitive information and replace private details with neutral descriptions.
+9. Avoid implying that the request is approved for Codex execution.
+
+### Label meaning and approval flow
+
+- `chatgpt-task` marks an issue as a structured ChatGPT task intake record. In this repository, that label also makes the issue eligible for the existing Slugger synchronization workflow when the workflow conditions are met.
+- `codex-ready` is a separate manual approval signal. The ChatGPT task form must not apply it automatically, and maintainers should add it only after they have reviewed authorization, scope, safety, and readiness for execution.
+
+### Required field descriptions
+
+The form requires these fields because downstream automation and reviewers need stable, machine-friendly sections:
+
+- **Objective**: the business or engineering outcome to achieve.
+- **Target repository**: the intended repository in `owner/repository` format; this is a routing hint, not execution authorization.
+- **Task type**: the primary category, selected from a deterministic dropdown.
+- **Required behavior**: the desired end state or behavior that must be implemented or verified.
+- **Acceptance criteria**: measurable completion checks for reviewers and implementation agents.
+- **Testing requirements**: required automated checks, static validations, and manual verification steps.
+- **Security and safety constraints**: boundaries for data handling, credentials, permissions, unsafe actions, and other safety-sensitive requirements.
+
+Optional fields capture current behavior, project/component, functional requirements, in-scope and out-of-scope files, architectural constraints, prerequisites, and additional context.
+
+### Example completed issue
+
+```markdown
+Title: [ChatGPT Task]: Add repository governance validation for issue templates
+
+Objective
+Add a lightweight validation check that protects the structured ChatGPT task issue form from accidental breaking changes.
+
+Target repository
+Young-Consultations/portfolio-tasks
+
+Project or component name
+Repository governance
+
+Task type
+Repository governance
+
+Current behavior or problem
+The repository has automation for Slugger synchronization, but the structured task intake form needs a guardrail so required fields and labels are not removed accidentally.
+
+Required behavior
+A repository validation script should confirm the ChatGPT task issue form exists, keeps required field IDs, applies `chatgpt-task`, does not apply `codex-ready`, and contains no example credentials.
+
+Functional requirements
+- Validate the issue form YAML syntax.
+- Check stable required field IDs.
+- Fail when `codex-ready` is configured by the form.
+- Fail when obvious token, private key, or credential examples appear in the template.
+
+Acceptance criteria
+- The validation script exits successfully for the current form.
+- Removing a required field ID causes the validation script to fail.
+- Adding `codex-ready` to form labels causes the validation script to fail.
+
+Files or components in scope
+- .github/ISSUE_TEMPLATE/chatgpt-task.yml
+- tests/validate-chatgpt-task-form.sh
+- README.md
+
+Files or components out of scope
+- Slugger synchronization write behavior
+- Repository secrets
+- Codex execution workflows
+
+Testing requirements
+- Run `git diff --check`.
+- Run the issue-form validation script.
+- Run existing repository governance or template tests.
+
+Security and safety constraints
+Do not include credentials, API keys, private keys, client secrets, passwords, tokens, export-controlled information, or private customer data. Do not trigger Codex or grant repository access.
+
+Architectural constraints
+Keep GitHub Issues as the source of truth for task intake. Do not introduce a second repository or a parser for issue bodies.
+
+Dependencies or prerequisites
+The `chatgpt-task` label must exist in this repository for GitHub to apply it automatically.
+
+Additional context
+This issue is an intake contract only and requires separate maintainer approval before implementation automation can run.
+```
+
+### Data sensitivity and prohibited content
+
+Do not place sensitive data in task issues, issue templates, examples, logs, screenshots, or validation fixtures. Prohibited content includes:
+
+- Credentials, passwords, tokens, API keys, private keys, and client secrets.
+- Unredacted production configuration or privileged repository settings.
+- Personal data that is not necessary to understand the task.
+- Client confidential material that is not approved for issue tracking.
+- Export-controlled information or instructions that would require special handling.
+- Exploit instructions, destructive commands, or secret-recovery steps that are not necessary for safe defensive work.
+
+If sensitive context is required, reference the approved secure system where authorized reviewers can access it. The GitHub issue should contain only a redacted summary.
+
+### Execution authorization boundary
+
+Creating a ChatGPT task issue records a request. It does not mean the requested repository is authorized for Codex execution, does not prove the requester has permission to change the target repository, and does not permit automation to run. A maintainer must separately review the request, confirm repository authorization and safety constraints, and apply any required approval labels or repository settings before execution can occur.
+
+### Issue-form validation
+
+Run the lightweight validation script before changing the task contract:
+
+```bash
+tests/validate-chatgpt-task-form.sh
+```
+
+The check confirms that the form exists, required machine-friendly field IDs remain required, `chatgpt-task` remains configured, `codex-ready` is not configured, and obvious secrets or example credentials are not present in the template.

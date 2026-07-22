@@ -1,0 +1,168 @@
+name: ChatGPT Automation Task
+description: Structured intake contract for ChatGPT-authored work that may later be reviewed, synchronized, and executed by approved automation.
+title: "[ChatGPT Task]: "
+labels:
+  - chatgpt-task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form as the authoritative task-intake contract for work proposed by ChatGPT or a human collaborator. Submission records requested work only; it does not authorize Codex execution, grant repository access, or bypass any later approval gate.
+
+        Do not include credentials, API keys, private keys, client secrets, tokens, passwords, export-controlled information, or other sensitive data.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: State the outcome to achieve in one or two clear sentences.
+      placeholder: Add a structured issue form for task intake without triggering implementation automation.
+    validations:
+      required: true
+
+  - type: input
+    id: target_repository
+    attributes:
+      label: Target repository
+      description: Provide the repository as owner/repository. Do not assume the repository is authorized for Codex execution.
+      placeholder: Young-Consultations/portfolio-tasks
+    validations:
+      required: true
+
+  - type: input
+    id: project_or_component
+    attributes:
+      label: Project or component name
+      description: Name the project, package, service, workflow, or component affected by this task.
+      placeholder: Issue templates
+    validations:
+      required: false
+
+  - type: dropdown
+    id: task_type
+    attributes:
+      label: Task type
+      description: Select the primary category so automation can route and filter consistently.
+      options:
+        - Bug fix
+        - Feature
+        - Refactor
+        - CI/CD
+        - Documentation
+        - Security
+        - Repository governance
+        - Automation
+        - Investigation
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_behavior_or_problem
+    attributes:
+      label: Current behavior or problem
+      description: Describe the current state, problem, user impact, or ambiguity that motivates the work.
+      placeholder: Task requests are currently free-form and may omit acceptance criteria or security constraints.
+    validations:
+      required: false
+
+  - type: textarea
+    id: required_behavior
+    attributes:
+      label: Required behavior
+      description: Describe the desired end state and any non-negotiable behavior.
+      placeholder: The repository should provide a structured issue form that captures deterministic task intake fields.
+    validations:
+      required: true
+
+  - type: textarea
+    id: functional_requirements
+    attributes:
+      label: Functional requirements
+      description: List specific functional requirements as bullets or numbered items.
+      placeholder: |
+        - Capture objective, repository, task type, required behavior, acceptance criteria, and testing requirements.
+        - Apply only the chatgpt-task label automatically.
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Provide measurable conditions that must be true before this task can be considered complete.
+      placeholder: |
+        - The issue form is available in GitHub's new issue flow.
+        - Required fields cannot be submitted empty.
+        - The form does not apply codex-ready.
+    validations:
+      required: true
+
+  - type: textarea
+    id: files_or_components_in_scope
+    attributes:
+      label: Files or components in scope
+      description: List files, directories, workflows, services, or components that may be changed.
+      placeholder: |
+        - .github/ISSUE_TEMPLATE/chatgpt-task.yml
+        - README.md
+    validations:
+      required: false
+
+  - type: textarea
+    id: files_or_components_out_of_scope
+    attributes:
+      label: Files or components out of scope
+      description: List files, directories, workflows, services, or components that should not be changed.
+      placeholder: |
+        - Runtime deployment configuration
+        - Secrets or repository credentials
+    validations:
+      required: false
+
+  - type: textarea
+    id: testing_requirements
+    attributes:
+      label: Testing requirements
+      description: List required tests, static checks, manual checks, or validation evidence.
+      placeholder: |
+        - Run git diff --check.
+        - Validate the YAML syntax.
+        - Run repository governance checks.
+    validations:
+      required: true
+
+  - type: textarea
+    id: security_constraints
+    attributes:
+      label: Security and safety constraints
+      description: Identify safety rules, sensitive-data limits, permissions boundaries, and prohibited content.
+      placeholder: Do not include credentials, API keys, private keys, client secrets, tokens, passwords, or export-controlled information.
+    validations:
+      required: true
+
+  - type: textarea
+    id: architectural_constraints
+    attributes:
+      label: Architectural constraints
+      description: Describe design constraints, integration boundaries, compatibility requirements, or patterns to preserve.
+      placeholder: Keep the issue form as an intake contract only; do not trigger Codex or create a second source of truth.
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies_or_prerequisites
+    attributes:
+      label: Dependencies or prerequisites
+      description: List dependencies, required decisions, setup steps, labels, permissions, or upstream work.
+      placeholder: The chatgpt-task label must exist in the repository for automatic labeling to succeed.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add links, references, screenshots, logs, or notes that help reviewers understand the request. Redact sensitive data.
+      placeholder: Add non-sensitive context only.
+    validations:
+      required: false
