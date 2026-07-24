@@ -7,16 +7,59 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this form as the authoritative task-intake contract for work proposed by ChatGPT or a human collaborator. Submission records requested work only; it does not authorize Codex execution, grant repository access, or bypass any later approval gate.
+        Use this form as the authoritative portfolio backlog intake contract for work proposed by ChatGPT or a human collaborator. Submission records requested work only; it does not authorize Codex execution, grant repository access, or bypass any later approval gate.
+
+        Codex dispatch requires explicit metadata approval: **Executor** must be `codex` and **Execution status** must be `approved`. Human-only and planning-only work remains in the backlog without dispatch.
 
         Do not include credentials, API keys, private keys, client secrets, tokens, passwords, export-controlled information, or other sensitive data.
 
-  - type: textarea
-    id: objective
+  - type: input
+    id: project
     attributes:
-      label: Objective
-      description: State the outcome to achieve in one or two clear sentences.
-      placeholder: Add a structured issue form for task intake without triggering implementation automation.
+      label: Project
+      description: Canonical portfolio project key used for deterministic `project:*` labeling and filtering.
+      placeholder: slugger
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Select the portfolio priority for deterministic `priority:*` labeling.
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: executor
+    attributes:
+      label: Executor
+      description: Select who may execute this task after triage. Only `codex` can pass the Codex dispatch gate.
+      options:
+        - codex
+        - human
+        - chatgpt-planning
+    validations:
+      required: true
+
+  - type: dropdown
+    id: execution_status
+    attributes:
+      label: Execution status
+      description: Intake starts as proposed. Codex dispatch requires an explicit later change to `approved`.
+      options:
+        - proposed
+        - approved
+        - queued
+        - running
+        - draft-pr
+        - blocked
+        - done
     validations:
       required: true
 
@@ -29,11 +72,64 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: parallel_safe
+    attributes:
+      label: Parallel-safe
+      description: Select whether this task can run concurrently with other approved work against the same target repository.
+      options:
+        - "yes"
+        - "no"
+    validations:
+      required: true
+
+  - type: input
+    id: dependency_issue_references
+    attributes:
+      label: Dependency issue references
+      description: List blocking GitHub issue references separated by spaces or commas, or `none`. Use #123 or owner/repository#123.
+      placeholder: none
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      description: Select the delivery, security, operational, or product risk level.
+      options:
+        - low
+        - medium
+        - high
+    validations:
+      required: true
+
+  - type: dropdown
+    id: estimated_scope
+    attributes:
+      label: Estimated scope
+      description: Keep each issue independently reviewable; split large multi-feature work before dispatch.
+      options:
+        - small
+        - medium
+        - large
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: State the outcome to achieve in one or two clear sentences. Keep the task to one independently reviewable issue or feature.
+      placeholder: Add a structured issue form for task intake without triggering implementation automation.
+    validations:
+      required: true
+
   - type: input
     id: project_or_component
     attributes:
       label: Project or component name
-      description: Name the project, package, service, workflow, or component affected by this task.
+      description: Name the package, service, workflow, or component affected by this task.
       placeholder: Issue templates
     validations:
       required: false

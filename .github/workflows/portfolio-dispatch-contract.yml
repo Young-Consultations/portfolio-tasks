@@ -1,0 +1,63 @@
+name: Portfolio Dispatch Contract
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_issue_number:
+        description: "Portfolio issue number to validate before Codex dispatch"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: portfolio-dispatch-contract-${{ inputs.source_issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  validate-dispatch-contract:
+    name: Validate dispatch contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out portfolio-tasks
+        uses: actions/checkout@v4
+
+      - name: Validate issue number
+        run: |
+          set -euo pipefail
+          [[ "${SOURCE_ISSUE_NUMBER}" =~ ^[0-9]+$ ]]
+        env:
+          SOURCE_ISSUE_NUMBER: ${{ inputs.source_issue_number }}
+
+      - name: Read source issue
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${SOURCE_ISSUE_NUMBER}" > issue.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ISSUE_NUMBER: ${{ inputs.source_issue_number }}
+
+      - name: Validate dispatch metadata
+        id: validate
+        run: |
+          set +e
+          bash scripts/validate-portfolio-dispatch.sh issue.json > validation.json
+          status=$?
+          cat validation.json
+          jq -r '.comment' validation.json > validation-comment.md
+          {
+            echo 'comment<<EOF'
+            cat validation-comment.md
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Comment with actionable validation failure
+        if: failure() && steps.validate.outputs.comment != ''
+        run: gh issue comment "$SOURCE_ISSUE_NUMBER" --body-file validation-comment.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ISSUE_NUMBER: ${{ inputs.source_issue_number }}
