@@ -12,8 +12,16 @@ text = File.read(path, encoding: "UTF-8")
 data = YAML.safe_load(text)
 
 required_ids = %w[
-  objective
+  project
+  priority
+  executor
+  execution_status
   target_repository
+  parallel_safe
+  dependency_issue_references
+  risk
+  estimated_scope
+  objective
   task_type
   required_behavior
   acceptance_criteria
@@ -36,6 +44,19 @@ abort("Fields must remain required: #{not_required.join(', ')}") unless not_requ
 labels = data.fetch("labels", [])
 abort("chatgpt-task label metadata is not configured") unless labels.include?("chatgpt-task")
 abort("codex-ready must not be configured by this intake form") if labels.include?("codex-ready")
+
+expected_options = {
+  "priority" => %w[P0 P1 P2 P3],
+  "executor" => %w[codex human chatgpt-planning],
+  "execution_status" => %w[proposed approved queued running draft-pr blocked done],
+  "parallel_safe" => %w[yes no],
+  "risk" => %w[low medium high],
+  "estimated_scope" => %w[small medium large],
+}
+expected_options.each do |field_id, expected|
+  actual = fields.fetch(field_id).fetch("attributes", {}).fetch("options", [])
+  abort("#{field_id} options changed: #{actual.inspect}") unless actual == expected
+end
 
 unstable_ids = fields.keys.reject { |field_id| field_id.match?(/\A[a-z][a-z0-9_]*\z/) }
 abort("Field IDs must use stable snake_case: #{unstable_ids.sort.join(', ')}") unless unstable_ids.empty?

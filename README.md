@@ -109,7 +109,7 @@ The token should not have broader organization or repository access than those t
 
 The issue form `.github/ISSUE_TEMPLATE/chatgpt-task.yml` is the structured intake contract for tasks authored by ChatGPT or by humans using ChatGPT-generated requirements. It captures enough context for deterministic triage, optional synchronization to Slugger, and later human approval before any implementation agent runs.
 
-The form is an intake artifact only. Submitting it does not authorize execution, does not grant Codex access to any repository, and does not replace repository-owner approval. Codex execution remains controlled by a separate approval gate, represented by the `codex-ready` label when maintainers intentionally apply it outside this form.
+The form is an intake artifact only. Submitting it does not authorize execution, does not grant Codex access to any repository, and does not replace repository-owner approval. Codex execution remains controlled by a separate approval gate: the issue metadata must state `Executor: codex` and `Execution status: approved` after maintainer review.
 
 ### How ChatGPT should populate the issue
 
@@ -123,18 +123,19 @@ When ChatGPT prepares a portfolio task, it should:
 6. Include validation commands that a reviewer or implementation agent should run.
 7. State security and architectural constraints even when the task seems low risk.
 8. Redact sensitive information and replace private details with neutral descriptions.
-9. Avoid implying that the request is approved for Codex execution.
+9. Avoid implying that the request is approved for Codex execution; new intake should normally start with `Execution status: proposed`.
 
 ### Label meaning and approval flow
 
 - `chatgpt-task` marks an issue as a structured ChatGPT task intake record. In this repository, that label also makes the issue eligible for the existing Slugger synchronization workflow when the workflow conditions are met.
-- `codex-ready` is a separate manual approval signal. The ChatGPT task form must not apply it automatically, and maintainers should add it only after they have reviewed authorization, scope, safety, and readiness for execution.
+- `executor:codex` plus `status:approved` is the canonical manual approval signal for Codex dispatch. The ChatGPT task form must not apply legacy `codex-ready` automatically, and maintainers should approve only after reviewing authorization, scope, safety, dependencies, and readiness for execution.
 
 ### Required field descriptions
 
 The form requires these fields because downstream automation and reviewers need stable, machine-friendly sections:
 
 - **Objective**: the business or engineering outcome to achieve.
+- **Project, priority, executor, execution status, parallel safety, dependencies, risk, and estimated scope**: portfolio governance metadata used for deterministic triage and dispatch validation.
 - **Target repository**: the intended repository in `owner/repository` format; this is a routing hint, not execution authorization.
 - **Task type**: the primary category, selected from a deterministic dropdown.
 - **Required behavior**: the desired end state or behavior that must be implemented or verified.
@@ -231,4 +232,99 @@ Run the lightweight validation script before changing the task contract:
 tests/validate-chatgpt-task-form.sh
 ```
 
-The check confirms that the form exists, required machine-friendly field IDs remain required, `chatgpt-task` remains configured, `codex-ready` is not configured, and obvious secrets or example credentials are not present in the template.
+The check confirms that the form exists, required machine-friendly field IDs and governance dropdown options remain stable, `chatgpt-task` remains configured, `codex-ready` is not configured, and obvious secrets or example credentials are not present in the template.
+
+## Portfolio backlog governance contract
+
+`portfolio-tasks` is the authoritative backlog for Slugger, consulting, and future repositories. Each issue should represent one independently reviewable issue or feature. Large efforts should be split before Codex dispatch so each issue has its own approval, dependency, risk, scope, and acceptance criteria.
+
+### Canonical metadata fields
+
+The `ChatGPT Automation Task` issue form captures these required governance fields before the detailed requirements sections:
+
+| Field | Allowed values or format | Label mapping |
+| --- | --- | --- |
+| Project | Stable lowercase portfolio key such as `slugger`, `consulting`, or `portfolio-backlog-schema` | `project:<value>` |
+| Priority | `P0`, `P1`, `P2`, `P3` | `priority:<value>` |
+| Executor | `codex`, `human`, `chatgpt-planning` | `executor:<value>` |
+| Execution status | `proposed`, `approved`, `queued`, `running`, `draft-pr`, `blocked`, `done` | `status:<value>` |
+| Target repository | `owner/repository` | none; validated as routing metadata |
+| Parallel-safe | `yes`, `no` | `parallel-safe:<value>` |
+| Dependency issue references | `none`, `#123`, or `owner/repository#123` | none; validated before dispatch |
+| Risk | `low`, `medium`, `high` | `risk:<value>` |
+| Estimated scope | `small`, `medium`, `large` | `scope:<value>` |
+| Task type | Form dropdown values such as `Feature`, `Security`, or `Repository governance` | `type:<normalized-value>` |
+
+The form still preserves detailed fields for objective, current behavior, required behavior, functional requirements, acceptance criteria, in-scope and out-of-scope files, testing requirements, security constraints, architectural constraints, dependencies or prerequisites, and additional context.
+
+### Lifecycle and approval gate
+
+1. **Proposed**: ChatGPT or a human opens an issue with `execution status: proposed`. This is intake only.
+2. **Triage**: Maintainers review target repository, scope, risk, dependencies, and parallel safety. Human-only and planning-only issues stay visible in the backlog with `executor: human` or `executor: chatgpt-planning`.
+3. **Approved**: A maintainer explicitly changes `executor` to `codex` and `execution status` to `approved` when Codex may execute the task.
+4. **Queued/running**: External execution automation may claim the approved task. This repository validates the contract; target-repository execution implementation belongs outside this repository.
+5. **Draft PR**: When an implementation agent opens a draft pull request, move the issue to `execution status: draft-pr` and link the PR.
+6. **Blocked/done**: Use `blocked` when dependencies, approvals, or safety concerns prevent progress. Use `done` only after review and completion.
+
+Only issues with `Executor` exactly `codex` and `Execution status` exactly `approved` can pass the dispatch contract. Creating or editing an issue never grants execution approval by itself.
+
+### Validation and actionable failures
+
+The workflow `.github/workflows/portfolio-dispatch-contract.yml` validates a selected issue before Codex dispatch. It rejects dispatch when required metadata is missing, the executor is not Codex, the status is not approved, the target repository is malformed, deterministic project or priority labels are missing, or dependency references are malformed or unresolved by the supplied validation context. On failure, the workflow posts an actionable issue comment that lists the fields to fix and does not include credentials or token values.
+
+Local contract checks are available with:
+
+```bash
+tests/validate-chatgpt-task-form.sh
+tests/portfolio-dispatch-contract.bats.sh
+```
+
+### Label taxonomy setup
+
+Create and maintain these label families deterministically:
+
+- `project:slugger`, `project:consulting`, `project:portfolio-backlog-schema`, and future `project:<key>` labels.
+- `priority:P0`, `priority:P1`, `priority:P2`, `priority:P3`.
+- `executor:codex`, `executor:human`, `executor:chatgpt-planning`.
+- `status:proposed`, `status:approved`, `status:queued`, `status:running`, `status:draft-pr`, `status:blocked`, `status:done`.
+- `type:bug-fix`, `type:feature`, `type:refactor`, `type:ci-cd`, `type:documentation`, `type:security`, `type:repository-governance`, `type:automation`, `type:investigation`.
+- `parallel-safe:yes`, `parallel-safe:no`.
+- Optional risk and scope labels: `risk:low`, `risk:medium`, `risk:high`, `scope:small`, `scope:medium`, `scope:large`.
+
+### Compatibility and migration
+
+Existing `chatgpt-task` issues remain valid backlog records, but they cannot pass Codex dispatch until the new required metadata is added. To migrate an older issue, edit the issue body to add the missing GitHub issue-form sections, apply deterministic `project:*` and `priority:*` labels, confirm dependencies are resolved, and set `Executor: codex` plus `Execution status: approved` only after human approval.
+
+### Examples
+
+Slugger implementation backlog example:
+
+```markdown
+Project: slugger
+Priority: P1
+Executor: codex
+Execution status: approved
+Target repository: Young-Consultations/slugger
+Parallel-safe: no
+Dependency issue references: #42
+Risk: medium
+Estimated scope: small
+Task type: Feature
+Objective: Add one independently reviewable scoring report enhancement.
+```
+
+Consulting planning example that must not dispatch:
+
+```markdown
+Project: consulting
+Priority: P2
+Executor: human
+Execution status: proposed
+Target repository: Young-Consultations/portfolio-tasks
+Parallel-safe: yes
+Dependency issue references: none
+Risk: low
+Estimated scope: small
+Task type: Investigation
+Objective: Draft a client-safe implementation plan without changing code.
+```
