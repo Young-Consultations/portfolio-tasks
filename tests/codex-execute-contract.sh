@@ -5,6 +5,47 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 WORKFLOW="$ROOT/.github/workflows/codex-execute.yml"
 pass=0
 
+issue_validator=$(awk '
+  /^          state=\$\(jq / { capture=1 }
+  /^          labels=\$\(jq / { capture=0 }
+  capture { sub(/^          /, ""); print }
+' "$WORKFLOW")
+
+validate_issue() {
+  local fixture=$1 temp
+  temp=$(mktemp -d)
+  if [[ -n "$fixture" ]]; then
+    printf '%s\n' "$fixture" > "$temp/source-issue.json"
+  fi
+  RUNNER_TEMP=$temp REPOSITORY=Young-Consultations/portfolio-tasks \
+    bash -c "set -euo pipefail
+$issue_validator" >/dev/null 2>&1
+  local result=$?
+  rm -rf "$temp"
+  return "$result"
+}
+
+accepts_issue() {
+  local description=$1 fixture=$2
+  if validate_issue "$fixture"; then
+    printf 'ok - %s\n' "$description"
+    pass=$((pass + 1))
+  else
+    printf 'not ok - %s\n' "$description" >&2
+    return 1
+  fi
+}
+
+rejects_issue() {
+  local description=$1 fixture=$2
+  if validate_issue "$fixture"; then
+    printf 'not ok - %s\n' "$description" >&2
+    return 1
+  fi
+  printf 'ok - %s\n' "$description"
+  pass=$((pass + 1))
+}
+
 parser=$(awk '
   /^          if \[\[ "\$SOURCE_ISSUE" =~/ { capture=1 }
   capture { end=($0 == "          fi"); sub(/^          /, ""); print; if (end) exit }
@@ -51,7 +92,6 @@ check() {
 check 'authorization requires codex executor' "executor:codex"
 check 'authorization requires approved status' "status:approved"
 check 'sensitive issues are rejected' "Issues marked sensitive cannot be sent to Codex"
-check 'closed issues are rejected' "\.state.*== open"
 check 'dependencies gate execution' "none\|satisfied\|waived"
 check 'target is pinned to this repository' "Young-Consultations/portfolio-tasks"
 check 'cross-repository targets are rejected' "Cross-repository execution is forbidden"
@@ -60,6 +100,11 @@ check 'test success is recorded only after commands' "result=passed"
 check 'publication is draft only' "draft:true"
 check 'Codex uses workspace-write sandbox' "--sandbox workspace-write"
 check 'checkout action is pinned to a full SHA' 'actions/checkout@[0-9a-f]{40}'
+
+accepts_issue 'open issue passes validation' '{"number":13,"state":"open"}'
+rejects_issue 'closed issue fails validation' '{"number":13,"state":"closed"}'
+rejects_issue 'pull request fails validation' '{"number":13,"state":"open","pull_request":{}}'
+rejects_issue 'missing issue fails validation' ''
 
 accepts_source_issue '13' '13'
 accepts_source_issue 'Young-Consultations/portfolio-tasks#13' '13'

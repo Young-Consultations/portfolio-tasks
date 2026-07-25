@@ -97,13 +97,20 @@ jobs:
           auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
           curl --fail-with-body --silent --show-error "${auth[@]}" \
             "$API_ROOT/repos/$REPOSITORY/issues/$issue_number" > "$RUNNER_TEMP/source-issue.json"
-          echo "Issue state: $(jq -r '.state' "$RUNNER_TEMP/source-issue.json")"
-          echo "Has pull_request field: $(jq 'has("pull_request")' "$RUNNER_TEMP/source-issue.json")"
+          state=$(jq -r '.state' "$RUNNER_TEMP/source-issue.json")
+          has_pr=$(jq -r 'has("pull_request")' "$RUNNER_TEMP/source-issue.json")
+          echo "Issue state: $state"
+          echo "Has pull_request field: $has_pr"
           echo "Issue number: $(jq -r '.number' "$RUNNER_TEMP/source-issue.json")"
           echo "Repository: $REPOSITORY"
-          [[ $(jq -r '.state') == open && $(jq -r 'has("pull_request")') == false ]] || {
-            echo '::error::The source must be an open issue.'; exit 1;
-          }
+          if [[ "$state" != "open" ]]; then
+            echo '::error::The source issue is not open.'
+            exit 1
+          fi
+          if [[ "$has_pr" == "true" ]]; then
+            echo '::error::The source is a pull request, not an issue.'
+            exit 1
+          fi
           labels=$(jq -r '[.labels[].name] | join("\n")' "$RUNNER_TEMP/source-issue.json")
           grep -Fqx 'executor:codex' <<< "$labels" || { echo '::error::Missing executor:codex approval label.'; exit 1; }
           grep -Fqx 'status:approved' <<< "$labels" || { echo '::error::Missing status:approved approval label.'; exit 1; }
