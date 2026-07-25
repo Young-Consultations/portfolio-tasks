@@ -119,7 +119,23 @@ jobs:
             exit 1
           fi
           jq -r '.body // ""' "$RUNNER_TEMP/source-issue.json" > "$RUNNER_TEMP/source-issue.md"
-          target=$(awk '/^### Target repository[[:space:]]*$/{getline; while ($0 ~ /^[[:space:]]*$/) getline; print; exit}' "$RUNNER_TEMP/source-issue.md" | tr -d '\r')
+          target=$(
+            awk '
+              /^#{2,6}[[:space:]]+Target repository[[:space:]]*$/ {
+                while (getline) {
+                  gsub(/\r$/, "")
+                  if ($0 !~ /^[[:space:]]*$/) {
+                    print
+                    exit
+                  }
+                }
+              }
+            ' "$RUNNER_TEMP/source-issue.md"
+          )
+
+          target="${target#- }"
+          target="${target#\`}"
+          target="${target%\`}"
           [[ "$target" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo '::error::Malformed target repository.'; exit 1; }
           [[ "$target" == "$REPOSITORY" ]] || { echo '::error::Cross-repository execution is forbidden.'; exit 1; }
           branch="codex/issue-${issue_number}-${GITHUB_RUN_ID}"
