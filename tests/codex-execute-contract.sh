@@ -5,6 +5,38 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 WORKFLOW="$ROOT/.github/workflows/codex-execute.yml"
 pass=0
 
+parser=$(awk '
+  /^          if \[\[ "\$SOURCE_ISSUE" =~/ { capture=1 }
+  capture { end=($0 == "          fi"); sub(/^          /, ""); print; if (end) exit }
+' "$WORKFLOW")
+
+parse_source_issue() {
+  SOURCE_ISSUE=$1 bash -c "set -euo pipefail
+$parser
+printf '%s\\n' \"\$issue_number\""
+}
+
+accepts_source_issue() {
+  local value=$1 expected=$2 actual
+  if actual=$(parse_source_issue "$value" 2>/dev/null) && [[ "$actual" == "$expected" ]]; then
+    printf 'ok - source_issue accepts %s\n' "$value"
+    pass=$((pass + 1))
+  else
+    printf 'not ok - source_issue should accept %s\n' "$value" >&2
+    return 1
+  fi
+}
+
+rejects_source_issue() {
+  local description=$1 value=$2
+  if parse_source_issue "$value" >/dev/null 2>&1; then
+    printf 'not ok - source_issue accepts %s\n' "$description" >&2
+    return 1
+  fi
+  printf 'ok - source_issue rejects %s\n' "$description"
+  pass=$((pass + 1))
+}
+
 check() {
   local description=$1 pattern=$2
   if grep -Eq -- "$pattern" "$WORKFLOW"; then
@@ -28,6 +60,21 @@ check 'test success is recorded only after commands' "result=passed"
 check 'publication is draft only' "draft:true"
 check 'Codex uses workspace-write sandbox' "--sandbox workspace-write"
 check 'checkout action is pinned to a full SHA' 'actions/checkout@[0-9a-f]{40}'
+
+accepts_source_issue '13' '13'
+accepts_source_issue 'Young-Consultations/portfolio-tasks#13' '13'
+accepts_source_issue 'https://github.com/Young-Consultations/portfolio-tasks/issues/13' '13'
+
+rejects_source_issue 'another repository' 'Young-Consultations/slugger#13'
+rejects_source_issue 'another organization' 'another-owner/portfolio-tasks#13'
+rejects_source_issue 'a pull-request URL' 'https://github.com/Young-Consultations/portfolio-tasks/pull/13'
+rejects_source_issue 'a missing issue number' 'Young-Consultations/portfolio-tasks#'
+rejects_source_issue 'a nonnumeric issue number' 'Young-Consultations/portfolio-tasks#abc'
+rejects_source_issue 'an issue number with a suffix' 'Young-Consultations/portfolio-tasks#13-extra'
+rejects_source_issue 'leading whitespace' ' Young-Consultations/portfolio-tasks#13'
+rejects_source_issue 'trailing whitespace' 'Young-Consultations/portfolio-tasks#13 '
+rejects_source_issue 'a URL query string' 'https://github.com/Young-Consultations/portfolio-tasks/issues/13?source=router'
+rejects_source_issue 'a URL fragment' 'https://github.com/Young-Consultations/portfolio-tasks/issues/13#issuecomment-1'
 
 job_env=$(awk '
   /^    env:$/ { in_job_env=1; next }

@@ -86,6 +86,8 @@ jobs:
 
           if [[ "$SOURCE_ISSUE" =~ ^[0-9]+$ ]]; then
             issue_number=$SOURCE_ISSUE
+          elif [[ "$SOURCE_ISSUE" =~ ^Young-Consultations/portfolio-tasks#([0-9]+)$ ]]; then
+            issue_number=${BASH_REMATCH[1]}
           elif [[ "$SOURCE_ISSUE" =~ ^https://github.com/Young-Consultations/portfolio-tasks/issues/([0-9]+)$ ]]; then
             issue_number=${BASH_REMATCH[1]}
           else
