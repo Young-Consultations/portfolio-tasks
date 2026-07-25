@@ -29,6 +29,18 @@ check 'publication is draft only' "draft:true"
 check 'Codex uses workspace-write sandbox' "--sandbox workspace-write"
 check 'checkout action is pinned to a full SHA' 'actions/checkout@[0-9a-f]{40}'
 
+job_env=$(awk '
+  /^    env:$/ { in_job_env=1; next }
+  in_job_env && /^    [^ ]/ { exit }
+  in_job_env { print }
+' "$WORKFLOW")
+if grep -Fq 'GH_TOKEN:' <<< "$job_env"; then
+  echo 'not ok - GitHub publication token must not be available at job scope' >&2
+  exit 1
+fi
+echo 'ok - GitHub publication token is absent from job scope'
+pass=$((pass + 1))
+
 if grep -Eq 'uses: .+@(main|master|v[0-9]+)([[:space:]#]|$)' "$WORKFLOW"; then
   echo 'not ok - every action must be pinned to a full commit SHA' >&2
   exit 1

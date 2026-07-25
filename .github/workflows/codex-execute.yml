@@ -53,7 +53,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
       OPENAI_API_KEY: ${{ secrets.CODEX_API_KEY }}
       REPOSITORY: Young-Consultations/portfolio-tasks
       API_ROOT: https://api.github.com
@@ -68,6 +67,7 @@ jobs:
         id: authorize
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
           SOURCE_ISSUE: ${{ inputs.source_issue }}
           DEPENDENCY_STATUS: ${{ inputs.dependency_status }}
           DRAFT_PR_ONLY: ${{ inputs.draft_pr_only }}
@@ -163,6 +163,7 @@ jobs:
       - name: Commit and push one task branch
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
           BRANCH: ${{ steps.authorize.outputs.branch }}
         run: |
           set -euo pipefail
@@ -178,6 +179,7 @@ jobs:
         id: publish
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
           BRANCH: ${{ steps.authorize.outputs.branch }}
           ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
         run: |
@@ -195,6 +197,7 @@ jobs:
         if: success()
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
           ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
           BRANCH: ${{ steps.authorize.outputs.branch }}
           PR_URL: ${{ steps.publish.outputs.pr_url }}
@@ -211,6 +214,7 @@ jobs:
         if: failure() && steps.authorize.outputs.issue_number != ''
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
           ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
           CODEX_RESULT: ${{ steps.codex.outcome }}
           TEST_RESULT: ${{ steps.tests.outcome }}
