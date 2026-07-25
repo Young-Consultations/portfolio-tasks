@@ -13,7 +13,7 @@ fail() {
 }
 
 make_codex() {
-  local help_text=$1 exit_code=${2:-0}
+  local help_text=$1 exit_code=${2:-0} diagnostic=${3:-}
   cat > "$TEMP/codex" <<EOF
 #!/usr/bin/env bash
 if [[ "\${1:-}" == --version ]]; then
@@ -25,6 +25,7 @@ HELP
 elif [[ "\${1:-}" == exec ]]; then
   printf '%s\\n' "\$*" > "\$CODEX_TEST_ARGS"
   cat > "\$CODEX_TEST_STDIN"
+  printf '%s\\n' '$diagnostic' >&2
   exit $exit_code
 else
   exit 2
@@ -76,13 +77,14 @@ grep -Fq 'does not support the required --sandbox workspace-write policy' "$TEMP
   fail 'wrapper does not explain the required sandbox capability'
 echo 'ok - missing sandbox capability fails closed'
 
-make_codex 'Usage: codex exec --sandbox <MODE> [PROMPT]' 23
+make_codex 'Usage: codex exec --sandbox <MODE> [PROMPT]' 23 'HTTP 429 raw-sensitive-response-body'
 set +e
 printf 'failing prompt\n' | run_wrapper
 status=$?
 set -e
 [[ $status -eq 23 ]] || fail 'wrapper does not return Codex exit code unchanged'
-grep -Fq 'Codex CLI failed with exit code 23.' "$TEMP/output" || fail 'wrapper omits sanitized Codex failure diagnostic'
+grep -Fq 'Codex CLI failed (rate-limit, exit code 23).' "$TEMP/output" || fail 'wrapper omits sanitized Codex failure classification'
+! grep -Fq 'raw-sensitive-response-body' "$TEMP/output" || fail 'wrapper emits raw Codex API diagnostics'
 echo 'ok - Codex exit code is unchanged'
 
 grep -Fq 'scripts/run-codex.sh < "$RUNNER_TEMP/instructions.md"' "$WORKFLOW" || fail 'workflow does not invoke wrapper'

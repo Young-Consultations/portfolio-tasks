@@ -158,39 +158,6 @@ jobs:
             echo '::error::CODEX_API_KEY is required for Codex execution.'
             exit 1
           fi
-          preflight_response="$RUNNER_TEMP/openai-responses-preflight.json"
-          preflight_request="$RUNNER_TEMP/openai-responses-preflight-request.json"
-          cleanup_preflight() {
-            rm -f "$preflight_response" "$preflight_request"
-          }
-          trap cleanup_preflight EXIT
-          jq -nc --arg model "$CODEX_MODEL" \
-            '{model:$model,input:"Return only: ok",max_output_tokens:8}' > "$preflight_request"
-          response_code="$(
-            curl --silent \
-              --output "$preflight_response" \
-              --write-out '%{http_code}' \
-              --request POST \
-              https://api.openai.com/v1/responses \
-              -H "Authorization: Bearer $CODEX_API_KEY" \
-              -H 'Content-Type: application/json' \
-              --data-binary @"$preflight_request"
-          )"
-          if [[ "$response_code" != "200" ]]; then
-            error_type="$(
-              jq -r '(.error.type // .error.code // "unknown") | tostring | gsub("[^A-Za-z0-9_.-]"; "_")' \
-                "$preflight_response" 2>/dev/null || printf 'unknown\n'
-            )"
-            case "$response_code" in
-              401) echo "::error::Codex API preflight failed: unauthorized (HTTP 401, type ${error_type})." ;;
-              403) echo "::error::Codex API preflight failed: forbidden (HTTP 403, type ${error_type})." ;;
-              429) echo "::error::Codex API preflight failed: rate limited (HTTP 429, type ${error_type})." ;;
-              *) echo "::error::Codex API preflight failed with HTTP ${response_code}, type ${error_type}." ;;
-            esac
-            exit 1
-          fi
-          cleanup_preflight
-          trap - EXIT
           cat > "$RUNNER_TEMP/instructions.md" <<'EOF'
           Implement the approved task in the attached source issue. Work only in this checkout.
           Do not push, create or merge a pull request, access secrets, change repository or organization
