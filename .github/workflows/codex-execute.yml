@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      OPENAI_API_KEY: ${{ secrets.CODEX_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       REPOSITORY: Young-Consultations/portfolio-tasks
       API_ROOT: https://api.github.com
     steps:
@@ -67,7 +67,7 @@ jobs:
         id: authorize
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
           SOURCE_ISSUE: ${{ inputs.source_issue }}
           DEPENDENCY_STATUS: ${{ inputs.dependency_status }}
           DRAFT_PR_ONLY: ${{ inputs.draft_pr_only }}
