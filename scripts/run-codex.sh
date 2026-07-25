@@ -34,7 +34,8 @@ if supports_option '--sandbox'; then
   command+=(--sandbox workspace-write)
   capabilities+=(--sandbox)
 else
-  compatibility+=('sandbox option unavailable')
+  echo 'run-codex: installed Codex CLI does not support the required --sandbox workspace-write policy.' >&2
+  exit 64
 fi
 
 if supports_option '--ask-for-approval'; then

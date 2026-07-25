@@ -34,9 +34,10 @@ EOF
 }
 
 run_wrapper() {
+  rm -f "$TEMP/args" "$TEMP/stdin" "$TEMP/output"
   PATH="$TEMP:$PATH" CODEX_TEST_ARGS="$TEMP/args" CODEX_TEST_STDIN="$TEMP/stdin" \
     OPENAI_API_KEY='contract-test-secret-that-must-not-appear' \
-    "$WRAPPER" > "$TEMP/output"
+    "$WRAPPER" > "$TEMP/output" 2>&1
 }
 
 make_codex 'Usage: codex exec --sandbox <MODE> --ask-for-approval <POLICY> --skip-git-repo-check [PROMPT]'
@@ -57,6 +58,17 @@ grep -Fq 'exec --sandbox workspace-write -' "$TEMP/args" || fail 'wrapper omits 
 echo 'ok - older CLI compatibility contract'
 
 make_codex 'Usage: codex exec [PROMPT]' 23
+set +e
+printf 'failing prompt\n' | run_wrapper
+status=$?
+set -e
+[[ $status -eq 64 ]] || fail 'wrapper does not fail closed when sandbox support is unavailable'
+[[ ! -e "$TEMP/args" ]] || fail 'wrapper invokes Codex exec without the required sandbox policy'
+grep -Fq 'does not support the required --sandbox workspace-write policy' "$TEMP/output" ||
+  fail 'wrapper does not explain the required sandbox capability'
+echo 'ok - missing sandbox capability fails closed'
+
+make_codex 'Usage: codex exec --sandbox <MODE> [PROMPT]' 23
 set +e
 printf 'failing prompt\n' | run_wrapper
 status=$?
