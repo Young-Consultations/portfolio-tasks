@@ -4,45 +4,37 @@ on:
   workflow_dispatch:
     inputs:
       source_issue:
-        description: Source portfolio issue
+        description: Source portfolio issue number or canonical URL
         required: true
         type: string
-
       task_type:
         description: Task classification
         required: true
         type: string
-
       project_component:
         description: Repository component
         required: true
         type: string
-
       priority:
         description: Backlog priority
         required: true
         type: string
-
       parallel_safe:
         description: Whether parallel execution is safe
         required: true
         type: boolean
-
       dependency_status:
         description: Dependency validation status
         required: true
         type: string
-
       codex_environment:
         description: Codex environment identifier
         required: true
         type: string
-
       concurrency_group:
         description: Router-generated concurrency group
         required: true
         type: string
-
       draft_pr_only:
         description: Require draft pull requests
         required: true
@@ -56,50 +48,182 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  validate-boundary:
-    name: Validate consulting execution boundary
+  execute:
+    name: Validate, execute, test, and publish
     runs-on: ubuntu-latest
-
+    timeout-minutes: 45
+    env:
+      OPENAI_API_KEY: ${{ secrets.CODEX_API_KEY }}
+      REPOSITORY: Young-Consultations/portfolio-tasks
+      API_ROOT: https://api.github.com
     steps:
-      - name: Validate router contract
+      - name: Check out the target repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate router inputs and approved source issue
+        id: authorize
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
           SOURCE_ISSUE: ${{ inputs.source_issue }}
+          DEPENDENCY_STATUS: ${{ inputs.dependency_status }}
+          DRAFT_PR_ONLY: ${{ inputs.draft_pr_only }}
           TASK_TYPE: ${{ inputs.task_type }}
           PROJECT_COMPONENT: ${{ inputs.project_component }}
           PRIORITY: ${{ inputs.priority }}
-          DEPENDENCY_STATUS: ${{ inputs.dependency_status }}
           CODEX_ENVIRONMENT: ${{ inputs.codex_environment }}
-          DRAFT_PR_ONLY: ${{ inputs.draft_pr_only }}
         run: |
           set -euo pipefail
+          set +x
+          for value in "$TASK_TYPE" "$PROJECT_COMPONENT" "$PRIORITY" "$CODEX_ENVIRONMENT"; do
+            [[ -n "$value" ]] || { echo '::error::A required router input is empty.'; exit 1; }
+          done
+          [[ "$DRAFT_PR_ONLY" == true ]] || { echo '::error::Only draft publication is permitted.'; exit 1; }
+          case "$DEPENDENCY_STATUS" in none|satisfied|waived) ;; *) echo '::error::Dependencies are not satisfied.'; exit 1;; esac
 
-          test -n "$SOURCE_ISSUE"
-          test -n "$TASK_TYPE"
-          test -n "$PROJECT_COMPONENT"
-          test -n "$PRIORITY"
-          test -n "$CODEX_ENVIRONMENT"
-
-          case "$DEPENDENCY_STATUS" in
-            satisfied|none|waived) ;;
-            *)
-              echo "::error::Unsupported dependency status."
-              exit 1
-              ;;
-          esac
-
-          if [ "$DRAFT_PR_ONLY" != "true" ]; then
-            echo "::error::This repository only permits draft PR execution."
+          if [[ "$SOURCE_ISSUE" =~ ^[0-9]+$ ]]; then
+            issue_number=$SOURCE_ISSUE
+          elif [[ "$SOURCE_ISSUE" =~ ^https://github.com/Young-Consultations/portfolio-tasks/issues/([0-9]+)$ ]]; then
+            issue_number=${BASH_REMATCH[1]}
+          else
+            echo '::error::source_issue must identify an issue in Young-Consultations/portfolio-tasks.'
             exit 1
           fi
+          auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
+          curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "$API_ROOT/repos/$REPOSITORY/issues/$issue_number" > "$RUNNER_TEMP/source-issue.json"
+          [[ $(jq -r '.state') == open && $(jq -r 'has("pull_request")') == false ]] || {
+            echo '::error::The source must be an open issue.'; exit 1;
+          }
+          labels=$(jq -r '[.labels[].name] | join("\n")' "$RUNNER_TEMP/source-issue.json")
+          grep -Fqx 'executor:codex' <<< "$labels" || { echo '::error::Missing executor:codex approval label.'; exit 1; }
+          grep -Fqx 'status:approved' <<< "$labels" || { echo '::error::Missing status:approved approval label.'; exit 1; }
+          if grep -Fqx 'sensitive' <<< "$labels"; then
+            echo '::error::Issues marked sensitive cannot be sent to Codex.'
+            exit 1
+          fi
+          jq -r '.body // ""' "$RUNNER_TEMP/source-issue.json" > "$RUNNER_TEMP/source-issue.md"
+          target=$(awk '/^### Target repository[[:space:]]*$/{getline; while ($0 ~ /^[[:space:]]*$/) getline; print; exit}' "$RUNNER_TEMP/source-issue.md" | tr -d '\r')
+          [[ "$target" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo '::error::Malformed target repository.'; exit 1; }
+          [[ "$target" == "$REPOSITORY" ]] || { echo '::error::Cross-repository execution is forbidden.'; exit 1; }
+          branch="codex/issue-${issue_number}-${GITHUB_RUN_ID}"
+          printf 'issue_number=%s\nbranch=%s\n' "$issue_number" "$branch" >> "$GITHUB_OUTPUT"
 
-          echo "Organization router contract accepted."
-          echo "Source issue: $SOURCE_ISSUE"
-          echo "Task type: $TASK_TYPE"
-          echo "Component: $PROJECT_COMPONENT"
-          echo "Codex environment: $CODEX_ENVIRONMENT"
+      - name: Install pinned Codex CLI
+        shell: bash
+        run: npm install --global @openai/codex@0.63.0
 
-      - name: Report smoke-test boundary success
+      - name: Execute Codex in workspace-write sandbox
+        id: codex
+        shell: bash
+        env:
+          ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
         run: |
-          echo "Consulting-playbook execution boundary is available."
-          echo "No code changes or pull requests are created by this smoke-test workflow."
+          set -euo pipefail
+          set +x
+          cat > "$RUNNER_TEMP/instructions.md" <<'EOF'
+          Implement the approved task in the attached source issue. Work only in this checkout.
+          Do not push, create or merge a pull request, access secrets, change repository or organization
+          settings, branch protection, secrets, or approval policy. Do not print environment variables.
+          Keep the change focused and production-ready. Run useful checks, but publication and the
+          authoritative validation pass are performed by the surrounding workflow.
+          EOF
+          cat "$RUNNER_TEMP/source-issue.md" >> "$RUNNER_TEMP/instructions.md"
+          codex exec --sandbox workspace-write --ask-for-approval never \
+            --skip-git-repo-check -C "$GITHUB_WORKSPACE" - < "$RUNNER_TEMP/instructions.md"
+
+      - name: Detect changes
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=$(git status --porcelain=v1 --untracked-files=all)
+          [[ -n "$status" ]] || { echo '::error::Codex produced no tracked or untracked changes.'; exit 1; }
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Validate and test repository
+        id: tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          while IFS= read -r file; do bash -n "$file"; done < <(find scripts tests -type f -name '*.sh' -print)
+          ruby -e 'require "yaml"; ARGV.each { |f| YAML.safe_load_file(f, aliases: true) }' \
+            $(find .github -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+          ./tests/validate-chatgpt-task-form.sh
+          ./tests/portfolio-dispatch-contract.bats.sh
+          ./tests/sync-slugger-issues.bats.sh
+          ./tests/codex-execute-contract.sh
+          if command -v actionlint >/dev/null 2>&1; then actionlint; else echo 'actionlint unavailable (not reported as passed)'; fi
+          echo 'result=passed' >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push one task branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
+          BRANCH: ${{ steps.authorize.outputs.branch }}
+        run: |
+          set -euo pipefail
+          set +x
+          git switch -c "$BRANCH"
+          git config user.name 'portfolio-codex[bot]'
+          git config user.email 'portfolio-codex[bot]@users.noreply.github.com'
+          git add --all
+          git commit -m "Implement approved portfolio task #${{ steps.authorize.outputs.issue_number }}"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
+
+      - name: Open one draft pull request
+        id: publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
+          BRANCH: ${{ steps.authorize.outputs.branch }}
+          ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          set +x
+          auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
+          jq -n --arg title "Codex: implement portfolio task #$ISSUE_NUMBER" --arg head "$BRANCH" \
+            --arg body "Draft implementation of #$ISSUE_NUMBER. Validation and repository tests passed in workflow run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
+            '{title:$title,head:$head,base:"main",body:$body,draft:true}' > "$RUNNER_TEMP/pr.json"
+          curl --fail-with-body --silent --show-error "${auth[@]}" -X POST \
+            "$API_ROOT/repos/$REPOSITORY/pulls" --data-binary @"$RUNNER_TEMP/pr.json" > "$RUNNER_TEMP/pr-response.json"
+          echo "pr_url=$(jq -r '.html_url' "$RUNNER_TEMP/pr-response.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Report success to source issue
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
+          BRANCH: ${{ steps.authorize.outputs.branch }}
+          PR_URL: ${{ steps.publish.outputs.pr_url }}
+        run: |
+          set -euo pipefail; set +x
+          workflow_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          body=$(printf 'Codex execution completed.\n\n- Branch: `%s`\n- Draft PR: %s\n- Validation: passed\n- Tests: passed\n- Workflow: %s' "$BRANCH" "$PR_URL" "$workflow_url")
+          jq -n --arg body "$body" '{body:$body}' > "$RUNNER_TEMP/comment.json"
+          curl --fail-with-body --silent --show-error -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' -X POST "$API_ROOT/repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments" \
+            --data-binary @"$RUNNER_TEMP/comment.json" >/dev/null
+
+      - name: Report failed validation or test run
+        if: failure() && steps.authorize.outputs.issue_number != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
+          CODEX_RESULT: ${{ steps.codex.outcome }}
+          TEST_RESULT: ${{ steps.tests.outcome }}
+        run: |
+          set -euo pipefail; set +x
+          [[ -n "$CODEX_RESULT" ]] || CODEX_RESULT='not run'
+          [[ -n "$TEST_RESULT" ]] || TEST_RESULT='not run'
+          body=$(printf 'Codex execution stopped before publication.\n\n- Branch: not published\n- Draft PR: not created\n- Codex execution: %s\n- Validation/tests: %s\n- Workflow: %s/%s/actions/runs/%s' "$CODEX_RESULT" "$TEST_RESULT" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")
+          jq -n --arg body "$body" '{body:$body}' > "$RUNNER_TEMP/comment.json"
+          curl --fail-with-body --silent --show-error -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' -X POST "$API_ROOT/repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments" \
+            --data-binary @"$RUNNER_TEMP/comment.json" >/dev/null
