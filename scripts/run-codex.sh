@@ -5,6 +5,11 @@ set -euo pipefail
 # from its environment, and this wrapper must never render that environment.
 set +x
 
+if [[ -z "${CODEX_API_KEY:-}" ]]; then
+  echo 'run-codex: CODEX_API_KEY is required; refusing to use an interactive or cached login.' >&2
+  exit 78
+fi
+
 if ! command -v codex >/dev/null 2>&1; then
   echo 'run-codex: codex executable was not found in PATH.' >&2
   exit 127
@@ -65,6 +70,12 @@ else
 fi
 
 # A prompt of "-" tells compatible Codex exec versions to consume the prompt
-# from stdin. exec replaces this process so Codex's status is returned unchanged.
+# from stdin. Do not use exec here: a sanitized diagnostic is required on failure.
 command+=(-)
-exec "${command[@]}"
+if "${command[@]}"; then
+  exit 0
+else
+  status=$?
+  echo "run-codex: Codex CLI failed with exit code ${status}." >&2
+  exit "$status"
+fi

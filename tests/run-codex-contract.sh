@@ -36,9 +36,17 @@ EOF
 run_wrapper() {
   rm -f "$TEMP/args" "$TEMP/stdin" "$TEMP/output"
   PATH="$TEMP:$PATH" CODEX_TEST_ARGS="$TEMP/args" CODEX_TEST_STDIN="$TEMP/stdin" \
-    OPENAI_API_KEY='contract-test-secret-that-must-not-appear' \
+    CODEX_API_KEY='contract-test-secret-that-must-not-appear' \
     "$WRAPPER" > "$TEMP/output" 2>&1
 }
+
+set +e
+PATH="$TEMP:$PATH" CODEX_API_KEY= "$WRAPPER" > "$TEMP/output" 2>&1
+status=$?
+set -e
+[[ $status -eq 78 ]] || fail 'wrapper does not reject a missing CODEX_API_KEY'
+grep -Fq 'CODEX_API_KEY is required' "$TEMP/output" || fail 'wrapper does not diagnose a missing CODEX_API_KEY'
+echo 'ok - missing CODEX_API_KEY fails clearly'
 
 make_codex 'Usage: codex exec --sandbox <MODE> --ask-for-approval <POLICY> --skip-git-repo-check [PROMPT]'
 printf 'keep this prompt byte-for-byte\n' | run_wrapper || fail 'wrapper exits cleanly when Codex exists'
@@ -74,6 +82,7 @@ printf 'failing prompt\n' | run_wrapper
 status=$?
 set -e
 [[ $status -eq 23 ]] || fail 'wrapper does not return Codex exit code unchanged'
+grep -Fq 'Codex CLI failed with exit code 23.' "$TEMP/output" || fail 'wrapper omits sanitized Codex failure diagnostic'
 echo 'ok - Codex exit code is unchanged'
 
 grep -Fq 'scripts/run-codex.sh < "$RUNNER_TEMP/instructions.md"' "$WORKFLOW" || fail 'workflow does not invoke wrapper'
