@@ -153,6 +153,19 @@ jobs:
         run: |
           set -euo pipefail
           set +x
+          response_code="$(
+            curl --silent \
+              --output "$RUNNER_TEMP/openai-auth-response.json" \
+              --write-out '%{http_code}' \
+              https://api.openai.com/v1/models \
+              -H "Authorization: Bearer $OPENAI_API_KEY"
+          )"
+          if [[ "$response_code" != "200" ]]; then
+            error_type="$(jq -r '.error.type // "unknown"' \
+              "$RUNNER_TEMP/openai-auth-response.json")"
+            echo "::error::OpenAI authentication preflight failed with HTTP ${response_code}, type ${error_type}."
+            exit 1
+          fi
           cat > "$RUNNER_TEMP/instructions.md" <<'EOF'
           Implement the approved task in the attached source issue. Work only in this checkout.
           Do not push, create or merge a pull request, access secrets, change repository or organization
