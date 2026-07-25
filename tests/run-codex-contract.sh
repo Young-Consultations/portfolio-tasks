@@ -24,7 +24,9 @@ $help_text
 HELP
 elif [[ "\${1:-}" == exec ]]; then
   printf '%s\\n' "\$*" > "\$CODEX_TEST_ARGS"
+  printf '%s' "\${OPENAI_API_KEY:-}" > "\$CODEX_TEST_OPENAI_KEY"
   cat > "\$CODEX_TEST_STDIN"
+  printf '%s\\n' 'safe codex output'
   printf '%s\\n' '$diagnostic' >&2
   exit $exit_code
 else
@@ -35,8 +37,9 @@ EOF
 }
 
 run_wrapper() {
-  rm -f "$TEMP/args" "$TEMP/stdin" "$TEMP/output"
+  rm -f "$TEMP/args" "$TEMP/stdin" "$TEMP/openai-key" "$TEMP/output"
   PATH="$TEMP:$PATH" CODEX_TEST_ARGS="$TEMP/args" CODEX_TEST_STDIN="$TEMP/stdin" \
+    CODEX_TEST_OPENAI_KEY="$TEMP/openai-key" \
     CODEX_API_KEY='contract-test-secret-that-must-not-appear' \
     "$WRAPPER" > "$TEMP/output" 2>&1
 }
@@ -55,6 +58,8 @@ grep -Fq 'Codex version: codex-cli 1.2.3' "$TEMP/output" || fail 'wrapper report
 grep -Fq 'Detected capabilities: --sandbox --ask-for-approval --skip-git-repo-check' "$TEMP/output" || fail 'wrapper detects capabilities'
 cmp -s <(printf 'keep this prompt byte-for-byte\n') "$TEMP/stdin" || fail 'wrapper preserves stdin'
 grep -Fq 'exec --sandbox workspace-write --ask-for-approval never --skip-git-repo-check -' "$TEMP/args" || fail 'wrapper uses supported options'
+grep -Fxq 'contract-test-secret-that-must-not-appear' "$TEMP/openai-key" || fail 'wrapper does not export CODEX_API_KEY as OPENAI_API_KEY to Codex'
+! grep -Fq 'safe codex output' "$TEMP/output" || fail 'wrapper emits unfiltered Codex output'
 ! grep -Fq 'contract-test-secret-that-must-not-appear' "$TEMP/output" || fail 'wrapper exposes OPENAI_API_KEY'
 echo 'ok - supported CLI contract and secret-safe logging'
 
@@ -77,18 +82,33 @@ grep -Fq 'does not support the required --sandbox workspace-write policy' "$TEMP
   fail 'wrapper does not explain the required sandbox capability'
 echo 'ok - missing sandbox capability fails closed'
 
-make_codex 'Usage: codex exec --sandbox <MODE> [PROMPT]' 23 'HTTP 429 raw-sensitive-response-body'
-set +e
-printf 'failing prompt\n' | run_wrapper
-status=$?
-set -e
-[[ $status -eq 23 ]] || fail 'wrapper does not return Codex exit code unchanged'
-grep -Fq 'Codex CLI failed (rate-limit, exit code 23).' "$TEMP/output" || fail 'wrapper omits sanitized Codex failure classification'
-! grep -Fq 'raw-sensitive-response-body' "$TEMP/output" || fail 'wrapper emits raw Codex API diagnostics'
-echo 'ok - Codex exit code is unchanged'
+check_failure() {
+  local diagnostic=$1 expected=$2
+  make_codex 'Usage: codex exec --sandbox <MODE> [PROMPT]' 23 "$diagnostic"
+  set +e
+  printf 'failing prompt\n' | run_wrapper
+  status=$?
+  set -e
+  [[ $status -eq 23 ]] || fail "wrapper does not preserve the Codex exit code for $expected"
+  grep -Fq "Codex CLI failed ($expected, exit code 23)." "$TEMP/output" ||
+    fail "wrapper does not classify $expected"
+  ! grep -Fq 'raw-sensitive-response-body' "$TEMP/output" || fail 'wrapper emits raw Codex API diagnostics'
+}
+
+check_failure 'HTTP 401 unauthorized raw-sensitive-response-body' authentication-failure
+check_failure 'HTTP 403 model access raw-sensitive-response-body' authorization-or-model-access-failure
+check_failure 'HTTP 429 raw-sensitive-response-body' rate-limit
+check_failure 'connection retry failed raw-sensitive-response-body' network-or-service-failure
+check_failure 'unexpected internal failure raw-sensitive-response-body' cli-runtime-failure
+echo 'ok - Codex failures are classified and exit codes are unchanged'
 
 grep -Fq 'scripts/run-codex.sh < "$RUNNER_TEMP/instructions.md"' "$WORKFLOW" || fail 'workflow does not invoke wrapper'
 if grep -Eq '^[[:space:]]+codex exec([[:space:]]|$)' "$WORKFLOW"; then
   fail 'workflow invokes codex exec directly'
 fi
 echo 'ok - workflow delegates Codex execution to wrapper'
+
+if grep -Eq '^[[:space:]]+OPENAI_API_KEY:' "$WORKFLOW"; then
+  fail 'workflow exposes OPENAI_API_KEY directly instead of using CODEX_API_KEY'
+fi
+echo 'ok - OPENAI_API_KEY translation is confined to the wrapper'
