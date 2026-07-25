@@ -100,6 +100,61 @@ check 'test success is recorded only after commands' "result=passed"
 check 'publication is draft only' "draft:true"
 check 'Codex execution uses compatibility wrapper' 'scripts/run-codex\.sh < "\$RUNNER_TEMP/instructions\.md"'
 check 'checkout action is pinned to a full SHA' 'actions/checkout@[0-9a-f]{40}'
+check 'Codex execution receives CODEX_API_KEY' 'CODEX_API_KEY: \$\{\{ secrets\.OPENAI_API_KEY \}\}'
+check 'Responses preflight posts to the Responses API' 'https://api\.openai\.com/v1/responses'
+check 'Responses preflight uses CODEX_API_KEY' 'Authorization: Bearer \$CODEX_API_KEY'
+check 'Responses preflight does not emit the response body' '--output "\$preflight_response"'
+if grep -Eq '(echo|printf)[^\n]*\$\{?CODEX_API_KEY' "$WORKFLOW"; then
+  echo 'not ok - workflow prints CODEX_API_KEY' >&2
+  exit 1
+fi
+echo 'ok - workflow never prints CODEX_API_KEY'
+pass=$((pass + 1))
+
+preflight=$(awk '
+  /^          if \[\[ -z "\$\{CODEX_API_KEY:-\}" \]\]; then/ { capture=1 }
+  capture { done=($0 == "          trap - EXIT"); sub(/^          /, ""); print; if (done) exit }
+' "$WORKFLOW")
+
+exercise_preflight() {
+  local code=$1 body=$2 temp output status
+  temp=$(mktemp -d)
+  cat > "$temp/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+while (($#)); do
+  if [[ "$1" == --output ]]; then output=$2; shift 2; else shift; fi
+done
+printf '%s' "$MOCK_RESPONSE_BODY" > "$output"
+printf '%s' "$MOCK_RESPONSE_CODE"
+EOF
+  chmod +x "$temp/curl"
+  set +e
+  output=$(PATH="$temp:$PATH" RUNNER_TEMP="$temp" CODEX_API_KEY=test-key \
+    CODEX_MODEL=gpt-5.1-codex MOCK_RESPONSE_CODE="$code" MOCK_RESPONSE_BODY="$body" \
+    bash -c "set -euo pipefail; set +x; $preflight; echo codex-permitted" 2>&1)
+  status=$?
+  set -e
+  rm -rf "$temp"
+  printf '%s\n%s' "$status" "$output"
+}
+
+result=$(exercise_preflight 200 '{}')
+[[ ${result%%$'\n'*} == 0 && "$result" == *codex-permitted* ]] || {
+  echo 'not ok - a successful Responses preflight does not permit Codex execution' >&2; exit 1;
+}
+echo 'ok - a 200 Responses preflight permits Codex execution'
+pass=$((pass + 1))
+
+for code in 401 403 429; do
+  secret_body="raw-sensitive-message-${code}"
+  result=$(exercise_preflight "$code" "{\"error\":{\"type\":\"auth_error\",\"message\":\"$secret_body\"}}")
+  [[ ${result%%$'\n'*} != 0 ]] || { echo "not ok - HTTP $code preflight succeeds" >&2; exit 1; }
+  [[ "$result" == *"HTTP $code, type auth_error"* ]] || { echo "not ok - HTTP $code lacks sanitized diagnostic" >&2; exit 1; }
+  [[ "$result" != *"$secret_body"* ]] || { echo "not ok - HTTP $code emits the raw API response" >&2; exit 1; }
+  echo "ok - HTTP $code fails with a sanitized diagnostic"
+  pass=$((pass + 1))
+done
 
 accepts_issue 'open issue passes validation' '{"number":13,"state":"open"}'
 rejects_issue 'closed issue fails validation' '{"number":13,"state":"closed"}'
