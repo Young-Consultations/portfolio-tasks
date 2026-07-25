@@ -72,10 +72,20 @@ fi
 # A prompt of "-" tells compatible Codex exec versions to consume the prompt
 # from stdin. Do not use exec here: a sanitized diagnostic is required on failure.
 command+=(-)
-if "${command[@]}"; then
+diagnostic_file=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/codex-diagnostic.XXXXXX")
+trap 'rm -f "$diagnostic_file"' EXIT
+if "${command[@]}" 2>"$diagnostic_file"; then
   exit 0
 else
   status=$?
-  echo "run-codex: Codex CLI failed with exit code ${status}." >&2
+  diagnostic=$(tr '[:upper:]' '[:lower:]' < "$diagnostic_file")
+  case "$diagnostic" in
+    *'401'*|*'invalid api key'*|*'incorrect api key'*|*'authentication'*|*'unauthorized'*) category=authentication-failure ;;
+    *'403'*|*'model access'*|*'permission denied'*|*'forbidden'*) category=authorization-or-model-access-failure ;;
+    *'429'*|*'rate limit'*|*'too many requests'*) category=rate-limit ;;
+    *'network'*|*'connection'*|*'timed out'*|*'timeout'*|*'service unavailable'*|*'502'*|*'503'*|*'504'*) category=network-or-service-failure ;;
+    *) category=cli-runtime-failure ;;
+  esac
+  echo "run-codex: Codex CLI failed (${category}, exit code ${status})." >&2
   exit "$status"
 fi
