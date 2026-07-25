@@ -2,6 +2,31 @@
 
 This repository owns portfolio-level planning issues and can hand qualifying work to the Slugger implementation backlog.
 
+## Codex CLI compatibility wrapper
+
+GitHub Actions invokes `scripts/run-codex.sh` instead of calling `codex exec`
+directly. This boundary prevents workflow definitions from depending on one
+Codex CLI release: the wrapper verifies the executable, reports its version,
+inspects `codex exec --help`, and supplies only the sandbox, approval, and Git
+repository options that the installed version advertises. The prompt continues
+to arrive on standard input, and the wrapper replaces itself with Codex so the
+CLI exit status reaches the workflow unchanged. It never logs environment
+variables or the `OPENAI_API_KEY` value.
+
+The wrapper contains no repository names, paths, issue metadata, or other
+repository-specific configuration. To reuse this AI-SDLC execution boundary in
+`slugger`, `consulting-playbook`, `.github`, or another repository, copy the
+script and call it from the repository checkout:
+
+```bash
+scripts/run-codex.sh < "$RUNNER_TEMP/instructions.md"
+```
+
+Keep prompt construction, CLI installation/version pinning, credentials, and
+repository policy in the consuming workflow. Future optional Codex flags should
+be added only after detecting their exact names in `codex exec --help`, with a
+contract-test fixture for both supported and unsupported CLI output.
+
 ## Slugger issue synchronization
 
 The workflow `.github/workflows/sync-slugger-issues.yml` synchronizes qualifying issues from `Young-Consultations/portfolio-tasks` to `Young-Consultations/slugger`.

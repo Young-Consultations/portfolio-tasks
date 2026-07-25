@@ -98,7 +98,7 @@ check 'cross-repository targets are rejected' "Cross-repository execution is for
 check 'tracked and untracked changes are detected' "status --porcelain=v1 --untracked-files=all"
 check 'test success is recorded only after commands' "result=passed"
 check 'publication is draft only' "draft:true"
-check 'Codex uses workspace-write sandbox' "--sandbox workspace-write"
+check 'Codex execution uses compatibility wrapper' 'scripts/run-codex\.sh < "\$RUNNER_TEMP/instructions\.md"'
 check 'checkout action is pinned to a full SHA' 'actions/checkout@[0-9a-f]{40}'
 
 accepts_issue 'open issue passes validation' '{"number":13,"state":"open"}'
@@ -139,6 +139,10 @@ if grep -Eq 'uses: .+@(main|master|v[0-9]+)([[:space:]#]|$)' "$WORKFLOW"; then
 fi
 if grep -Eq '(^|[[:space:]])pull_request_target:|gh pr merge|/merges(["/[:space:]]|$)' "$WORKFLOW"; then
   echo 'not ok - automatic merge and pull_request_target are forbidden' >&2
+  exit 1
+fi
+if grep -Eq '^[[:space:]]+codex exec([[:space:]]|$)' "$WORKFLOW"; then
+  echo 'not ok - workflow must not invoke codex exec directly' >&2
   exit 1
 fi
 echo "ok - prohibited publication triggers are absent"
