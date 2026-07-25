@@ -74,16 +74,20 @@ fi
 command+=(-)
 diagnostic_file=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/codex-diagnostic.XXXXXX")
 trap 'rm -f "$diagnostic_file"' EXIT
-if "${command[@]}" 2>"$diagnostic_file"; then
+
+# Codex CLI 0.63.0 reads this standard credential name. Keep CODEX_API_KEY as
+# the workflow-facing interface and translate it only in this wrapper's process.
+export OPENAI_API_KEY="$CODEX_API_KEY"
+if "${command[@]}" >"$diagnostic_file" 2>&1; then
   exit 0
 else
   status=$?
   diagnostic=$(tr '[:upper:]' '[:lower:]' < "$diagnostic_file")
   case "$diagnostic" in
     *'401'*|*'invalid api key'*|*'incorrect api key'*|*'authentication'*|*'unauthorized'*) category=authentication-failure ;;
-    *'403'*|*'model access'*|*'permission denied'*|*'forbidden'*) category=authorization-or-model-access-failure ;;
+    *'403'*|*'model access'*|*'permission'*|*'forbidden'*) category=authorization-or-model-access-failure ;;
     *'429'*|*'rate limit'*|*'too many requests'*) category=rate-limit ;;
-    *'network'*|*'connection'*|*'timed out'*|*'timeout'*|*'service unavailable'*|*'502'*|*'503'*|*'504'*) category=network-or-service-failure ;;
+    *'network'*|*'connection'*|*'retry'*|*'timed out'*|*'timeout'*|*'service'*|*'502'*|*'503'*|*'504'*) category=network-or-service-failure ;;
     *) category=cli-runtime-failure ;;
   esac
   echo "run-codex: Codex CLI failed (${category}, exit code ${status})." >&2
