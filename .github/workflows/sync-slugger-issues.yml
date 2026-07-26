@@ -51,4 +51,4 @@ jobs:
           exit 1
 
       - name: Synchronize issue into Slugger
-        run: scripts/sync-slugger-issues.sh
+        run: python -m portfolio_tasks.cli sync

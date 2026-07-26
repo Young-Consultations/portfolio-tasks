@@ -2,9 +2,51 @@
 
 This repository owns portfolio-level planning issues and can hand qualifying work to the Slugger implementation backlog.
 
+## Python architecture and developer workflow
+
+All project-owned automation and business rules are implemented in the Python 3.12+
+`portfolio_tasks` package. GitHub Actions invokes the same module entry points used
+locally; workflows contain orchestration and environment wiring rather than parsing,
+routing, or synchronization rules.
+
+The package is divided by responsibility:
+
+- `models.py` contains immutable typed issue models and synchronization actions.
+- `github_api.py` provides the reusable, token-safe GitHub REST boundary.
+- `issue_parser.py` parses issue-form Markdown and repository routing metadata.
+- `validation.py` validates dispatch metadata, dependencies, labels, and authorization.
+- `issue_sync.py` separates mirror location, action planning, and write execution.
+- `cli.py` exposes the `sync` and `validate-dispatch` automation commands.
+- `run_codex.py` is the secure, version-adaptive Codex subprocess boundary.
+
+Create a development environment and run all checks with:
+
+```bash
+python3.12 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e '.[dev]'
+python -m pytest
+ruff check .
+mypy portfolio_tasks
+git diff --check
+```
+
+To validate a downloaded issue payload locally, run
+`python -m portfolio_tasks.cli validate-dispatch issue.json`. To preview issue
+synchronization, provide the same environment variables as Actions—at minimum
+`SOURCE_ISSUE_NUMBER`, `GH_TOKEN`, and `DRY_RUN=true`—then run
+`python -m portfolio_tasks.cli sync`. `GH_MOCK_DIR` selects deterministic JSON
+fixtures instead of the network for regression testing.
+
+When troubleshooting, inspect the JSON validation result or the synchronization
+job summary first. API errors deliberately omit response bodies and credentials;
+confirm token presence and least-privilege repository access separately. Run the
+parser and planner unit tests before debugging Actions because they exercise the
+same production code without network or workflow interpolation.
+
 ## Codex CLI compatibility wrapper
 
-GitHub Actions invokes `python3 scripts/run_codex.py` instead of calling `codex exec`
+GitHub Actions invokes `python -m portfolio_tasks.run_codex` instead of calling `codex exec`
 directly. This boundary prevents workflow definitions from depending on one
 Codex CLI release: the wrapper verifies the executable, reports its version,
 inspects `codex exec --help`, and supplies only the sandbox, approval, and Git
@@ -34,7 +76,7 @@ repository-specific configuration. To reuse this AI-SDLC execution boundary in
 script and call it from the repository checkout:
 
 ```bash
-python3 scripts/run_codex.py < "$RUNNER_TEMP/instructions.md"
+python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
 ```
 
 Keep prompt construction, CLI installation/version pinning, credentials, and

@@ -14,7 +14,7 @@ import sys
 import tempfile
 import threading
 import time
-from typing import BinaryIO, Mapping, Sequence, TextIO
+from typing import BinaryIO, cast, Mapping, Sequence, TextIO
 
 
 EX_CONFIG = 78
@@ -151,10 +151,10 @@ def _forward_stdin(destination: BinaryIO, prompt: bytes) -> None:
 
 def _diagnostic_file(runner_temp: Path, channel: str) -> BinaryIO:
     runner_temp.mkdir(parents=True, exist_ok=True)
-    return tempfile.NamedTemporaryFile(
+    return cast(BinaryIO, tempfile.NamedTemporaryFile(
         mode="w+b", prefix=f"codex-{channel}-", suffix=".log",
         dir=runner_temp, delete=False
-    )
+    ))
 
 
 def execute(

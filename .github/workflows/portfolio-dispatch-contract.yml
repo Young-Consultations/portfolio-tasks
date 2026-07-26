@@ -44,7 +44,7 @@ jobs:
         id: validate
         run: |
           set +e
-          bash scripts/validate-portfolio-dispatch.sh issue.json > validation.json
+          python -m portfolio_tasks.cli validate-dispatch issue.json > validation.json
           status=$?
           cat validation.json
           jq -r '.comment' validation.json > validation-comment.md
