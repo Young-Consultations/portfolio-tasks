@@ -10,7 +10,7 @@ import time
 import unittest
 from unittest import mock
 
-from scripts import run_codex
+from portfolio_tasks import run_codex
 
 
 HELP = "Usage: codex exec --sandbox MODE --skip-git-repo-check --ask-for-approval"
