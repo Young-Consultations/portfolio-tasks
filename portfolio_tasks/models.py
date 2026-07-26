@@ -29,7 +29,7 @@ class Issue:
     is_pull_request: bool = False
 
     @classmethod
-    def from_json(cls, value: dict[str, Any]) -> "Issue":
+    def from_json(cls, value: dict[str, Any]) -> Issue:
         def names(key: str, name: str) -> tuple[str, ...]:
             return tuple(
                 str(item.get(name, "") if isinstance(item, dict) else item)

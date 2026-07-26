@@ -2,16 +2,15 @@
 
 import io
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from portfolio_tasks import run_codex
-
 
 HELP = "Usage: codex exec --sandbox MODE --skip-git-repo-check --ask-for-approval"
 FULL_AUTO_HELP = HELP + " --full-auto"

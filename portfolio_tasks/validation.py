@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from typing import Any, Collection
+from collections.abc import Collection
+from dataclasses import dataclass
+from typing import Any
 
 from .issue_parser import IssueFormParser, TargetRepositoryParser
 

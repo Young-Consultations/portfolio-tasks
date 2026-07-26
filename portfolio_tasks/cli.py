@@ -6,12 +6,19 @@ import argparse
 import json
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from .github_api import GitHubApi, GitHubApiError
-from .issue_sync import (MANAGED_LABEL, SOURCE_LABEL, SOURCE_REPO, TARGET_REPO,
-                         MirrorLocator, SyncExecutor, SyncPlanner)
+from .issue_sync import (
+    MANAGED_LABEL,
+    SOURCE_LABEL,
+    SOURCE_REPO,
+    TARGET_REPO,
+    MirrorLocator,
+    SyncExecutor,
+    SyncPlanner,
+)
 from .models import Issue
 from .validation import validate_dispatch
 

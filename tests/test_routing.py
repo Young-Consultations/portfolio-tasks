@@ -1,4 +1,5 @@
 import pytest
+
 from portfolio_tasks.validation import parse_source_issue
 
 

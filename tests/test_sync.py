@@ -4,14 +4,14 @@ from tests.helpers import SLUGGER_ISSUE_BODY
 
 
 def issue(**changes: object) -> Issue:
-    values = dict(
-        number=1,
-        title="T",
-        body=SLUGGER_ISSUE_BODY,
-        state="open",
-        labels=("chatgpt-task",),
-        html_url="https://github.com/Young-Consultations/portfolio-tasks/issues/1",
-    )
+    values = {
+        "number": 1,
+        "title": "T",
+        "body": SLUGGER_ISSUE_BODY,
+        "state": "open",
+        "labels": ("chatgpt-task",),
+        "html_url": "https://github.com/Young-Consultations/portfolio-tasks/issues/1",
+    }
     values.update(changes)
     return Issue(**values)  # type: ignore[arg-type]
 

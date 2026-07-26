@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from typing import Any
 
 from .github_api import GitHubApi
 from .models import Issue, SyncAction
@@ -48,7 +49,7 @@ class SyncPlanner:
 
     @classmethod
     def desired(cls, source: Issue, target: Issue | None, managed: str = "Yes") -> dict[str, Any]:
-        labels = sorted(set((target.labels if target else ())) - {SOURCE_LABEL} | {MANAGED_LABEL})
+        labels = sorted(set(target.labels if target else ()) - {SOURCE_LABEL} | {MANAGED_LABEL})
         state = target.state if managed != "Yes" and target else source.state
         return {"title": f"[PORTFOLIO-TASK #{source.number}] {source.title}",
                 "body": cls.body(source, managed), "state": state,
