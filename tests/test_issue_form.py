@@ -1,5 +1,5 @@
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 def test_chatgpt_issue_form_contract() -> None:

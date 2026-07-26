@@ -13,6 +13,15 @@ dev = ["mypy>=1.10", "pytest>=8", "ruff>=0.5", "PyYAML>=6"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+exclude = [
+    "build",
+    "dist",
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+]
 
 [tool.mypy]
 python_version = "3.12"

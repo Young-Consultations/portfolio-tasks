@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Secure, version-adaptive runtime wrapper for ``codex exec``."""
 
 from __future__ import annotations
@@ -6,7 +5,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from pathlib import Path
 import re
 import signal
 import subprocess
@@ -14,8 +12,9 @@ import sys
 import tempfile
 import threading
 import time
-from typing import BinaryIO, cast, Mapping, Sequence, TextIO
-
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import BinaryIO, TextIO, cast
 
 EX_CONFIG = 78
 EX_USAGE = 64
