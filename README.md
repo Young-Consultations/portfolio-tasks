@@ -4,14 +4,29 @@ This repository owns portfolio-level planning issues and can hand qualifying wor
 
 ## Codex CLI compatibility wrapper
 
-GitHub Actions invokes `scripts/run-codex.sh` instead of calling `codex exec`
+GitHub Actions invokes `python3 scripts/run_codex.py` instead of calling `codex exec`
 directly. This boundary prevents workflow definitions from depending on one
 Codex CLI release: the wrapper verifies the executable, reports its version,
 inspects `codex exec --help`, and supplies only the sandbox, approval, and Git
-repository options that the installed version advertises. The prompt continues
-to arrive on standard input, and the wrapper replaces itself with Codex so the
-CLI exit status reaches the workflow unchanged. It never logs environment
-variables or the `OPENAI_API_KEY` value.
+repository options that the installed version advertises. The prompt is read
+byte-for-byte from standard input and forwarded to a `shell=False` subprocess;
+Codex output streams while its exit status reaches the workflow unchanged.
+
+`CODEX_API_KEY` is required and is translated to the CLI's `OPENAI_API_KEY`
+only in the child environment. `CODEX_MODEL` is optional: when set, it becomes
+the `--model` override, and when absent the installed CLI chooses its default.
+The execution timeout defaults to 2,400 seconds and may be changed with
+`CODEX_TIMEOUT_SECONDS` or `--timeout`.
+
+The wrapper never logs environment variables or credentials. It redacts API
+keys, authorization and bearer values, credential-bearing URLs, and session
+identifiers from streamed diagnostics and from the diagnostic files retained
+in `RUNNER_TEMP` for the workflow to upload. Failures receive concise GitHub
+annotations classified as authentication, authorization, unavailable or
+deprecated model, rate limit, network, TLS, DNS, timeout, Codex internal
+exception, or unknown failure. The mandatory `workspace-write` sandbox fails
+closed when unsupported; optional approval and Git-repository flags are used
+only when capability discovery reports them.
 
 The wrapper contains no repository names, paths, issue metadata, or other
 repository-specific configuration. To reuse this AI-SDLC execution boundary in
@@ -19,7 +34,7 @@ repository-specific configuration. To reuse this AI-SDLC execution boundary in
 script and call it from the repository checkout:
 
 ```bash
-scripts/run-codex.sh < "$RUNNER_TEMP/instructions.md"
+python3 scripts/run_codex.py < "$RUNNER_TEMP/instructions.md"
 ```
 
 Keep prompt construction, CLI installation/version pinning, credentials, and

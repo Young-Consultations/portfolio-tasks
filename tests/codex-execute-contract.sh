@@ -98,7 +98,7 @@ check 'cross-repository targets are rejected' "Cross-repository execution is for
 check 'tracked and untracked changes are detected' "status --porcelain=v1 --untracked-files=all"
 check 'test success is recorded only after commands' "result=passed"
 check 'publication is draft only' "draft:true"
-check 'Codex execution uses compatibility wrapper' 'scripts/run-codex\.sh < "\$RUNNER_TEMP/instructions\.md"'
+check 'Codex execution uses compatibility wrapper' 'python3 scripts/run_codex\.py < "\$RUNNER_TEMP/instructions\.md"'
 check 'checkout action is pinned to a full SHA' 'actions/checkout@[0-9a-f]{40}'
 check 'Codex execution receives CODEX_API_KEY' 'CODEX_API_KEY: \$\{\{ secrets\.OPENAI_API_KEY \}\}'
 if grep -Fq '/v1/responses' "$WORKFLOW"; then

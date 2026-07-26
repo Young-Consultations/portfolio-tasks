@@ -166,7 +166,7 @@ jobs:
           authoritative validation pass are performed by the surrounding workflow.
           EOF
           cat "$RUNNER_TEMP/source-issue.md" >> "$RUNNER_TEMP/instructions.md"
-          scripts/run-codex.sh < "$RUNNER_TEMP/instructions.md"
+          python3 scripts/run_codex.py < "$RUNNER_TEMP/instructions.md"
 
       - name: Detect changes
         id: changes
@@ -190,7 +190,7 @@ jobs:
           ./tests/portfolio-dispatch-contract.bats.sh
           ./tests/sync-slugger-issues.bats.sh
           ./tests/codex-execute-contract.sh
-          ./tests/run-codex-contract.sh
+          python -m unittest discover
           if command -v actionlint >/dev/null 2>&1; then actionlint; else echo 'actionlint unavailable (not reported as passed)'; fi
           echo 'result=passed' >> "$GITHUB_OUTPUT"
 
