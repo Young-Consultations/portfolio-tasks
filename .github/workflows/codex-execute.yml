@@ -149,6 +149,7 @@ jobs:
         shell: bash
         env:
           CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CODEX_MODEL: gpt-5.3-codex
           ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
         run: |
           set -euo pipefail
