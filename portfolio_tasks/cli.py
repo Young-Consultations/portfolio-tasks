@@ -68,8 +68,11 @@ def sync() -> int:
         plan = SyncPlanner.plan(source, target, removed)
         action = plan.action.value
         SyncExecutor(api).execute(plan)
-    except (ValueError, GitHubApiError):
+    except ValueError:
         pass
+    except GitHubApiError:
+        if not failures:
+            failures.append("GitHub API request failed")
     title = source.title if source else ""
     labels = source.labels if source else ()
     skipped = [f"{label} (optional source label skipped)" for label in labels if label != SOURCE_LABEL]
