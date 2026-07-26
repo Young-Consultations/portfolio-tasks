@@ -22,6 +22,30 @@ TIMEOUT_EXIT = 124
 DEFAULT_TIMEOUT = 2400.0
 LOGGER = logging.getLogger("run-codex")
 
+RETRY_INSTRUCTION = b"""\
+\n--------------------------------------------------
+
+Your previous attempt completed successfully but produced no repository changes.
+
+You must now implement the requested task by editing the repository.
+
+Do not only analyze, inspect files, or describe proposed changes.
+
+You must modify files within the stated scope.
+
+Run any requested validation.
+
+Before finishing, ensure:
+
+git status --porcelain
+
+shows modified or newly created files.
+
+If implementation is genuinely impossible, exit with a non-zero status and explain the blocking reason.
+
+--------------------------------------------------
+"""
+
 SECRET_PATTERNS = (
     (re.compile(r"(?i)(authorization\s*:\s*)(?:bearer\s+)?\S+"),
      r"\1[REDACTED]"),
@@ -80,6 +104,19 @@ def _inspect(command: Sequence[str], env: Mapping[str, str]) -> str:
     if result.returncode:
         raise subprocess.CalledProcessError(result.returncode, command, output=output)
     return output.decode("utf-8", errors="replace").strip()
+
+
+def repository_has_changes(env: Mapping[str, str]) -> bool:
+    """Return whether Git reports tracked or untracked repository changes."""
+    result = subprocess.run(
+        ("git", "status", "--porcelain=v1", "--untracked-files=all"),
+        check=False, capture_output=True, env=dict(env), shell=False
+    )
+    if result.returncode:
+        raise subprocess.CalledProcessError(
+            result.returncode, result.args, output=result.stdout, stderr=result.stderr
+        )
+    return bool(result.stdout)
 
 
 def _stream(
@@ -229,6 +266,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         command.append("--skip-git-repo-check")
     else:
         compatibility.append("Git repository check managed by installed CLI")
+    if "--full-auto" in capabilities:
+        command.append("--full-auto")
     model = os.environ.get("CODEX_MODEL")
     if model:
         command.extend(("--model", model))
@@ -242,7 +281,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         category = "timeout" if return_code == TIMEOUT_EXIT else classify_failure(diagnostic)
         LOGGER.error("::error title=Codex %s::Codex CLI failed with exit code %d.",
                      category, return_code)
-    return return_code
+        return return_code
+
+    try:
+        if repository_has_changes(env):
+            return 0
+    except (OSError, subprocess.CalledProcessError) as error:
+        LOGGER.error("::error title=Git status failed::%s", sanitize(str(error)))
+        return getattr(error, "returncode", 1)
+
+    LOGGER.info("::notice::Codex produced no changes; retrying once.")
+    return_code, diagnostic = execute(
+        command, prompt + RETRY_INSTRUCTION, env, args.timeout
+    )
+    if return_code:
+        category = "timeout" if return_code == TIMEOUT_EXIT else classify_failure(diagnostic)
+        LOGGER.error("::error title=Codex %s::Codex CLI failed with exit code %d.",
+                     category, return_code)
+        return return_code
+
+    try:
+        if repository_has_changes(env):
+            LOGGER.info("::notice::Retry produced repository changes.")
+            return 0
+    except (OSError, subprocess.CalledProcessError) as error:
+        LOGGER.error("::error title=Git status failed::%s", sanitize(str(error)))
+        return getattr(error, "returncode", 1)
+
+    LOGGER.info("::notice::Retry produced no repository changes.")
+    LOGGER.error("::error::Codex completed twice without modifying the repository.")
+    return 1
 
 
 if __name__ == "__main__":
