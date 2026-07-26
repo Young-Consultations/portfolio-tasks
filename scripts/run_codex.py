@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from typing import BinaryIO, Mapping, Sequence, TextIO
 
 
@@ -276,6 +277,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Compatibility mode: {mode}", flush=True)
 
     prompt = sys.stdin.buffer.read()
+    # Treat --timeout as one shared execution budget.  In particular, a no-op
+    # first attempt must not give its retry another full timeout and overrun the
+    # enclosing workflow deadline.
+    deadline = time.monotonic() + args.timeout
     return_code, diagnostic = execute(command, prompt, env, args.timeout)
     if return_code:
         category = "timeout" if return_code == TIMEOUT_EXIT else classify_failure(diagnostic)
@@ -291,8 +296,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return getattr(error, "returncode", 1)
 
     LOGGER.info("::notice::Codex produced no changes; retrying once.")
+    retry_timeout = deadline - time.monotonic()
+    if retry_timeout <= 0:
+        LOGGER.error("::error title=Codex timeout::Codex execution budget was "
+                     "exhausted before retry.")
+        return TIMEOUT_EXIT
     return_code, diagnostic = execute(
-        command, prompt + RETRY_INSTRUCTION, env, args.timeout
+        command, prompt + RETRY_INSTRUCTION, env, retry_timeout
     )
     if return_code:
         category = "timeout" if return_code == TIMEOUT_EXIT else classify_failure(diagnostic)

@@ -98,11 +98,31 @@ class RunCodexTests(unittest.TestCase):
                          execute.call_args_list[1].args[0])
         self.assertEqual(execute.call_args_list[0].args[2],
                          execute.call_args_list[1].args[2])
-        self.assertEqual(execute.call_args_list[0].args[3],
-                         execute.call_args_list[1].args[3])
+        self.assertLessEqual(execute.call_args_list[1].args[3],
+                             execute.call_args_list[0].args[3])
         retry_prompt = execute.call_args_list[1].args[1]
         self.assertTrue(retry_prompt.startswith(b"prompt\x00exact\n"))
         self.assertIn(run_codex.RETRY_INSTRUCTION, retry_prompt)
+
+    def test_retry_uses_remaining_shared_timeout(self):
+        with mock.patch.object(run_codex.time, "monotonic",
+                               side_effect=[100.0, 125.0]):
+            status, execute, _ = self.run_main(
+                executions=((0, ""), (0, "")), changes=(False, True)
+            )
+
+        self.assertEqual(0, status)
+        self.assertEqual(2400.0, execute.call_args_list[0].args[3])
+        self.assertEqual(2375.0, execute.call_args_list[1].args[3])
+
+    def test_exhausted_budget_does_not_start_retry(self):
+        with mock.patch.object(run_codex.time, "monotonic",
+                               side_effect=[100.0, 2500.0]):
+            status, execute, git_status = self.run_main(changes=(False,))
+
+        self.assertEqual(run_codex.TIMEOUT_EXIT, status)
+        execute.assert_called_once()
+        git_status.assert_called_once()
 
     def test_noop_twice_fails_without_infinite_retry(self):
         status, execute, git_status = self.run_main(
