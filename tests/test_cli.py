@@ -5,6 +5,7 @@ import pytest
 
 from portfolio_tasks import cli
 from portfolio_tasks.github_api import GitHubApiError
+from tests.helpers import SLUGGER_ISSUE_BODY
 
 
 class FailingApi:
@@ -22,7 +23,7 @@ class FailingApi:
             return {
                 "number": 42,
                 "title": "Task",
-                "body": "Details",
+                "body": SLUGGER_ISSUE_BODY,
                 "state": "open",
                 "labels": [{"name": "chatgpt-task"}],
                 "html_url": "https://github.com/Young-Consultations/portfolio-tasks/issues/42",
