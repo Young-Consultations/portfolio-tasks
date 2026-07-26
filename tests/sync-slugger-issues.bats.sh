@@ -11,7 +11,7 @@ body_for(){ local n=$1 title=$2 body=$3 state=$4 source_repo=${5:-Young-Consulta
 task_body(){ body_for "$@"; }
 setup_mock(){ local d="$TMPROOT/$1"; mkdir -p "$d"; echo "$d"; }
 run_case(){ local name="$1" expected="$2" dir="$3" dry="${4:-true}" event="${5:-workflow_dispatch}" action="${6:-}"; local summary="$dir/summary.md"; set +e; GH_MOCK_DIR="$dir" GITHUB_STEP_SUMMARY="$summary" SOURCE_ISSUE_NUMBER=1 DRY_RUN="$dry" GITHUB_EVENT_NAME="$event" GITHUB_EVENT_ACTION="$action" "$SCRIPT" >/tmp/out 2>/tmp/err; rc=$?; set -e; if [[ "$expected" == rc:* ]]; then [[ "$rc" == "${expected#rc:}" ]]; else grep -q "Planned/completed action: .*${expected}" "$summary" && [[ $rc -eq 0 ]]; fi; }
-case_ok(){ local n="$1"; shift; if "$@"; then echo "ok - $n"; pass=$((pass+1)); else echo "not ok - $n"; cat /tmp/err 2>/dev/null || true; fail=$((fail+1)); fi }
+case_ok(){ local n="$1"; shift; [[ -z "${TEST_FILTER:-}" || "$n" == "$TEST_FILTER" ]] || return 0; if "$@"; then echo "ok - $n"; pass=$((pass+1)); else echo "not ok - $n"; cat /tmp/err 2>/dev/null || true; fail=$((fail+1)); fi }
 write_common(){ local d=$1 source=$2 targets=$3; echo "$source" > "$d/GET_repos_Young-Consultations_portfolio-tasks_issues_1.json"; echo "$targets" > "$d/GET_repos_Young-Consultations_slugger_issues.json"; }
 export ROOT SCRIPT TMPROOT
 export -f make_issue make_target body_for task_body setup_mock run_case write_common
