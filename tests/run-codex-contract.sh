@@ -38,8 +38,10 @@ EOF
 
 run_wrapper() {
   rm -f "$TEMP/args" "$TEMP/stdin" "$TEMP/openai-key" "$TEMP/output"
+  mkdir -p "$TEMP/runtime"
   PATH="$TEMP:$PATH" CODEX_TEST_ARGS="$TEMP/args" CODEX_TEST_STDIN="$TEMP/stdin" \
     CODEX_TEST_OPENAI_KEY="$TEMP/openai-key" \
+    RUNNER_TEMP="$TEMP/runtime" \
     CODEX_API_KEY='contract-test-secret-that-must-not-appear' \
     "$WRAPPER" > "$TEMP/output" 2>&1
 }
@@ -92,15 +94,46 @@ check_failure() {
   [[ $status -eq 23 ]] || fail "wrapper does not preserve the Codex exit code for $expected"
   grep -Fq "Codex CLI failed ($expected, exit code 23)." "$TEMP/output" ||
     fail "wrapper does not classify $expected"
-  ! grep -Fq 'raw-sensitive-response-body' "$TEMP/output" || fail 'wrapper emits raw Codex API diagnostics'
+  grep -Fq "$diagnostic" "$TEMP/output" || fail "wrapper omits sanitized stderr for $expected"
 }
 
-check_failure 'HTTP 401 unauthorized raw-sensitive-response-body' authentication-failure
-check_failure 'HTTP 403 model access raw-sensitive-response-body' authorization-or-model-access-failure
-check_failure 'HTTP 429 raw-sensitive-response-body' rate-limit
-check_failure 'connection retry failed raw-sensitive-response-body' network-or-service-failure
-check_failure 'unexpected internal failure raw-sensitive-response-body' cli-runtime-failure
+check_failure 'Could not resolve host: api.openai.com' dns-failure
+check_failure 'TLS handshake failed' tls-failure
+check_failure 'connect: connection refused' connection-refused
+check_failure 'connection timed out' connection-timeout
+check_failure 'HTTP error 429' http-error
+check_failure 'model_not_found: model access denied' model-access-error
+check_failure 'unexpected internal failure' cli-internal-error
 echo 'ok - Codex failures are classified and exit codes are unchanged'
+
+diagnostic='Authorization: Bearer secret-auth-token
+api_key=secret-api-key
+request https://user:password@example.test/path failed
+token sk-abcdefghijklmnopqrstuvwxyz'
+make_codex 'Usage: codex exec --sandbox <MODE> [PROMPT]' 23 "$diagnostic"
+set +e
+printf 'failing prompt\n' | run_wrapper
+status=$?
+set -e
+[[ $status -eq 23 ]] || fail 'wrapper changes the exit code while sanitizing stderr'
+for secret in secret-auth-token secret-api-key user:password sk-abcdefghijklmnopqrstuvwxyz; do
+  ! grep -Fq "$secret" "$TEMP/output" || fail "wrapper exposes sanitized secret: $secret"
+done
+grep -Fq '[REDACTED]' "$TEMP/output" || fail 'wrapper does not show redaction markers'
+echo 'ok - stderr diagnostics redact credentials'
+
+lines=$(printf 'stderr line %s\n' {1..25})
+make_codex 'Usage: codex exec --sandbox <MODE> [PROMPT]' 23 "$lines"
+set +e
+printf 'failing prompt\n' | run_wrapper
+status=$?
+set -e
+[[ $status -eq 23 ]] || fail 'wrapper changes the exit code when truncating stderr'
+! grep -Fq 'stderr line 5' "$TEMP/output" || fail 'wrapper prints more than the last 20 stderr lines'
+grep -Fq 'stderr line 6' "$TEMP/output" || fail 'wrapper omits the first of the last 20 stderr lines'
+grep -Fq 'stderr line 25' "$TEMP/output" || fail 'wrapper omits the final stderr line'
+[[ -z "$(find "$TEMP/runtime" -mindepth 1 -print -quit)" ]] || fail 'wrapper leaves diagnostic files behind'
+echo 'ok - failure output is limited to the last 20 stderr lines'
 
 grep -Fq 'scripts/run-codex.sh < "$RUNNER_TEMP/instructions.md"' "$WORKFLOW" || fail 'workflow does not invoke wrapper'
 if grep -Eq '^[[:space:]]+codex exec([[:space:]]|$)' "$WORKFLOW"; then

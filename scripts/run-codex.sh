@@ -72,24 +72,46 @@ fi
 # A prompt of "-" tells compatible Codex exec versions to consume the prompt
 # from stdin. Do not use exec here: a sanitized diagnostic is required on failure.
 command+=(-)
-diagnostic_file=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/codex-diagnostic.XXXXXX")
-trap 'rm -f "$diagnostic_file"' EXIT
+diagnostic_dir=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/codex-diagnostics.XXXXXX")
+trap 'rm -rf "$diagnostic_dir"' EXIT
+stdout_file=$diagnostic_dir/stdout
+stderr_file=$diagnostic_dir/stderr
+
+sanitize_stderr() {
+  sed -E \
+    -e 's#([[:alpha:]][[:alnum:]+.-]*://)[^/@[:space:]]+@#\1[REDACTED]@#g' \
+    -e 's/([Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn][[:space:]]*:[[:space:]]*)[^[:space:]]+([[:space:]]+[^[:space:]]+)?/\1[REDACTED]/g' \
+    -e 's/([Bb][Ee][Aa][Rr][Ee][Rr][[:space:]]+)[^[:space:],;]+/\1[REDACTED]/g' \
+    -e 's/([Aa][Pp][Ii][_-]?[Kk][Ee][Yy][[:space:]]*[:=][[:space:]]*)[^[:space:],;]+/\1[REDACTED]/g' \
+    -e 's/(sk-[[:alnum:]_-]{8})[[:alnum:]_-]*/\1[REDACTED]/g'
+}
+
+classify_failure() {
+  local diagnostic=$1
+  case "$diagnostic" in
+    *'could not resolve host'*|*'name or service not known'*|*'temporary failure in name resolution'*|*'nodename nor servname provided'*|*'dns error'*|*'dns lookup failed'*) echo dns-failure ;;
+    *'certificate verify failed'*|*'certificate validation'*|*'tls handshake'*|*'ssl error'*|*'ssl_connect'*|*'unknown ca'*|*'certificate has expired'*) echo tls-failure ;;
+    *'connection refused'*|*'econnrefused'*) echo connection-refused ;;
+    *'connection timed out'*|*'connect timeout'*|*'connection timeout'*|*'etimedout'*) echo connection-timeout ;;
+    *'model_not_found'*|*'model not found'*|*'model access'*|*'does not have access to model'*|*'do not have access to model'*|*'not have access to model'*) echo model-access-error ;;
+    *'http status'*|*'http error'*|*'http 4'*|*'http 5'*|*'status code: 4'*|*'status code: 5'*|*'status: 4'*|*'status: 5'*) echo http-error ;;
+    *) echo cli-internal-error ;;
+  esac
+}
 
 # Codex CLI 0.63.0 reads this standard credential name. Keep CODEX_API_KEY as
 # the workflow-facing interface and translate it only in this wrapper's process.
 export OPENAI_API_KEY="$CODEX_API_KEY"
-if "${command[@]}" >"$diagnostic_file" 2>&1; then
+if "${command[@]}" >"$stdout_file" 2>"$stderr_file"; then
   exit 0
 else
   status=$?
-  diagnostic=$(tr '[:upper:]' '[:lower:]' < "$diagnostic_file")
-  case "$diagnostic" in
-    *'401'*|*'invalid api key'*|*'incorrect api key'*|*'authentication'*|*'unauthorized'*) category=authentication-failure ;;
-    *'403'*|*'model access'*|*'permission'*|*'forbidden'*) category=authorization-or-model-access-failure ;;
-    *'429'*|*'rate limit'*|*'too many requests'*) category=rate-limit ;;
-    *'network'*|*'connection'*|*'retry'*|*'timed out'*|*'timeout'*|*'service'*|*'502'*|*'503'*|*'504'*) category=network-or-service-failure ;;
-    *) category=cli-runtime-failure ;;
-  esac
+  diagnostic=$(tr '[:upper:]' '[:lower:]' < "$stderr_file")
+  category=$(classify_failure "$diagnostic")
   echo "run-codex: Codex CLI failed (${category}, exit code ${status})." >&2
+  if [[ -s "$stderr_file" ]]; then
+    echo 'run-codex: last 20 sanitized stderr lines:' >&2
+    tail -n 20 "$stderr_file" | sanitize_stderr >&2
+  fi
   exit "$status"
 fi
