@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -130,7 +131,8 @@ def execute(
         try:
             process = subprocess.Popen(
                 list(command), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, env=dict(env), shell=False
+                stderr=subprocess.PIPE, env=dict(env), shell=False,
+                start_new_session=True
             )
         except OSError as error:
             diagnostic = sanitize(str(error))
@@ -152,7 +154,14 @@ def execute(
         try:
             return_code = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-            process.kill()
+            # Descendants can inherit the output pipes. Killing only the Codex
+            # parent would leave the reader threads blocked until those
+            # descendants exit, so terminate the isolated process group.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                # The group may have exited between wait() and killpg().
+                pass
             process.wait()
             return_code = TIMEOUT_EXIT
             stderr_parts.append(f"Codex execution timed out after {timeout:g} seconds.")
@@ -160,6 +169,8 @@ def execute(
             writer.join()
             for reader in readers:
                 reader.join()
+            process.stdout.close()
+            process.stderr.close()
 
     return return_code, "".join(stderr_parts)
 

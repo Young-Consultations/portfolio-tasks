@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -22,16 +23,14 @@ class FakeProcess:
         self.stderr = io.BytesIO(stderr)
         self.returncode = returncode
         self.timeout = timeout
-        self.killed = False
+        self.pid = 12345
+        self.wait_calls = 0
 
     def wait(self, timeout=None):
-        if self.timeout and not self.killed:
+        self.wait_calls += 1
+        if self.timeout and self.wait_calls == 1:
             raise subprocess.TimeoutExpired("codex", timeout)
         return self.returncode
-
-    def kill(self):
-        self.killed = True
-
 
 class RunCodexTests(unittest.TestCase):
     def setUp(self):
@@ -107,10 +106,28 @@ class RunCodexTests(unittest.TestCase):
 
     def test_timeout(self):
         process = FakeProcess(timeout=True)
-        with mock.patch.object(subprocess, "Popen", return_value=process):
+        with mock.patch.object(subprocess, "Popen", return_value=process) as popen, \
+                mock.patch.object(os, "killpg") as killpg:
             status, diagnostic = run_codex.execute(["codex"], b"", self.env, 0.01)
         self.assertEqual(124, status)
-        self.assertTrue(process.killed)
+        self.assertTrue(popen.call_args.kwargs["start_new_session"])
+        killpg.assert_called_once_with(process.pid, run_codex.signal.SIGKILL)
+        self.assertIn("timed out", diagnostic)
+
+    @unittest.skipUnless(hasattr(os, "killpg"), "requires POSIX process groups")
+    def test_timeout_kills_descendants_holding_output_pipes(self):
+        command = [
+            sys.executable,
+            "-c",
+            "import subprocess, time; "
+            "subprocess.Popen(['sleep', '30']); time.sleep(30)",
+        ]
+        started = time.monotonic()
+        status, diagnostic = run_codex.execute(command, b"", self.env, 0.1)
+        elapsed = time.monotonic() - started
+
+        self.assertEqual(124, status)
+        self.assertLess(elapsed, 2)
         self.assertIn("timed out", diagnostic)
 
     def test_subprocess_failure(self):
