@@ -61,6 +61,15 @@ def build(tmp_path: Path, payload: dict[str, object]) -> subprocess.CompletedPro
     )
 
 
+def test_schema_uses_standard_json_schema_keywords() -> None:
+    schema = json.loads(Path("schemas/task-contract.schema.json").read_text(encoding="utf-8"))
+    assert "const" not in schema
+    assert "enum" not in schema
+    assert "required_top_level" not in schema
+    assert schema["properties"]["schema_version"]["const"] == "ai-sdlc-contract/v1"
+    assert isinstance(schema["properties"]["status"]["enum"], list)
+
+
 @pytest.mark.parametrize(
     ("target", "project"),
     [

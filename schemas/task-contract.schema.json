@@ -29,13 +29,5 @@
       "items": { "type": "string", "pattern": "^(#[1-9][0-9]*|[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*)$" }
     },
     "instructions": { "type": "string", "minLength": 1 }
-  },
-  "const": { "schema_version": "ai-sdlc-contract/v1" },
-  "required_top_level": ["correlation_id", "dependencies", "executor", "instructions", "parallel_safe", "priority", "project", "schema_version", "source", "status", "target_repository", "task_type"],
-  "enum": {
-    "status": ["proposed", "approved", "queued", "running", "draft-pr", "blocked", "done"],
-    "executor": ["codex", "human", "chatgpt-planning"],
-    "priority": ["P0", "P1", "P2", "P3"],
-    "task_type": ["bug-fix", "feature", "refactor", "ci-cd", "documentation", "security", "repository-governance", "automation", "investigation"]
   }
 }
