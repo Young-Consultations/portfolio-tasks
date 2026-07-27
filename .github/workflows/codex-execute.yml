@@ -62,7 +62,60 @@ jobs:
 
       - name: Install pinned canonical contract validator
         shell: bash
-        run: python -m pip install --disable-pip-version-check --no-cache-dir 'ai-sdlc-contracts==1.0.0'
+        env:
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          CONTRACTS_COMMIT_SHA: ${{ vars.AI_SDLC_CONTRACTS_COMMIT_SHA }}
+        run: |
+          set -euo pipefail
+          set +x
+          [[ "$CONTRACTS_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'AI_SDLC_CONTRACTS_COMMIT_SHA must be a full 40-character commit SHA.' >&2
+            exit 1
+          }
+
+          credential_helper="$RUNNER_TEMP/contracts-git-credential"
+          git_config="$RUNNER_TEMP/contracts-git-config"
+          cleanup_contract_credentials() {
+            rm -f "$credential_helper" "$git_config"
+          }
+          trap cleanup_contract_credentials EXIT
+          cat > "$credential_helper" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          [[ "${1:-get}" == get ]] || exit 0
+          printf '%s\n' 'username=x-access-token' "password=${GH_TOKEN}"
+          EOF
+          chmod 700 "$credential_helper"
+          export GIT_CONFIG_GLOBAL="$git_config"
+          git config --global credential.helper "$credential_helper"
+          git config --global credential.useHttpPath true
+          python -m pip install \
+            --disable-pip-version-check \
+            --no-cache-dir \
+            "git+https://github.com/Young-Consultations/.github.git@${CONTRACTS_COMMIT_SHA}"
+
+          python -c "from importlib.metadata import version; assert version('ai-sdlc-contracts') == '1.0.0'; print('ai-sdlc-contracts version 1.0.0 verified')"
+          python -m ai_sdlc_contracts --help >/dev/null
+          cat > "$RUNNER_TEMP/contracts-smoke-input.json" <<'EOF'
+          {
+            "concurrency_group": "codex-young-consultations-portfolio-tasks-young-consultations-portfolio-tasks-17-parallel-router-smoke-002",
+            "contract_version": "ai-sdlc-contract/v1",
+            "correlation_id": "router-smoke-002",
+            "draft_pr_only": true,
+            "executor": "codex",
+            "instructions": "Perform a non-production router smoke test.",
+            "parallel_safe": true,
+            "priority": "p1",
+            "project": "portfolio",
+            "requested_branch": "codex/router-smoke-002",
+            "source_issue": "Young-Consultations/portfolio-tasks#17",
+            "target_repository": "Young-Consultations/portfolio-tasks",
+            "task_type": "documentation",
+            "timeout_minutes": 60
+          }
+          EOF
+          jq -e '.contract_version == "ai-sdlc-contract/v1"' "$RUNNER_TEMP/contracts-smoke-input.json" >/dev/null
+          python -m ai_sdlc_contracts validate-input "$RUNNER_TEMP/contracts-smoke-input.json"
 
       - name: Build or load and validate execution input
         id: input
