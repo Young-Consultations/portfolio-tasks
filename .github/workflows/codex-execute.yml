@@ -94,7 +94,7 @@ jobs:
             --no-cache-dir \
             "git+https://github.com/Young-Consultations/.github.git@${CONTRACTS_COMMIT_SHA}"
 
-          python -c "from importlib.metadata import version; assert version('ai-sdlc-contracts') == '1.0.0'; print('ai-sdlc-contracts version 1.0.0 verified')"
+          python -c "from importlib.metadata import version; assert version('ai-sdlc-contracts') == '1.0.1'; print('ai-sdlc-contracts version 1.0.1 verified')"
           python -m ai_sdlc_contracts --help >/dev/null
           cat > "$RUNNER_TEMP/contracts-smoke-input.json" <<'EOF'
           {
