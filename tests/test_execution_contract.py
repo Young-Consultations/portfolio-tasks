@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -147,7 +148,17 @@ def test_result_is_accepted_by_shared_validator(
 def test_workflow_uses_shared_validator_and_preserves_security_gates() -> None:
     text = WORKFLOW.read_text()
     script = SCRIPT.read_text()
-    assert "ai-sdlc-contracts==1.0.0" in text
+    assert "ai-sdlc-contracts==1.0.0" not in text
+    assert "vars.AI_SDLC_CONTRACTS_COMMIT_SHA" in text
+    assert re.search(r'CONTRACTS_COMMIT_SHA.*\^\[0-9a-f\]\{40\}\$', text)
+    assert (
+        'git+https://github.com/Young-Consultations/.github.git@${CONTRACTS_COMMIT_SHA}'
+        in text
+    )
+    assert "git+https://x-access-token:" not in text
+    assert "python -m ai_sdlc_contracts --help" in text
+    assert "python -m ai_sdlc_contracts validate-input" in text
+    assert "version('ai-sdlc-contracts') == '1.0.0'" in text
     assert "python -m ai_sdlc_contracts validate-input" in script
     assert ".source_issue.number" not in text and ".source_issue.repository" not in text
     assert "pull_request_target:" not in text
