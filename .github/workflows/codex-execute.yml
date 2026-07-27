@@ -3,32 +3,8 @@ name: Execute approved Codex task
 on:
   workflow_dispatch:
     inputs:
-      source_issue:
-        description: Source portfolio issue number or canonical URL
-        required: true
-        type: string
-      task_type:
-        description: Task classification
-        required: true
-        type: string
-      project_component:
-        description: Repository component
-        required: true
-        type: string
-      priority:
-        description: Backlog priority
-        required: true
-        type: string
-      parallel_safe:
-        description: Whether parallel execution is safe
-        required: true
-        type: boolean
-      dependency_status:
-        description: Dependency validation status
-        required: true
-        type: string
-      codex_environment:
-        description: Codex environment identifier
+      task_contract_json:
+        description: Exact validated ai-sdlc-contract/v1 JSON payload from the router
         required: true
         type: string
       concurrency_group:
@@ -67,32 +43,19 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
-          SOURCE_ISSUE: ${{ inputs.source_issue }}
-          DEPENDENCY_STATUS: ${{ inputs.dependency_status }}
+          TASK_CONTRACT_JSON: ${{ inputs.task_contract_json }}
           DRAFT_PR_ONLY: ${{ inputs.draft_pr_only }}
-          TASK_TYPE: ${{ inputs.task_type }}
-          PROJECT_COMPONENT: ${{ inputs.project_component }}
-          PRIORITY: ${{ inputs.priority }}
-          CODEX_ENVIRONMENT: ${{ inputs.codex_environment }}
         run: |
           set -euo pipefail
           set +x
-          for value in "$TASK_TYPE" "$PROJECT_COMPONENT" "$PRIORITY" "$CODEX_ENVIRONMENT"; do
-            [[ -n "$value" ]] || { echo '::error::A required router input is empty.'; exit 1; }
-          done
           [[ "$DRAFT_PR_ONLY" == true ]] || { echo '::error::Only draft publication is permitted.'; exit 1; }
-          case "$DEPENDENCY_STATUS" in none|satisfied|waived) ;; *) echo '::error::Dependencies are not satisfied.'; exit 1;; esac
-
-          if [[ "$SOURCE_ISSUE" =~ ^[0-9]+$ ]]; then
-            issue_number=$SOURCE_ISSUE
-          elif [[ "$SOURCE_ISSUE" =~ ^Young-Consultations/portfolio-tasks#([0-9]+)$ ]]; then
-            issue_number=${BASH_REMATCH[1]}
-          elif [[ "$SOURCE_ISSUE" =~ ^https://github.com/Young-Consultations/portfolio-tasks/issues/([0-9]+)$ ]]; then
-            issue_number=${BASH_REMATCH[1]}
-          else
-            echo '::error::source_issue must identify an issue in Young-Consultations/portfolio-tasks.'
-            exit 1
-          fi
+          printf '%s' "$TASK_CONTRACT_JSON" > "$RUNNER_TEMP/task-contract.json"
+          scripts/validate-task-contract.sh "$RUNNER_TEMP/task-contract.json"
+          issue_number=$(jq -r '.source.issue_number' "$RUNNER_TEMP/task-contract.json")
+          [[ $(jq -r '.source.repository' "$RUNNER_TEMP/task-contract.json") == "$REPOSITORY" ]] || { echo '::error::Contract source repository mismatch.'; exit 1; }
+          [[ $(jq -r '.status' "$RUNNER_TEMP/task-contract.json") == approved ]] || { echo '::error::Contract is not approved.'; exit 1; }
+          [[ $(jq -r '.executor' "$RUNNER_TEMP/task-contract.json") == codex ]] || { echo '::error::Contract executor is not Codex.'; exit 1; }
+          [[ $(jq -r '.target_repository' "$RUNNER_TEMP/task-contract.json") == "$REPOSITORY" ]] || { echo '::error::Cross-repository execution is forbidden.'; exit 1; }
           auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
           curl --fail-with-body --silent --show-error "${auth[@]}" \
             "$API_ROOT/repos/$REPOSITORY/issues/$issue_number" > "$RUNNER_TEMP/source-issue.json"
@@ -117,26 +80,6 @@ jobs:
             echo '::error::Issues marked sensitive cannot be sent to Codex.'
             exit 1
           fi
-          jq -r '.body // ""' "$RUNNER_TEMP/source-issue.json" > "$RUNNER_TEMP/source-issue.md"
-          target=$(
-            awk '
-              /^#{2,6}[[:space:]]+Target repository[[:space:]]*$/ {
-                while (getline) {
-                  gsub(/\r$/, "")
-                  if ($0 !~ /^[[:space:]]*$/) {
-                    print
-                    exit
-                  }
-                }
-              }
-            ' "$RUNNER_TEMP/source-issue.md"
-          )
-
-          target="${target#- }"
-          target="${target#\`}"
-          target="${target%\`}"
-          [[ "$target" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo '::error::Malformed target repository.'; exit 1; }
-          [[ "$target" == "$REPOSITORY" ]] || { echo '::error::Cross-repository execution is forbidden.'; exit 1; }
           branch="codex/issue-${issue_number}-${GITHUB_RUN_ID}"
           printf 'issue_number=%s\nbranch=%s\n' "$issue_number" "$branch" >> "$GITHUB_OUTPUT"
 
@@ -174,7 +117,7 @@ jobs:
           Keep the change focused and production-ready. Run useful checks, but publication and the
           authoritative validation pass are performed by the surrounding workflow.
           EOF
-          cat "$RUNNER_TEMP/source-issue.md" >> "$RUNNER_TEMP/instructions.md"
+          jq -r '.instructions' "$RUNNER_TEMP/task-contract.json" >> "$RUNNER_TEMP/instructions.md"
           python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
 
       - name: Detect changes

@@ -8,6 +8,8 @@ def test_token_redaction() -> None:
     assert "sk-secret" not in sanitize("failure sk-secret")
 
 
-def test_no_owned_shell_scripts() -> None:
-    assert not list(Path("scripts").glob("*.sh")) if Path("scripts").exists() else True
+def test_contract_shell_scripts_are_the_only_owned_shell_scripts() -> None:
+    assert {path.name for path in Path("scripts").glob("*.sh")} == {
+        "build-task-contract.sh", "task-contract-lib.sh", "validate-task-contract.sh"
+    }
     assert not list(Path("tests").glob("*.sh"))

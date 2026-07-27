@@ -40,23 +40,41 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SOURCE_ISSUE_NUMBER: ${{ inputs.source_issue_number }}
 
-      - name: Validate dispatch metadata
-        id: validate
+      - name: Build and validate canonical task contract
+        id: contract
+        env:
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set +e
-          python -m portfolio_tasks.cli validate-dispatch issue.json > validation.json
+          error_file="$RUNNER_TEMP/contract-error.txt"
+          scripts/build-task-contract.sh issue.json task-contract.json 2> "$error_file"
           status=$?
-          cat validation.json
-          jq -r '.comment' validation.json > validation-comment.md
+          if [[ $status -eq 0 ]]; then
+            scripts/validate-task-contract.sh task-contract.json 2> "$error_file"
+            status=$?
+          fi
+          if [[ $status -ne 0 ]]; then
+            reason=$(head -n 1 "$error_file")
+            printf 'Task contract validation failed: %s\n' "$reason" > validation-comment.md
+          fi
           {
             echo 'comment<<EOF'
-            cat validation-comment.md
+            [[ -f validation-comment.md ]] && cat validation-comment.md
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
           exit "$status"
 
+      - name: Store canonical task payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-contract-${{ inputs.source_issue_number }}-${{ github.run_attempt }}
+          path: task-contract.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Comment with actionable validation failure
-        if: failure() && steps.validate.outputs.comment != ''
+        if: failure() && steps.contract.outputs.comment != ''
         run: gh issue comment "$SOURCE_ISSUE_NUMBER" --body-file validation-comment.md
         env:
           GH_TOKEN: ${{ github.token }}

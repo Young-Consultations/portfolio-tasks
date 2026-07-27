@@ -2,19 +2,69 @@
 
 This repository owns portfolio-level planning issues and can hand qualifying work to the Slugger implementation backlog.
 
+## Canonical AI-SDLC task contract
+
+Every executable issue crosses one gate before routing or Codex: `scripts/build-task-contract.sh`
+builds exactly one `ai-sdlc-contract/v1` JSON document and
+`scripts/validate-task-contract.sh` validates it against
+`schemas/task-contract.schema.json`. The dispatch workflow uploads that byte-for-byte payload as
+the `task-contract-<issue>-<run-attempt>` artifact. Routers must pass that document unchanged (or
+fields read directly from it); the Codex workflow accepts the contract rather than independently
+parsing the issue.
+
+Field ownership is intentionally non-overlapping:
+
+| Contract field | Authoritative issue source |
+| --- | --- |
+| `status` | Exactly one `status:*` label |
+| `executor` | Exactly one `executor:*` label |
+| `priority` | Exactly one `priority:*` label |
+| `project` | Exactly one `project:*` label |
+| `parallel_safe` | Presence of the exact `parallel-safe` label |
+| `target_repository` | `Target repository` body section |
+| `task_type` | `Task type` body section |
+| `dependencies` | `Dependency issue references` body section |
+| `instructions` | `Objective`, then `Required behavior`, body sections |
+
+The body's legacy `Execution status` section is never authoritative. When present it must agree
+with the status label; a conflict is rejected. Closed issues, pull requests, sensitive issues,
+missing label-owned values, malformed dependency references, unknown task types, and missing
+targets are rejected before an artifact or downstream invocation can exist. Correlation IDs use
+`<source-repository>#<issue-number>@<workflow-run-attempt>`.
+
+### Approved legacy mappings
+
+Only these compatibility mappings are performed; everything else fails rather than being guessed:
+
+- Task form display values `Bug fix`, `Feature`, `Refactor`, `CI/CD`, `Documentation`, `Security`,
+  `Repository governance`, `Automation`, and `Investigation` map respectively to lowercase
+  canonical values (`bug-fix`, `feature`, `refactor`, `ci-cd`, `documentation`, `security`,
+  `repository-governance`, `automation`, and `investigation`). Already-canonical values remain
+  unchanged.
+- Lowercase priority labels `priority:p0` through `priority:p3` map to `P0` through `P3`.
+- The legacy status value `ready` maps to `approved`; if a body status exists, both sources are
+  normalized before the mandatory conflict check.
+
+Build and validate a downloaded issue locally with:
+
+```bash
+SOURCE_REPOSITORY=Young-Consultations/portfolio-tasks GITHUB_RUN_ATTEMPT=1 \
+  scripts/build-task-contract.sh issue.json task-contract.json
+scripts/validate-task-contract.sh task-contract.json
+```
+
 ## Python architecture and developer workflow
 
-All project-owned automation and business rules are implemented in the Python 3.12+
-`portfolio_tasks` package. GitHub Actions invokes the same module entry points used
-locally; workflows contain orchestration and environment wiring rather than parsing,
-routing, or synchronization rules.
+Synchronization and Codex process-boundary rules are implemented in the Python 3.12+
+`portfolio_tasks` package. Canonical executable-task parsing is the explicit shell exception
+described above; workflows otherwise contain orchestration and environment wiring.
 
 The package is divided by responsibility:
 
 - `models.py` contains immutable typed issue models and synchronization actions.
 - `github_api.py` provides the reusable, token-safe GitHub REST boundary.
-- `issue_parser.py` parses issue-form Markdown and repository routing metadata.
-- `validation.py` validates dispatch metadata, dependencies, labels, and authorization.
+- `issue_parser.py` and `validation.py` retain non-executable intake compatibility checks; they
+  are not used by dispatch, routing, or Codex execution.
 - `issue_sync.py` separates mirror location, action planning, and write execution.
 - `cli.py` exposes the `sync` and `validate-dispatch` automation commands.
 - `run_codex.py` is the secure, version-adaptive Codex subprocess boundary.
@@ -31,9 +81,7 @@ mypy portfolio_tasks
 git diff --check
 ```
 
-To validate a downloaded issue payload locally, run
-`python -m portfolio_tasks.cli validate-dispatch issue.json`. To preview issue
-synchronization, provide the same environment variables as Actions—at minimum
+To preview issue synchronization, provide the same environment variables as Actions—at minimum
 `SOURCE_ISSUE_NUMBER`, `GH_TOKEN`, and `DRY_RUN=true`—then run
 `python -m portfolio_tasks.cli sync`. `GH_MOCK_DIR` selects deterministic JSON
 fixtures instead of the network for regression testing.
