@@ -65,11 +65,12 @@ jobs:
         shell: bash
         env:
           EXECUTION_INPUT_JSON: ${{ inputs.execution_input_json }}
+          EXECUTION_INPUT_ARTIFACT: ${{ inputs.execution_input_artifact }}
         run: |
           set -euo pipefail; set +x
           input="$RUNNER_TEMP/execution-input.json"
           if [[ -n "$EXECUTION_INPUT_JSON" ]]; then
-            [[ -z "${{ inputs.execution_input_artifact }}" ]] || { echo 'Choose JSON or artifact, not both.'; exit 1; }
+            [[ -z "$EXECUTION_INPUT_ARTIFACT" ]] || { echo 'Choose JSON or artifact, not both.'; exit 1; }
             printf '%s' "$EXECUTION_INPUT_JSON" > "$input"
           else
             mapfile -t payloads < <(find "$RUNNER_TEMP/execution-input-artifact" -type f -name '*.json' -print 2>/dev/null)

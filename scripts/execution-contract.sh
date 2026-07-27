@@ -12,9 +12,9 @@ validate_execution_input() {
   jq -e --arg v "$INPUT_VERSION" --arg target "$TARGET_REPOSITORY" '
     type == "object" and
     (.contract_version == $v) and
-    (.correlation_id | type == "string" and length > 0) and
+    (.correlation_id | type == "string" and length > 0 and (test("[\\r\\n]") | not)) and
     (.source_issue | type == "object") and
-    (.source_issue.repository | type == "string" and test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and
+    (.source_issue.repository == $target) and
     (.source_issue.number | type == "number" and . >= 1 and floor == .) and
     (.target_repository == $target) and (.executor == "codex") and
     (.draft_pr_only == true) and

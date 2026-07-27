@@ -53,6 +53,22 @@ def test_rejects_invalid_contract_version_target_and_draft_only(
     assert validate(tmp_path, payload).returncode != 0
 
 
+def test_rejects_source_issue_from_another_repository(tmp_path: Path) -> None:
+    payload = valid_input()
+    payload["source_issue"] = {
+        "repository": "Young-Consultations/another-repository",
+        "number": 42,
+    }
+    assert validate(tmp_path, payload).returncode != 0
+
+
+@pytest.mark.parametrize("correlation_id", ["correlation\nissue=999", "correlation\rissue=999"])
+def test_rejects_multiline_correlation_id(tmp_path: Path, correlation_id: str) -> None:
+    payload = valid_input()
+    payload["correlation_id"] = correlation_id
+    assert validate(tmp_path, payload).returncode != 0
+
+
 def test_canonical_result_artifact_and_comment(tmp_path: Path) -> None:
     result = tmp_path / "result.json"
     command = [
@@ -89,3 +105,6 @@ def test_workflow_security_and_failure_scenarios() -> None:
     assert "actions/upload-artifact@v4" in text
     assert "/comments" in text
     assert "merge" not in {line.strip() for line in text.splitlines()}
+    assert "EXECUTION_INPUT_ARTIFACT: ${{ inputs.execution_input_artifact }}" in text
+    assert '[[ -z "$EXECUTION_INPUT_ARTIFACT" ]]' in text
+    assert '[[ -z "${{ inputs.execution_input_artifact }}" ]]' not in text
