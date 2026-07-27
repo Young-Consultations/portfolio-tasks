@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execution_input_json:
-        description: Canonical ai-sdlc-execution-input/v1 JSON (or load the artifact below)
+        description: Canonical ai-sdlc-contract/v1 JSON (or load the artifact below)
         required: false
         type: string
       execution_input_artifact:
@@ -60,6 +60,10 @@ jobs:
           github-token: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
           path: ${{ runner.temp }}/execution-input-artifact
 
+      - name: Install pinned canonical contract validator
+        shell: bash
+        run: python -m pip install --disable-pip-version-check --no-cache-dir 'ai-sdlc-contracts==1.0.0'
+
       - name: Build or load and validate execution input
         id: input
         shell: bash
@@ -77,15 +81,13 @@ jobs:
             [[ ${#payloads[@]} -eq 1 ]] || { echo 'Exactly one execution-input JSON file is required.'; exit 1; }
             cp "${payloads[0]}" "$input"
           fi
-          # Capture a safely typed issue locator so contract failures can still be reported.
-          issue=$(jq -er '.source_issue.number | select(type == "number" and floor == . and . >= 1)' "$input" 2>/dev/null || true)
-          source_repository=$(jq -er '.source_issue.repository | select(type == "string" and test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"))' "$input" 2>/dev/null || true)
-          [[ -z "$issue" ]] || printf 'issue=%s\n' "$issue" >> "$GITHUB_OUTPUT"
-          [[ -z "$source_repository" ]] || printf 'source_repository=%s\n' "$source_repository" >> "$GITHUB_OUTPUT"
           if ! scripts/execution-contract.sh validate-input "$input"; then
             printf '%s\n' 'Canonical execution input validation failed.' > "$RUNNER_TEMP/failure-message"
             exit 1
           fi
+          parsed_issue=$(scripts/execution-contract.sh parse-source-issue "$input")
+          printf '%s\n' "$parsed_issue" >> "$GITHUB_OUTPUT"
+          issue=$(sed -n 's/^issue=//p' <<< "$parsed_issue")
           correlation=$(jq -r '.correlation_id' "$input")
           suffix=$(printf '%s' "$correlation" | sha256sum | cut -c1-12)
           printf 'correlation=%s\nbranch=codex/issue-%s-%s\n' "$correlation" "$issue" "$suffix" >> "$GITHUB_OUTPUT"
