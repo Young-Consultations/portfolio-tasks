@@ -1,20 +1,24 @@
-name: Execute approved Codex task
+name: Execute canonical Codex task
 
 on:
   workflow_dispatch:
     inputs:
-      task_contract_json:
-        description: Exact validated ai-sdlc-contract/v1 JSON payload from the router
-        required: true
+      execution_input_json:
+        description: Canonical ai-sdlc-execution-input/v1 JSON (or load the artifact below)
+        required: false
+        type: string
+      execution_input_artifact:
+        description: Name of a canonical execution-input artifact
+        required: false
+        type: string
+      execution_input_run_id:
+        description: Router workflow run containing the artifact
+        required: false
         type: string
       concurrency_group:
-        description: Router-generated concurrency group
+        description: Router-generated concurrency key
         required: true
         type: string
-      draft_pr_only:
-        description: Require draft pull requests
-        required: true
-        type: boolean
 
 permissions:
   contents: read
@@ -25,188 +29,213 @@ concurrency:
 
 jobs:
   execute:
-    name: Validate, execute, test, and publish
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       REPOSITORY: Young-Consultations/portfolio-tasks
       API_ROOT: https://api.github.com
     steps:
-      - name: Check out the target repository
+      - name: Check out target repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Validate router inputs and approved source issue
+      - name: Initialize result state
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$RUNNER_TEMP/started-at"
+          printf '%s\n' invalid_input > "$RUNNER_TEMP/failure-category"
+          : > "$RUNNER_TEMP/failure-message"
+          printf '%s\n' not_run > "$RUNNER_TEMP/validation-result"
+          printf '%s\n' not_run > "$RUNNER_TEMP/test-result"
+
+      - name: Download execution input artifact
+        if: inputs.execution_input_json == '' && inputs.execution_input_artifact != ''
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: ${{ inputs.execution_input_artifact }}
+          run-id: ${{ inputs.execution_input_run_id }}
+          github-token: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/execution-input-artifact
+
+      - name: Build or load and validate execution input
+        id: input
+        shell: bash
+        env:
+          EXECUTION_INPUT_JSON: ${{ inputs.execution_input_json }}
+          EXECUTION_INPUT_ARTIFACT: ${{ inputs.execution_input_artifact }}
+        run: |
+          set -euo pipefail; set +x
+          input="$RUNNER_TEMP/execution-input.json"
+          if [[ -n "$EXECUTION_INPUT_JSON" ]]; then
+            [[ -z "$EXECUTION_INPUT_ARTIFACT" ]] || { echo 'Choose JSON or artifact, not both.'; exit 1; }
+            printf '%s' "$EXECUTION_INPUT_JSON" > "$input"
+          else
+            mapfile -t payloads < <(find "$RUNNER_TEMP/execution-input-artifact" -type f -name '*.json' -print 2>/dev/null)
+            [[ ${#payloads[@]} -eq 1 ]] || { echo 'Exactly one execution-input JSON file is required.'; exit 1; }
+            cp "${payloads[0]}" "$input"
+          fi
+          # Capture a safely typed issue locator so contract failures can still be reported.
+          issue=$(jq -er '.source_issue.number | select(type == "number" and floor == . and . >= 1)' "$input" 2>/dev/null || true)
+          source_repository=$(jq -er '.source_issue.repository | select(type == "string" and test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"))' "$input" 2>/dev/null || true)
+          [[ -z "$issue" ]] || printf 'issue=%s\n' "$issue" >> "$GITHUB_OUTPUT"
+          [[ -z "$source_repository" ]] || printf 'source_repository=%s\n' "$source_repository" >> "$GITHUB_OUTPUT"
+          if ! scripts/execution-contract.sh validate-input "$input"; then
+            printf '%s\n' 'Canonical execution input validation failed.' > "$RUNNER_TEMP/failure-message"
+            exit 1
+          fi
+          correlation=$(jq -r '.correlation_id' "$input")
+          suffix=$(printf '%s' "$correlation" | sha256sum | cut -c1-12)
+          printf 'correlation=%s\nbranch=codex/issue-%s-%s\n' "$correlation" "$issue" "$suffix" >> "$GITHUB_OUTPUT"
+
+      - name: Verify source issue remains open and approved
         id: authorize
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
-          TASK_CONTRACT_JSON: ${{ inputs.task_contract_json }}
-          DRAFT_PR_ONLY: ${{ inputs.draft_pr_only }}
+          ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
+          SOURCE_REPOSITORY: ${{ steps.input.outputs.source_repository }}
+        run: |
+          set -euo pipefail; set +x
+          printf '%s\n' authorization_failed > "$RUNNER_TEMP/failure-category"
+          printf '%s\n' 'Source issue authorization failed.' > "$RUNNER_TEMP/failure-message"
+          auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
+          curl --fail --silent --show-error "${auth[@]}" "$API_ROOT/repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER" > "$RUNNER_TEMP/source-issue.json"
+          jq -e '.state == "open" and (has("pull_request") | not)' "$RUNNER_TEMP/source-issue.json" >/dev/null
+          jq -e '[.labels[].name] | (index("executor:codex") != null) and (index("status:approved") != null) and (index("sensitive") == null)' "$RUNNER_TEMP/source-issue.json" >/dev/null
+
+      - name: Install execution dependencies
+        shell: bash
         run: |
           set -euo pipefail
-          set +x
-          [[ "$DRAFT_PR_ONLY" == true ]] || { echo '::error::Only draft publication is permitted.'; exit 1; }
-          printf '%s' "$TASK_CONTRACT_JSON" > "$RUNNER_TEMP/task-contract.json"
-          scripts/validate-task-contract.sh "$RUNNER_TEMP/task-contract.json"
-          issue_number=$(jq -r '.source.issue_number' "$RUNNER_TEMP/task-contract.json")
-          [[ $(jq -r '.source.repository' "$RUNNER_TEMP/task-contract.json") == "$REPOSITORY" ]] || { echo '::error::Contract source repository mismatch.'; exit 1; }
-          [[ $(jq -r '.status' "$RUNNER_TEMP/task-contract.json") == approved ]] || { echo '::error::Contract is not approved.'; exit 1; }
-          [[ $(jq -r '.executor' "$RUNNER_TEMP/task-contract.json") == codex ]] || { echo '::error::Contract executor is not Codex.'; exit 1; }
-          [[ $(jq -r '.target_repository' "$RUNNER_TEMP/task-contract.json") == "$REPOSITORY" ]] || { echo '::error::Cross-repository execution is forbidden.'; exit 1; }
-          auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
-          curl --fail-with-body --silent --show-error "${auth[@]}" \
-            "$API_ROOT/repos/$REPOSITORY/issues/$issue_number" > "$RUNNER_TEMP/source-issue.json"
-          state=$(jq -r '.state' "$RUNNER_TEMP/source-issue.json")
-          has_pr=$(jq -r 'has("pull_request")' "$RUNNER_TEMP/source-issue.json")
-          echo "Issue state: $state"
-          echo "Has pull_request field: $has_pr"
-          echo "Issue number: $(jq -r '.number' "$RUNNER_TEMP/source-issue.json")"
-          echo "Repository: $REPOSITORY"
-          if [[ "$state" != "open" ]]; then
-            echo '::error::The source issue is not open.'
-            exit 1
-          fi
-          if [[ "$has_pr" == "true" ]]; then
-            echo '::error::The source is a pull request, not an issue.'
-            exit 1
-          fi
-          labels=$(jq -r '[.labels[].name] | join("\n")' "$RUNNER_TEMP/source-issue.json")
-          grep -Fqx 'executor:codex' <<< "$labels" || { echo '::error::Missing executor:codex approval label.'; exit 1; }
-          grep -Fqx 'status:approved' <<< "$labels" || { echo '::error::Missing status:approved approval label.'; exit 1; }
-          if grep -Fqx 'sensitive' <<< "$labels"; then
-            echo '::error::Issues marked sensitive cannot be sent to Codex.'
-            exit 1
-          fi
-          branch="codex/issue-${issue_number}-${GITHUB_RUN_ID}"
-          printf 'issue_number=%s\nbranch=%s\n' "$issue_number" "$branch" >> "$GITHUB_OUTPUT"
+          npm install --global @openai/codex@0.63.0
+          python -m pip install --disable-pip-version-check --no-cache-dir '.[dev]'
 
-      - name: Install pinned Codex CLI
-        shell: bash
-        run: npm install --global @openai/codex@0.63.0
-
-      - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: '3.12'
-
-      - name: Install Python development dependencies
-        shell: bash
-        run: python -m pip install --disable-pip-version-check --no-cache-dir '.[dev]'
-
-      - name: Execute Codex in workspace-write sandbox
+      - name: Execute Codex through the repository wrapper
         id: codex
         shell: bash
         env:
           CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CODEX_MODEL: gpt-5.3-codex
-          ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
         run: |
-          set -euo pipefail
-          set +x
-          if [[ -z "${CODEX_API_KEY:-}" ]]; then
-            echo '::error::CODEX_API_KEY is required for Codex execution.'
+          set -euo pipefail; set +x
+          printf '%s\n' codex_failed > "$RUNNER_TEMP/failure-category"
+          printf '%s\n' 'Codex did not complete successfully.' > "$RUNNER_TEMP/failure-message"
+          cat > "$RUNNER_TEMP/instructions.md" <<'EOF'
+          Implement only the approved task in this checkout. Do not push, publish a PR, merge,
+          access secrets, or alter repository/organization settings. Controlled workflow steps
+          own validation, branch creation, and draft PR publication. Do not print environment variables.
+          EOF
+          jq -r '.instructions' "$RUNNER_TEMP/execution-input.json" >> "$RUNNER_TEMP/instructions.md"
+          # This is the single existing wrapper; it detects tracked/untracked files and retries one no-op once.
+          if ! python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"; then
+            if [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+              printf '%s\n' no_changes > "$RUNNER_TEMP/failure-category"
+              printf '%s\n' 'Codex produced no changes after one retry.' > "$RUNNER_TEMP/failure-message"
+            fi
             exit 1
           fi
-          cat > "$RUNNER_TEMP/instructions.md" <<'EOF'
-          Implement the approved task in the attached source issue. Work only in this checkout.
-          Do not push, create or merge a pull request, access secrets, change repository or organization
-          settings, branch protection, secrets, or approval policy. Do not print environment variables.
-          Keep the change focused and production-ready. Run useful checks, but publication and the
-          authoritative validation pass are performed by the surrounding workflow.
-          EOF
-          jq -r '.instructions' "$RUNNER_TEMP/task-contract.json" >> "$RUNNER_TEMP/instructions.md"
-          python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
+          [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]] || {
+            printf '%s\n' no_changes > "$RUNNER_TEMP/failure-category"
+            printf '%s\n' 'Codex produced no changes after one retry.' > "$RUNNER_TEMP/failure-message"
+            exit 1
+          }
 
-      - name: Detect changes
-        id: changes
+      - name: Run repository validations
+        id: validation
         shell: bash
         run: |
           set -euo pipefail
-          status=$(git status --porcelain=v1 --untracked-files=all)
-          [[ -n "$status" ]] || { echo '::error::Codex produced no tracked or untracked changes.'; exit 1; }
-          echo 'changed=true' >> "$GITHUB_OUTPUT"
+          printf '%s\n' validation_failed > "$RUNNER_TEMP/failure-category"
+          printf '%s\n' 'Repository validation failed; consult the bounded workflow log.' > "$RUNNER_TEMP/failure-message"
+          git diff --check
+          bash -n scripts/*.sh
+          ruby -e 'require "yaml"; ARGV.each { |f| YAML.safe_load_file(f, aliases: true) }' $(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+          ruby -e 'require "yaml"; ARGV.each { |f| YAML.safe_load_file(f, aliases: true) }' $(find .github/ISSUE_TEMPLATE -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+          ruff check .
+          mypy portfolio_tasks
+          if command -v actionlint >/dev/null 2>&1; then actionlint; else echo 'actionlint unavailable (not reported as passed)'; fi
+          printf '%s\n' passed > "$RUNNER_TEMP/validation-result"
 
-      - name: Validate and test repository
+      - name: Run repository contract and synchronization tests
         id: tests
         shell: bash
         run: |
           set -euo pipefail
-          git diff --check
-          ruby -e 'require "yaml"; ARGV.each { |f| YAML.safe_load_file(f, aliases: true) }' \
-            $(find .github -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+          printf '%s\n' tests_failed > "$RUNNER_TEMP/failure-category"
+          printf '%s\n' 'Repository tests failed; consult the bounded workflow log.' > "$RUNNER_TEMP/failure-message"
+          python -m pytest tests/test_task_contract.py tests/test_run_codex.py
+          python -m pytest tests/test_sync.py tests/test_dispatch.py
           python -m pytest
-          ruff check .
-          mypy portfolio_tasks
-          if command -v actionlint >/dev/null 2>&1; then actionlint; else echo 'actionlint unavailable (not reported as passed)'; fi
-          echo 'result=passed' >> "$GITHUB_OUTPUT"
+          printf '%s\n' passed > "$RUNNER_TEMP/test-result"
 
-      - name: Commit and push one task branch
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
-          BRANCH: ${{ steps.authorize.outputs.branch }}
-        run: |
-          set -euo pipefail
-          set +x
-          git switch -c "$BRANCH"
-          git config user.name 'portfolio-codex[bot]'
-          git config user.email 'portfolio-codex[bot]@users.noreply.github.com'
-          git add --all
-          git commit -m "Implement approved portfolio task #${{ steps.authorize.outputs.issue_number }}"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
-
-      - name: Open one draft pull request
+      - name: Create exactly one task branch and draft PR
         id: publish
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
-          BRANCH: ${{ steps.authorize.outputs.branch }}
-          ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
+          BRANCH: ${{ steps.input.outputs.branch }}
+          ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
+          CORRELATION_ID: ${{ steps.input.outputs.correlation }}
         run: |
-          set -euo pipefail
-          set +x
+          set -euo pipefail; set +x
+          printf '%s\n' publication_failed > "$RUNNER_TEMP/failure-category"
+          printf '%s\n' 'Draft pull request publication failed.' > "$RUNNER_TEMP/failure-message"
           auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
-          jq -n --arg title "Codex: implement portfolio task #$ISSUE_NUMBER" --arg head "$BRANCH" \
-            --arg body "Draft implementation of #$ISSUE_NUMBER. Validation and repository tests passed in workflow run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
-            '{title:$title,head:$head,base:"main",body:$body,draft:true}' > "$RUNNER_TEMP/pr.json"
-          curl --fail-with-body --silent --show-error "${auth[@]}" -X POST \
-            "$API_ROOT/repos/$REPOSITORY/pulls" --data-binary @"$RUNNER_TEMP/pr.json" > "$RUNNER_TEMP/pr-response.json"
-          echo "pr_url=$(jq -r '.html_url' "$RUNNER_TEMP/pr-response.json")" >> "$GITHUB_OUTPUT"
+          existing=$(curl --fail --silent --show-error "${auth[@]}" "$API_ROOT/repos/$REPOSITORY/pulls?state=all&head=Young-Consultations:$BRANCH")
+          [[ $(jq 'length' <<< "$existing") -eq 0 ]] || { echo 'A pull request already exists for this canonical task branch.'; exit 1; }
+          git switch -c "$BRANCH"
+          git config user.name 'portfolio-codex[bot]'
+          git config user.email 'portfolio-codex[bot]@users.noreply.github.com'
+          git add --all && git commit -m "Implement approved portfolio task #$ISSUE_NUMBER"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
+          body=$(printf 'Draft implementation of #%s.\n\n<!-- codex-correlation:%s -->' "$ISSUE_NUMBER" "$CORRELATION_ID")
+          jq -n --arg title "Codex: implement portfolio task #$ISSUE_NUMBER" --arg head "$BRANCH" --arg body "$body" '{title:$title,head:$head,base:"main",body:$body,draft:true}' > "$RUNNER_TEMP/pr-request.json"
+          curl --fail --silent --show-error "${auth[@]}" -X POST "$API_ROOT/repos/$REPOSITORY/pulls" --data-binary @"$RUNNER_TEMP/pr-request.json" > "$RUNNER_TEMP/pr-response.json"
+          jq -e '.draft == true and (.html_url | type == "string")' "$RUNNER_TEMP/pr-response.json" >/dev/null
+          echo "url=$(jq -r '.html_url' "$RUNNER_TEMP/pr-response.json")" >> "$GITHUB_OUTPUT"
 
-      - name: Report success to source issue
-        if: success()
+      - name: Emit canonical execution result
+        if: always()
+        id: result
+        shell: bash
+        env:
+          CORRELATION_ID: ${{ steps.input.outputs.correlation }}
+          BRANCH: ${{ steps.input.outputs.branch }}
+          PR_URL: ${{ steps.publish.outputs.url }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          set -euo pipefail; set +x
+          status=failed; category=$(cat "$RUNNER_TEMP/failure-category" 2>/dev/null || echo internal_error)
+          message=$(head -c 500 "$RUNNER_TEMP/failure-message" 2>/dev/null || printf 'Workflow failed before initialization.')
+          branch=''; pr=''
+          if [[ "$PUBLISH_OUTCOME" == success ]]; then status=succeeded; category=''; message=''; branch=$BRANCH; pr=$PR_URL; fi
+          correlation=${CORRELATION_ID:-unknown-$GITHUB_RUN_ID}
+          validation=$(cat "$RUNNER_TEMP/validation-result" 2>/dev/null || echo not_run)
+          tests=$(cat "$RUNNER_TEMP/test-result" 2>/dev/null || echo not_run)
+          started=$(cat "$RUNNER_TEMP/started-at" 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+          scripts/execution-contract.sh write-result "$RUNNER_TEMP/execution-result.json" "$status" "$correlation" "$branch" "$pr" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "$validation" "$tests" "$category" "$message" "$started" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          scripts/execution-contract.sh comment "$RUNNER_TEMP/execution-result.json" > "$RUNNER_TEMP/result-comment.md"
+
+      - name: Upload canonical execution result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/execution-result.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Post deterministic result to source issue
+        if: always() && steps.input.outputs.issue != ''
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
-          ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
-          BRANCH: ${{ steps.authorize.outputs.branch }}
-          PR_URL: ${{ steps.publish.outputs.pr_url }}
+          ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
+          SOURCE_REPOSITORY: ${{ steps.input.outputs.source_repository }}
         run: |
           set -euo pipefail; set +x
-          workflow_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          body=$(printf 'Codex execution completed.\n\n- Branch: `%s`\n- Draft PR: %s\n- Validation: passed\n- Tests: passed\n- Workflow: %s' "$BRANCH" "$PR_URL" "$workflow_url")
-          jq -n --arg body "$body" '{body:$body}' > "$RUNNER_TEMP/comment.json"
-          curl --fail-with-body --silent --show-error -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' -X POST "$API_ROOT/repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments" \
-            --data-binary @"$RUNNER_TEMP/comment.json" >/dev/null
-
-      - name: Report failed validation or test run
-        if: failure() && steps.authorize.outputs.issue_number != ''
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.PORTFOLIO_AUTOMATION_TOKEN }}
-          ISSUE_NUMBER: ${{ steps.authorize.outputs.issue_number }}
-          CODEX_RESULT: ${{ steps.codex.outcome }}
-          TEST_RESULT: ${{ steps.tests.outcome }}
-        run: |
-          set -euo pipefail; set +x
-          [[ -n "$CODEX_RESULT" ]] || CODEX_RESULT='not run'
-          [[ -n "$TEST_RESULT" ]] || TEST_RESULT='not run'
-          body=$(printf 'Codex execution stopped before publication.\n\n- Branch: not published\n- Draft PR: not created\n- Codex execution: %s\n- Validation/tests: %s\n- Workflow: %s/%s/actions/runs/%s' "$CODEX_RESULT" "$TEST_RESULT" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")
-          jq -n --arg body "$body" '{body:$body}' > "$RUNNER_TEMP/comment.json"
-          curl --fail-with-body --silent --show-error -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' -X POST "$API_ROOT/repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments" \
-            --data-binary @"$RUNNER_TEMP/comment.json" >/dev/null
+          jq -Rs '{body:.}' < "$RUNNER_TEMP/result-comment.md" > "$RUNNER_TEMP/comment-request.json"
+          curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -X POST "$API_ROOT/repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/comments" --data-binary @"$RUNNER_TEMP/comment-request.json" >/dev/null
