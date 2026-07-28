@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 WORKFLOW = Path(".github/workflows/codex-execute.yml")
+WORKFLOWS = tuple(Path(".github/workflows").glob("*.y*ml"))
 CANONICAL_INPUTS = {
     "execution_input_json",
     "execution_input_artifact",
@@ -76,3 +77,14 @@ def test_workflow_validation_avoids_unquoted_command_substitution() -> None:
 
     assert "$(find " not in yaml_validation
     assert 'Dir.glob(".github/**/*.{yml,yaml}")' in yaml_validation
+
+    unsafe_yaml_checks = [
+        str(workflow)
+        for workflow in WORKFLOWS
+        if "YAML.safe_load_file" in workflow.read_text(encoding="utf-8")
+        and "$(find " in workflow.read_text(encoding="utf-8")
+    ]
+    assert not unsafe_yaml_checks, (
+        "workflow YAML validation uses an unquoted find substitution: "
+        + ", ".join(unsafe_yaml_checks)
+    )
