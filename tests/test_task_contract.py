@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-
 BODY = """### Execution status
 
 approved
