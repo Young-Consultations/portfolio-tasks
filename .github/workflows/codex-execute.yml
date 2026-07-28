@@ -99,7 +99,7 @@ jobs:
           cat > "$RUNNER_TEMP/contracts-smoke-input.json" <<'EOF'
           {
             "concurrency_group": "codex-young-consultations-portfolio-tasks-young-consultations-portfolio-tasks-17-parallel-router-smoke-002",
-            "contract_version": "ai-sdlc-contract/v1",
+            "contract_version": "ai-sdlc-contract/v2",
             "correlation_id": "router-smoke-002",
             "draft_pr_only": true,
             "executor": "codex",
