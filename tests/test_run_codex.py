@@ -202,8 +202,11 @@ class RunCodexTests(unittest.TestCase):
         command = [
             sys.executable,
             "-c",
-            "import subprocess, time; "
-            "subprocess.Popen(['sleep', '30']); time.sleep(30)",
+            (
+                "import subprocess, time; "
+                "subprocess.Popen(['sleep', '30']); "
+                "time.sleep(30)"
+            ),
         ]
         started = time.monotonic()
         status, diagnostic = run_codex.execute(command, b"", self.env, 0.1)
