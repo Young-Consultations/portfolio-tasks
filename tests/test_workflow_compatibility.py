@@ -65,3 +65,14 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     assert "if: always() && steps.input.outcome == 'success'" in text
     assert '[[ "$MODE" == verify || "$PUBLISH_OUTCOME" == success ]]' in text
     assert 'target_repository:"Young-Consultations/portfolio-tasks"' in text
+
+
+def test_workflow_validation_avoids_unquoted_command_substitution() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    validation = text[text.index("- name: Validate target repository") :]
+    yaml_validation = next(
+        line for line in validation.splitlines() if "YAML.safe_load_file" in line
+    )
+
+    assert "$(find " not in yaml_validation
+    assert 'Dir.glob(".github/**/*.{yml,yaml}")' in yaml_validation

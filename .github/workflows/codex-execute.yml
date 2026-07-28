@@ -131,7 +131,7 @@ jobs:
           set -euo pipefail
           printf '%s\n' validation_failed > "$RUNNER_TEMP/failure-category"
           git diff --check
-          ruby -e 'require "yaml"; ARGV.each { |f| YAML.safe_load_file(f, aliases: true) }' $(find .github -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+          ruby -e 'require "yaml"; Dir.glob(".github/**/*.{yml,yaml}").each { |f| YAML.safe_load_file(f, aliases: true) }'
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           "$(go env GOPATH)/bin/actionlint"
           ruff check .
