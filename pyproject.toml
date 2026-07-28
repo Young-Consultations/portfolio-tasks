@@ -10,9 +10,9 @@ requires-python = ">=3.12"
 [project.optional-dependencies]
 dev = ["mypy>=1.10", "pytest>=8", "ruff>=0.5", "PyYAML>=6"]
 
-[tool.setuptools.packages.find]
-include = ["portfolio_tasks*"]
-exclude = ["schemas*", "tests*", "docs*", "scripts*"]
+[tool.setuptools]
+packages = ["portfolio_tasks"]
+include-package-data = false
 
 [tool.ruff]
 line-length = 100

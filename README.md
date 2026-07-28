@@ -2,56 +2,25 @@
 
 This repository owns portfolio-level planning issues and can hand qualifying work to the Slugger implementation backlog.
 
-## Canonical AI-SDLC task contract
+## Shared AI-SDLC execution contract
 
-Every executable issue crosses one gate before routing or Codex: `scripts/build-task-contract.sh`
-builds exactly one `ai-sdlc-contract/v1` JSON document and
-`scripts/validate-task-contract.sh` validates it against
-`schemas/task-contract.schema.json`. The dispatch workflow uploads that byte-for-byte payload as
-the `task-contract-<issue>-<run-attempt>` artifact. Routers must pass that document unchanged (or
-fields read directly from it); the Codex workflow accepts the contract rather than independently
-parsing the issue.
+This repository is an execution target, not a contract owner. The organization router produces
+the sole canonical input, `execution-input.json`; the target workflow installs the pinned
+`ai_sdlc_contracts` distribution from `Young-Consultations/.github` and delegates input and result
+validation to its CLI. No schemas, contract builders, version constants, or validators are copied
+into this repository.
 
-Field ownership is intentionally non-overlapping:
+`.github/workflows/codex-execute.yml` applies only target policy after shared validation: the
+repository must be `Young-Consultations/portfolio-tasks`, the executor must be Codex, the source
+must be an open approved non-sensitive issue in this repository, and publication must remain a
+draft PR. `execution_mode: verify` validates the contract, routing authorization, repository, and
+tests without running Codex or creating a branch or PR. `execution_mode: implement` continues
+through Codex and controlled draft-PR publication. Both modes emit a shared-contract-validated
+`execution-result.json` artifact.
 
-| Contract field | Authoritative issue source |
-| --- | --- |
-| `status` | Exactly one `status:*` label |
-| `executor` | Exactly one `executor:*` label |
-| `priority` | Exactly one `priority:*` label |
-| `project` | Exactly one `project:*` label |
-| `parallel_safe` | Presence of the exact `parallel-safe` label |
-| `target_repository` | `Target repository` body section |
-| `task_type` | `Task type` body section |
-| `dependencies` | `Dependency issue references` body section |
-| `instructions` | `Objective`, then `Required behavior`, body sections |
-
-The body's legacy `Execution status` section is never authoritative. When present it must agree
-with the status label; a conflict is rejected. Closed issues, pull requests, sensitive issues,
-missing label-owned values, malformed dependency references, unknown task types, and missing
-targets are rejected before an artifact or downstream invocation can exist. Correlation IDs use
-`<source-repository>#<issue-number>@<workflow-run-attempt>`.
-
-### Approved legacy mappings
-
-Only these compatibility mappings are performed; everything else fails rather than being guessed:
-
-- Task form display values `Bug fix`, `Feature`, `Refactor`, `CI/CD`, `Documentation`, `Security`,
-  `Repository governance`, `Automation`, and `Investigation` map respectively to lowercase
-  canonical values (`bug-fix`, `feature`, `refactor`, `ci-cd`, `documentation`, `security`,
-  `repository-governance`, `automation`, and `investigation`). Already-canonical values remain
-  unchanged.
-- Lowercase priority labels `priority:p0` through `priority:p3` map to `P0` through `P3`.
-- The legacy status value `ready` maps to `approved`; if a body status exists, both sources are
-  normalized before the mandatory conflict check.
-
-Build and validate a downloaded issue locally with:
-
-```bash
-SOURCE_REPOSITORY=Young-Consultations/portfolio-tasks GITHUB_RUN_ATTEMPT=1 \
-  scripts/build-task-contract.sh issue.json task-contract.json
-scripts/validate-task-contract.sh task-contract.json
-```
+`portfolio_tasks.execution` is deliberately a small policy adapter. It invokes
+`python -m ai_sdlc_contracts` for schema validation and exposes only validated workflow outputs;
+it does not load or interpret shared schemas itself.
 
 ## Python architecture and developer workflow
 
