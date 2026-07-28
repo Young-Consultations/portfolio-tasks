@@ -84,6 +84,19 @@ def test_workflow_is_a_thin_secure_execution_target() -> None:
     assert "schemas/" not in text
 
 
+def test_workflow_validates_codex_changes_and_reports_real_outcomes() -> None:
+    text = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
+    codex = text.index("- name: Install and execute Codex")
+    validation = text.index("- name: Validate target repository")
+    publication = text.index("- name: Create task branch and draft PR")
+
+    assert codex < validation < publication
+    assert '"$AUTHORIZATION_OUTCOME" == success' in text
+    assert '"$VALIDATION_OUTCOME" == success' in text
+    assert "validation_result:$validation,test_result:$tests" in text
+    assert 'validation_result:"passed",test_result:"passed"' not in text
+
+
 def test_repository_has_no_local_contract_or_schema_copy() -> None:
     assert not any(Path("schemas").glob("**/*"))
     assert not any(Path("scripts").glob("*contract*"))

@@ -98,6 +98,7 @@ jobs:
           python -m portfolio_tasks.execution inspect-input "$input" >> "$GITHUB_OUTPUT"
 
       - name: Verify router authorization
+        id: authorization
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
@@ -109,18 +110,6 @@ jobs:
           curl --fail --silent --show-error "${auth[@]}" "$API_ROOT/repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER" > "$RUNNER_TEMP/source-issue.json"
           jq -e '.state == "open" and (has("pull_request") | not)' "$RUNNER_TEMP/source-issue.json" >/dev/null
           jq -e '[.labels[].name] | index("executor:codex") != null and index("status:approved") != null and index("sensitive") == null' "$RUNNER_TEMP/source-issue.json" >/dev/null
-
-      - name: Validate target repository
-        run: |
-          set -euo pipefail
-          printf '%s\n' validation_failed > "$RUNNER_TEMP/failure-category"
-          git diff --check
-          ruby -e 'require "yaml"; ARGV.each { |f| YAML.safe_load_file(f, aliases: true) }' $(find .github -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
-          ruff check .
-          mypy portfolio_tasks
-          python -m pytest
-          printf '%s\n' passed > "$RUNNER_TEMP/validation-result"
-          printf '%s\n' passed > "$RUNNER_TEMP/test-result"
 
       - name: Install and execute Codex
         if: steps.input.outputs.execution_mode == 'implement'
@@ -134,6 +123,19 @@ jobs:
           { printf '%s\n' 'Implement only the approved task. Do not push, create a PR, or access secrets.'; jq -r .instructions "$RUNNER_TEMP/execution-input.json"; } > "$RUNNER_TEMP/instructions.md"
           python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
           [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]
+
+      - name: Validate target repository
+        id: validation
+        run: |
+          set -euo pipefail
+          printf '%s\n' validation_failed > "$RUNNER_TEMP/failure-category"
+          git diff --check
+          ruby -e 'require "yaml"; ARGV.each { |f| YAML.safe_load_file(f, aliases: true) }' $(find .github -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+          ruff check .
+          mypy portfolio_tasks
+          printf '%s\n' passed > "$RUNNER_TEMP/validation-result"
+          python -m pytest
+          printf '%s\n' passed > "$RUNNER_TEMP/test-result"
 
       - name: Create task branch and draft PR
         if: steps.input.outputs.execution_mode == 'implement'
@@ -161,20 +163,28 @@ jobs:
         if: always() && steps.input.outcome == 'success'
         env:
           MODE: ${{ steps.input.outputs.execution_mode }}
+          AUTHORIZATION_OUTCOME: ${{ steps.authorization.outcome }}
+          VALIDATION_OUTCOME: ${{ steps.validation.outcome }}
           PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
           PR_URL: ${{ steps.publish.outputs.url }}
         run: |
           set -euo pipefail
           status=failed; branch=null; pr=null
           category=$(jq -Rn --arg v "$(cat "$RUNNER_TEMP/failure-category")" '$v')
-          if [[ "$MODE" == verify || "$PUBLISH_OUTCOME" == success ]]; then status=succeeded; category=null; fi
+          if [[ "$AUTHORIZATION_OUTCOME" == success && "$VALIDATION_OUTCOME" == success ]] && \
+             [[ "$MODE" == verify || "$PUBLISH_OUTCOME" == success ]]; then
+            status=succeeded; category=null
+          fi
+          validation=$(cat "$RUNNER_TEMP/validation-result")
+          tests=$(cat "$RUNNER_TEMP/test-result")
           [[ "$MODE" == verify ]] || branch=$(jq -Rn --arg v '${{ steps.input.outputs.branch }}' '$v')
           [[ -z "$PR_URL" ]] || pr=$(jq -Rn --arg v "$PR_URL" '$v')
           jq -n --arg version "$(jq -r .contract_version "$RUNNER_TEMP/execution-input.json")" \
             --arg correlation '${{ steps.input.outputs.correlation }}' --arg status "$status" \
-            --arg mode "$MODE" --argjson branch "$branch" --argjson pr "$pr" --argjson category "$category" \
+            --arg mode "$MODE" --arg validation "$validation" --arg tests "$tests" \
+            --argjson branch "$branch" --argjson pr "$pr" --argjson category "$category" \
             --arg started "$(cat "$RUNNER_TEMP/started-at")" --arg completed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{contract_version:$version,correlation_id:$correlation,execution_status:$status,execution_mode:$mode,target_repository:"Young-Consultations/portfolio-tasks",branch_name:$branch,pull_request_url:$pr,workflow_url:(env.GITHUB_SERVER_URL+"/"+env.GITHUB_REPOSITORY+"/actions/runs/"+env.GITHUB_RUN_ID),validation_result:"passed",test_result:"passed",failure_category:$category,failure_message:null,started_at:$started,completed_at:$completed}' \
+            '{contract_version:$version,correlation_id:$correlation,execution_status:$status,execution_mode:$mode,target_repository:"Young-Consultations/portfolio-tasks",branch_name:$branch,pull_request_url:$pr,workflow_url:(env.GITHUB_SERVER_URL+"/"+env.GITHUB_REPOSITORY+"/actions/runs/"+env.GITHUB_RUN_ID),validation_result:$validation,test_result:$tests,failure_category:$category,failure_message:null,started_at:$started,completed_at:$completed}' \
             > "$RUNNER_TEMP/execution-result.json"
           python -m portfolio_tasks.execution validate-result "$RUNNER_TEMP/execution-result.json"
 
