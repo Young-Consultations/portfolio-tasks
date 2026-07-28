@@ -12,13 +12,13 @@ from portfolio_tasks.execution import load_execution_input, workflow_outputs
 def payload(mode: str = "implement") -> dict[str, object]:
     return {
         "contract_version": "ai-sdlc-contract/v2",
-        "correlation_id": "router-42",
+        "correlation_id": "fixture-task-42",
         "source_issue": "Young-Consultations/portfolio-tasks#42",
         "target_repository": "Young-Consultations/portfolio-tasks",
         "executor": "codex",
         "draft_pr_only": True,
         "execution_mode": mode,
-        "requested_branch": "codex/router-42",
+        "requested_branch": "codex/fixture-task-42",
         "instructions": "Make the approved change.",
     }
 
@@ -56,6 +56,7 @@ def test_valid_execution_modes(
 @pytest.mark.parametrize(
     ("field", "value"),
     [
+        ("contract_version", "ai-sdlc-contract/v1"),
         ("execution_mode", "plan"),
         ("target_repository", "Young-Consultations/other"),
         ("source_issue", "Young-Consultations/other#42"),
@@ -76,6 +77,7 @@ def test_workflow_is_a_thin_secure_execution_target() -> None:
     text = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
     assert "execution-input.json" in text
     assert "Version(version('ai-sdlc-contracts')) >= Version('1.0.1')" in text
+    assert "load_contract_version() == 'ai-sdlc-contract/v2'" in text
     assert "python -m portfolio_tasks.execution inspect-input" in text
     assert "steps.input.outputs.execution_mode == 'implement'" in text
     assert "draft:true" in text
@@ -98,6 +100,7 @@ def test_workflow_validates_codex_changes_and_reports_real_outcomes() -> None:
 
 
 def test_repository_has_no_local_contract_or_schema_copy() -> None:
+    assert not any(Path("contracts").glob("**/*"))
     assert not any(Path("schemas").glob("**/*"))
     assert not any(Path("scripts").glob("*contract*"))
     assert not Path(".github/workflows/portfolio-dispatch-contract.yml").exists()

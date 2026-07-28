@@ -11,8 +11,9 @@ import json
 import re
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 TARGET_REPOSITORY = "Young-Consultations/portfolio-tasks"
 SOURCE_ISSUE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([1-9][0-9]*)$")
@@ -27,7 +28,7 @@ def load_execution_input(path: Path) -> dict[str, Any]:
     )
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise ValueError("execution input must be an object")
+        raise TypeError("execution input must be an object")
     if value.get("target_repository") != TARGET_REPOSITORY:
         raise ValueError("execution input targets another repository")
     if value.get("executor") != "codex" or value.get("draft_pr_only") is not True:
