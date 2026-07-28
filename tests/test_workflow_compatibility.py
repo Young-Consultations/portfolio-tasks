@@ -88,3 +88,16 @@ def test_workflow_validation_avoids_unquoted_command_substitution() -> None:
         "workflow YAML validation uses an unquoted find substitution: "
         + ", ".join(unsafe_yaml_checks)
     )
+
+
+def test_actionlint_is_independent_of_runner_shellcheck() -> None:
+    invocations = []
+    for workflow in WORKFLOWS:
+        invocations.extend(
+            line.strip()
+            for line in workflow.read_text(encoding="utf-8").splitlines()
+            if 'bin/actionlint"' in line
+        )
+
+    assert invocations
+    assert all(invocation.endswith(" -shellcheck=") for invocation in invocations)

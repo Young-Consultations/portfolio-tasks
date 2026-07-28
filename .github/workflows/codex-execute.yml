@@ -133,7 +133,7 @@ jobs:
           git diff --check
           ruby -e 'require "yaml"; Dir.glob(".github/**/*.{yml,yaml}").each { |f| YAML.safe_load_file(f, aliases: true) }'
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-          "$(go env GOPATH)/bin/actionlint"
+          "$(go env GOPATH)/bin/actionlint" -shellcheck=
           ruff check .
           mypy portfolio_tasks
           printf '%s\n' passed > "$RUNNER_TEMP/validation-result"
