@@ -41,7 +41,7 @@ jobs:
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
     steps:
       - name: Check out portfolio-tasks
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Validate manual dispatch inputs
         if: github.event_name == 'workflow_dispatch' && inputs.source_issue_number == ''
