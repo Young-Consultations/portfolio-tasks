@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "correlation_id", "source", "status", "executor", "priority", "project", "parallel_safe", "target_repository", "task_type", "dependencies", "instructions"],
   "properties": {
-    "schema_version": { "const": "ai-sdlc-contract/v1" },
+    "schema_version": { "const": "ai-sdlc-contract/v2" },
     "correlation_id": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*@[1-9][0-9]*$" },
     "source": {
       "type": "object",
