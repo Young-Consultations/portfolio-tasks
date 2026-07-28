@@ -184,10 +184,10 @@ jobs:
           [[ -z "$PR_URL" ]] || pr=$(jq -Rn --arg v "$PR_URL" '$v')
           jq -n --arg version "$(jq -r .contract_version "$RUNNER_TEMP/execution-input.json")" \
             --arg correlation '${{ steps.input.outputs.correlation }}' --arg status "$status" \
-            --arg mode "$MODE" --arg validation "$validation" --arg tests "$tests" \
+            --arg validation "$validation" --arg tests "$tests" \
             --argjson branch "$branch" --argjson pr "$pr" --argjson category "$category" \
             --arg started "$(cat "$RUNNER_TEMP/started-at")" --arg completed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{contract_version:$version,correlation_id:$correlation,execution_status:$status,execution_mode:$mode,target_repository:"Young-Consultations/portfolio-tasks",branch_name:$branch,pull_request_url:$pr,workflow_url:(env.GITHUB_SERVER_URL+"/"+env.GITHUB_REPOSITORY+"/actions/runs/"+env.GITHUB_RUN_ID),validation_result:$validation,test_result:$tests,failure_category:$category,failure_message:null,started_at:$started,completed_at:$completed}' \
+            '{contract_version:$version,correlation_id:$correlation,execution_status:$status,target_repository:"Young-Consultations/portfolio-tasks",branch_name:$branch,pull_request_url:$pr,workflow_url:(env.GITHUB_SERVER_URL+"/"+env.GITHUB_REPOSITORY+"/actions/runs/"+env.GITHUB_RUN_ID),validation_result:$validation,test_result:$tests,failure_category:$category,failure_message:null,started_at:$started,completed_at:$completed}' \
             > "$RUNNER_TEMP/execution-result.json"
           python -m portfolio_tasks.execution validate-result "$RUNNER_TEMP/execution-result.json"
 

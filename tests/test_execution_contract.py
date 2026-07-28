@@ -6,7 +6,23 @@ from pathlib import Path
 
 import pytest
 
-from portfolio_tasks.execution import load_execution_input, workflow_outputs
+from portfolio_tasks.execution import load_execution_input, validate_result, workflow_outputs
+
+RESULT_FIELDS = {
+    "contract_version",
+    "correlation_id",
+    "execution_status",
+    "target_repository",
+    "branch_name",
+    "pull_request_url",
+    "workflow_url",
+    "validation_result",
+    "test_result",
+    "failure_category",
+    "failure_message",
+    "started_at",
+    "completed_at",
+}
 
 
 def payload(mode: str = "implement") -> dict[str, object]:
@@ -29,12 +45,15 @@ def shared_contracts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     package.mkdir()
     (package / "__init__.py").write_text("", encoding="utf-8")
     (package / "__main__.py").write_text(
-        """import json, sys
+        f"""import json, sys
 value = json.load(open(sys.argv[2]))
 valid = value.get('contract_version') == 'ai-sdlc-contract/v2'
 if sys.argv[1] == 'validate-input':
-    valid = valid and value.get('execution_mode') in {'verify', 'implement'}
-elif sys.argv[1] != 'validate-result':
+    valid = valid and value.get('execution_mode') in {{'verify', 'implement'}}
+elif sys.argv[1] == 'validate-result':
+    valid = valid and set(value) == {RESULT_FIELDS!r}
+    valid = valid and value.get('execution_status') in {{'succeeded', 'failed'}}
+else:
     valid = False
 raise SystemExit(0 if valid else 1)
 """,
@@ -44,13 +63,73 @@ raise SystemExit(0 if valid else 1)
 
 
 @pytest.mark.parametrize("mode", ["verify", "implement"])
-def test_valid_execution_modes(
-    tmp_path: Path, shared_contracts: None, mode: str
-) -> None:
+def test_valid_execution_modes(tmp_path: Path, shared_contracts: None, mode: str) -> None:
     path = tmp_path / "execution-input.json"
     path.write_text(json.dumps(payload(mode)), encoding="utf-8")
     value = load_execution_input(path)
     assert workflow_outputs(value)["execution_mode"] == mode
+
+
+def result_payload(*, succeeded: bool = True) -> dict[str, object]:
+    """Return the exact result used by the end-to-end router smoke scenario."""
+    return {
+        "contract_version": "ai-sdlc-contract/v2",
+        "correlation_id": "router-smoke-42",
+        "execution_status": "succeeded" if succeeded else "failed",
+        "target_repository": "Young-Consultations/portfolio-tasks",
+        "branch_name": None,
+        "pull_request_url": None,
+        "workflow_url": (
+            "https://github.com/Young-Consultations/portfolio-tasks/actions/runs/123456"
+        ),
+        "validation_result": "passed" if succeeded else "failed",
+        "test_result": "passed" if succeeded else "not_run",
+        "failure_category": None if succeeded else "validation_failed",
+        "failure_message": None,
+        "started_at": "2026-07-28T12:00:00Z",
+        "completed_at": "2026-07-28T12:01:00Z",
+    }
+
+
+def write_result(tmp_path: Path, value: dict[str, object]) -> Path:
+    path = tmp_path / "execution-result.json"
+    path.write_text(json.dumps(value), encoding="utf-8")
+    return path
+
+
+def test_successful_verify_smoke_result_is_canonical(
+    tmp_path: Path, shared_contracts: None
+) -> None:
+    result = result_payload()
+    validate_result(write_result(tmp_path, result))
+
+    assert "execution_mode" not in result
+    assert result["branch_name"] is None
+    assert result["pull_request_url"] is None
+    assert result["execution_status"] == "succeeded"
+
+
+def test_failure_result_remains_canonical(tmp_path: Path, shared_contracts: None) -> None:
+    validate_result(write_result(tmp_path, result_payload(succeeded=False)))
+
+
+@pytest.mark.parametrize("mode", ["verify", "implement"])
+def test_workflow_result_does_not_copy_execution_mode(mode: str) -> None:
+    text = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
+    result_expression = next(
+        line for line in text.splitlines() if "{contract_version:$version" in line
+    )
+
+    assert mode in {"verify", "implement"}
+    assert "execution_mode" not in result_expression
+
+
+def test_unknown_result_field_is_rejected(tmp_path: Path, shared_contracts: None) -> None:
+    result = result_payload()
+    result["unexpected"] = True
+
+    with pytest.raises(subprocess.CalledProcessError):
+        validate_result(write_result(tmp_path, result))
 
 
 @pytest.mark.parametrize(
