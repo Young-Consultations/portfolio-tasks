@@ -55,6 +55,22 @@ def test_every_third_party_action_is_pinned_to_a_commit() -> None:
     assert not unpinned, "unpinned third-party actions:\n" + "\n".join(unpinned)
 
 
+def test_checkout_never_persists_github_credentials() -> None:
+    unsafe_checkouts: list[str] = []
+    for workflow in WORKFLOWS:
+        lines = workflow.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if not re.match(r"\s*uses:\s*actions/checkout@", line):
+                continue
+            step = "\n".join(lines[index + 1 : index + 4])
+            if "persist-credentials: false" not in step:
+                unsafe_checkouts.append(str(workflow))
+
+    assert not unsafe_checkouts, (
+        "checkout persists the workflow token: " + ", ".join(unsafe_checkouts)
+    )
+
+
 def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     implement_guard = "if: steps.input.outputs.execution_mode == 'implement'"
