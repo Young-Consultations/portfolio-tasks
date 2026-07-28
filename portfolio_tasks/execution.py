@@ -17,6 +17,34 @@ from typing import Any
 
 TARGET_REPOSITORY = "Young-Consultations/portfolio-tasks"
 SOURCE_ISSUE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([1-9][0-9]*)$")
+CANONICAL_EXECUTION_STATUSES = frozenset(
+    {"verified", "draft-pr-created", "no-changes", "blocked", "failed"}
+)
+
+
+def canonical_execution_status(
+    *,
+    mode: str,
+    authorization_ok: bool,
+    validation_ok: bool,
+    publish_ok: bool,
+    pr_url: str | None,
+    no_changes: bool,
+) -> str:
+    """Map workflow outcomes to the execution-result v2 status vocabulary."""
+    if mode not in {"verify", "implement"}:
+        raise ValueError("mode must be verify or implement")
+    if not authorization_ok:
+        return "blocked"
+    if not validation_ok:
+        return "failed"
+    if no_changes:
+        return "no-changes"
+    if mode == "verify":
+        return "verified"
+    if publish_ok and pr_url:
+        return "draft-pr-created"
+    return "failed"
 
 
 def load_execution_input(path: Path) -> dict[str, Any]:
@@ -67,9 +95,30 @@ def validate_result(path: Path) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("inspect-input", "validate-result"))
-    parser.add_argument("path", type=Path)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    for command in ("inspect-input", "validate-result"):
+        command_parser = subparsers.add_parser(command)
+        command_parser.add_argument("path", type=Path)
+    status_parser = subparsers.add_parser("execution-status")
+    status_parser.add_argument("--mode", required=True, choices=("verify", "implement"))
+    status_parser.add_argument("--authorization-ok", action="store_true")
+    status_parser.add_argument("--validation-ok", action="store_true")
+    status_parser.add_argument("--publish-ok", action="store_true")
+    status_parser.add_argument("--pr-url")
+    status_parser.add_argument("--no-changes", action="store_true")
     args = parser.parse_args(argv)
+    if args.command == "execution-status":
+        print(
+            canonical_execution_status(
+                mode=args.mode,
+                authorization_ok=args.authorization_ok,
+                validation_ok=args.validation_ok,
+                publish_ok=args.publish_ok,
+                pr_url=args.pr_url,
+                no_changes=args.no_changes,
+            )
+        )
+        return 0
     if args.command == "validate-result":
         validate_result(args.path)
         return 0
