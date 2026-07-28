@@ -123,11 +123,11 @@ class RunCodexTests(unittest.TestCase):
         execute.assert_called_once()
         git_status.assert_called_once()
 
-    def test_noop_twice_fails_without_infinite_retry(self):
+    def test_noop_twice_returns_distinct_outcome_without_infinite_retry(self):
         status, execute, git_status = self.run_main(
             executions=((0, ""), (0, "")), changes=(False, False)
         )
-        self.assertNotEqual(0, status)
+        self.assertEqual(run_codex.NO_CHANGES_EXIT, status)
         self.assertEqual(2, execute.call_count)
         self.assertEqual(2, git_status.call_count)
 

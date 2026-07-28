@@ -123,10 +123,18 @@ jobs:
           printf '%s\n' codex_failed > "$RUNNER_TEMP/failure-category"
           npm install --global @openai/codex@0.63.0
           { printf '%s\n' 'Implement only the approved task. Do not push, create a PR, or access secrets.'; jq -r .instructions "$RUNNER_TEMP/execution-input.json"; } > "$RUNNER_TEMP/instructions.md"
+          set +e
           python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
+          codex_status=$?
+          set -e
+          if (( codex_status != 0 && codex_status != 3 )); then
+            exit "$codex_status"
+          fi
           if [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+            (( codex_status == 3 ))
             printf '%s\n' 'no_changes=true' >> "$GITHUB_OUTPUT"
           else
+            (( codex_status == 0 ))
             printf '%s\n' 'no_changes=false' >> "$GITHUB_OUTPUT"
           fi
 
