@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execution_input_json:
-        description: Canonical ai-sdlc-contract/v1 JSON (or load the artifact below)
+        description: Canonical ai-sdlc-contract/v2 JSON (or load the artifact below)
         required: false
         type: string
       execution_input_artifact:
@@ -114,7 +114,7 @@ jobs:
             "timeout_minutes": 60
           }
           EOF
-          jq -e '.contract_version == "ai-sdlc-contract/v1"' "$RUNNER_TEMP/contracts-smoke-input.json" >/dev/null
+          jq -e '.contract_version == "ai-sdlc-contract/v2"' "$RUNNER_TEMP/contracts-smoke-input.json" >/dev/null
           python -m ai_sdlc_contracts validate-input "$RUNNER_TEMP/contracts-smoke-input.json"
 
       - name: Build or load and validate execution input
