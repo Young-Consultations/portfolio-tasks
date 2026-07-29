@@ -110,7 +110,7 @@ jobs:
           auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json')
           curl --fail --silent --show-error "${auth[@]}" "$API_ROOT/repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER" > "$RUNNER_TEMP/source-issue.json"
           jq -e '.state == "open" and (has("pull_request") | not)' "$RUNNER_TEMP/source-issue.json" >/dev/null
-          jq -e '[.labels[].name] | index("executor:codex") != null and index("status:approved") != null and index("sensitive") == null' "$RUNNER_TEMP/source-issue.json" >/dev/null
+          jq -e '[.labels[].name] | index("executor:codex") != null and (index("status:approved") != null or index("status:queued") != null) and index("sensitive") == null' "$RUNNER_TEMP/source-issue.json" >/dev/null
 
       - name: Install and execute Codex
         if: steps.input.outputs.execution_mode == 'implement'

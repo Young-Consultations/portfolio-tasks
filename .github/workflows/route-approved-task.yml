@@ -13,7 +13,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  invalidate-edited-approval:
+    if: github.event.action == 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require renewed approval after issue edits
+        env:
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail; set +x
+          approved="$(gh api \
+            "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels" \
+            --jq 'any(.[]; .name == "status:approved")')"
+          if [[ "$approved" == true ]]; then
+            gh api --method DELETE \
+              "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels/status%3Aapproved" \
+              --silent
+          fi
+
   prepare:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     outputs:
       route: ${{ steps.gate.outputs.route }}
