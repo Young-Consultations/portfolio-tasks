@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: read
 
 concurrency:
   group: route-approved-${{ github.event.issue.number }}
