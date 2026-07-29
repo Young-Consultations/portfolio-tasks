@@ -152,6 +152,15 @@ def test_approved_task_router_uses_shared_workflow_contract() -> None:
     assert "router_token:" not in route_job
 
 
+def test_approved_task_router_uses_canonical_contract_cli_commands() -> None:
+    text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
+    contract_step = text[text.index("- name: Build and validate canonical task contract") :]
+
+    assert "python -m ai_sdlc_contracts build-task-contract" in contract_step
+    assert "python -m ai_sdlc_contracts validate-task " in contract_step
+    assert "python -m ai_sdlc_contracts validate-task-contract" not in contract_step
+
+
 def test_issue_edits_invalidate_approval_without_routing() -> None:
     text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
 
