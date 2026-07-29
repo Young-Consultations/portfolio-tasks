@@ -163,7 +163,13 @@ jobs:
           BRANCH: ${{ steps.input.outputs.branch }}
           ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
         run: |
-          scripts/publish-draft-pr
+          set -euo pipefail; set +x
+          export PATH=/usr/bin:/bin
+          trusted_publish="$RUNNER_TEMP/publish-draft-pr"
+          GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git show \
+            "$GITHUB_SHA:scripts/publish-draft-pr" > "$trusted_publish"
+          chmod 500 "$trusted_publish"
+          /usr/bin/bash "$trusted_publish"
 
       - name: Emit canonical execution result
         if: always() && steps.input.outcome == 'success'

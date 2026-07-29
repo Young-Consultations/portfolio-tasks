@@ -111,6 +111,19 @@ def test_no_change_implementation_fails_after_result_upload() -> None:
     assert "exit 1" in text[fail:]
 
 
+def test_publication_uses_helper_from_trusted_commit() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    publication = text[text.index("- name: Create task branch and draft PR") :]
+    publication = publication.split("- name: Emit canonical execution result", 1)[0]
+
+    assert "export PATH=/usr/bin:/bin" in publication
+    assert 'GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git show \\' in publication
+    assert '"$GITHUB_SHA:scripts/publish-draft-pr"' in publication
+    assert '"$RUNNER_TEMP/publish-draft-pr"' in publication
+    assert '/usr/bin/bash "$trusted_publish"' in publication
+    assert "scripts/publish-draft-pr\n" not in publication
+
+
 def test_workflow_validation_avoids_unquoted_command_substitution() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     validation = text[text.index("- name: Validate target repository") :]
