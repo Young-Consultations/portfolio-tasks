@@ -132,6 +132,7 @@ jobs:
           fi
           if [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
             (( codex_status == 3 ))
+            printf '%s\n' codex_no_changes > "$RUNNER_TEMP/failure-category"
             printf '%s\n' 'no_changes=true' >> "$GITHUB_OUTPUT"
           else
             (( codex_status == 0 ))
@@ -139,6 +140,7 @@ jobs:
           fi
 
       - name: Validate target repository
+        if: steps.input.outputs.execution_mode == 'verify' || (steps.codex.outcome == 'success' && steps.codex.outputs.no_changes == 'false')
         id: validation
         run: |
           set -euo pipefail
@@ -200,7 +202,7 @@ jobs:
           fi
           validation=$(cat "$RUNNER_TEMP/validation-result")
           tests=$(cat "$RUNNER_TEMP/test-result")
-          [[ "$MODE" == verify ]] || branch=$(jq -Rn --arg v '${{ steps.input.outputs.branch }}' '$v')
+          [[ "$MODE" == verify || "$NO_CHANGES" == true ]] || branch=$(jq -Rn --arg v '${{ steps.input.outputs.branch }}' '$v')
           [[ -z "$PR_URL" ]] || pr=$(jq -Rn --arg v "$PR_URL" '$v')
           jq -n --arg version "$(jq -r .contract_version "$RUNNER_TEMP/execution-input.json")" \
             --arg correlation '${{ steps.input.outputs.correlation }}' --arg status "$status" \
@@ -219,3 +221,9 @@ jobs:
           path: ${{ runner.temp }}/execution-result.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Fail no-change implementation
+        if: always() && steps.codex.outputs.no_changes == 'true'
+        run: |
+          echo '::error title=Codex produced no changes::Implementation failed after one retry.'
+          exit 1

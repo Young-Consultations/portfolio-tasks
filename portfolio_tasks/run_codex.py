@@ -38,11 +38,13 @@ Run any requested validation.
 
 Before finishing, ensure:
 
-git status --porcelain
+git status --porcelain=v1 --untracked-files=all
 
 shows modified or newly created files.
 
-If implementation is genuinely impossible, exit with a non-zero status and explain the blocking reason.
+If implementation is genuinely impossible, stop with a non-zero exit code and explain the blocking reason.
+
+Do not describe hypothetical or intended changes as completed work.
 
 --------------------------------------------------
 """
@@ -118,6 +120,30 @@ def repository_has_changes(env: Mapping[str, str]) -> bool:
             result.returncode, result.args, output=result.stdout, stderr=result.stderr
         )
     return bool(result.stdout)
+
+
+def print_repository_diagnostics(env: Mapping[str, str]) -> None:
+    """Print objective, non-payload Git diagnostics for a no-change outcome."""
+    commands = (
+        ("git", "status", "--porcelain=v1", "--untracked-files=all"),
+        ("git", "diff", "--stat"),
+        ("git", "diff", "--name-only"),
+        ("git", "diff", "--cached", "--name-only"),
+    )
+    for command in commands:
+        print(f"$ {' '.join(command)}", flush=True)
+        result = subprocess.run(
+            command, check=False, capture_output=True, env=dict(env), shell=False
+        )
+        output = sanitize((result.stdout + result.stderr).decode(
+            "utf-8", errors="replace"
+        ))
+        if output:
+            print(output, end="" if output.endswith("\n") else "\n", flush=True)
+        if result.returncode:
+            raise subprocess.CalledProcessError(
+                result.returncode, result.args, output=result.stdout, stderr=result.stderr
+            )
 
 
 def _stream(
@@ -318,7 +344,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         LOGGER.error("::error title=Git status failed::%s", sanitize(str(error)))
         return getattr(error, "returncode", 1)
 
-    LOGGER.info("::notice::Retry produced no repository changes.")
+    LOGGER.error("::error title=Codex produced no changes::Retry produced no "
+                 "repository changes.")
+    try:
+        print_repository_diagnostics(env)
+    except (OSError, subprocess.CalledProcessError) as error:
+        LOGGER.error("::error title=Git diagnostics failed::%s", sanitize(str(error)))
     return NO_CHANGES_EXIT
 
 

@@ -124,12 +124,37 @@ class RunCodexTests(unittest.TestCase):
         git_status.assert_called_once()
 
     def test_noop_twice_returns_distinct_outcome_without_infinite_retry(self):
-        status, execute, git_status = self.run_main(
-            executions=((0, ""), (0, "")), changes=(False, False)
-        )
+        with mock.patch.object(run_codex, "print_repository_diagnostics") as diagnostics:
+            status, execute, git_status = self.run_main(
+                executions=((0, "implemented"), (0, "implemented")),
+                changes=(False, False),
+            )
         self.assertEqual(run_codex.NO_CHANGES_EXIT, status)
         self.assertEqual(2, execute.call_count)
         self.assertEqual(2, git_status.call_count)
+        diagnostics.assert_called_once()
+
+    def test_no_change_diagnostics_use_objective_git_commands(self):
+        completed = subprocess.CompletedProcess([], 0, stdout=b"", stderr=b"")
+        with mock.patch.object(subprocess, "run", return_value=completed) as run:
+            run_codex.print_repository_diagnostics(self.env)
+
+        self.assertEqual(
+            [
+                ("git", "status", "--porcelain=v1", "--untracked-files=all"),
+                ("git", "diff", "--stat"),
+                ("git", "diff", "--name-only"),
+                ("git", "diff", "--cached", "--name-only"),
+            ],
+            [call.args[0] for call in run.call_args_list],
+        )
+
+    def test_retry_prompt_requires_changes_and_honest_failure(self):
+        instruction = run_codex.RETRY_INSTRUCTION.decode()
+        self.assertIn("editing the repository", instruction)
+        self.assertIn("git status --porcelain=v1 --untracked-files=all", instruction)
+        self.assertIn("non-zero exit code", instruction)
+        self.assertIn("hypothetical or intended changes", instruction)
 
     def test_nonzero_codex_exit_is_not_retried(self):
         status, execute, git_status = self.run_main(executions=((23, "bad"),))
