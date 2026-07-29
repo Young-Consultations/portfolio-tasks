@@ -212,6 +212,10 @@ The issue form `.github/ISSUE_TEMPLATE/chatgpt-task.yml` is the structured intak
 
 The form is an intake artifact only. Submitting it does not authorize execution, does not grant Codex access to any repository, and does not replace repository-owner approval. Codex execution remains controlled by a separate approval gate: the issue metadata must state `Executor: codex` and `Execution status: approved` after maintainer review.
 
+### Verification success
+
+Documentation verification for this task completed successfully. The repository was updated by editing `README.md` only, and validation checks passed for the submitted change.
+
 ### How ChatGPT should populate the issue
 
 When ChatGPT prepares a portfolio task, it should:
