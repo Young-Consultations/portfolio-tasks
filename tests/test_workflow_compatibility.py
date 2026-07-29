@@ -135,6 +135,23 @@ def test_execution_authorization_accepts_router_queued_status() -> None:
     assert 'index("status:approved") != null or index("status:queued") != null' in authorization
 
 
+def test_approved_task_router_uses_shared_workflow_contract() -> None:
+    text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
+    route_job = text[text.index("  route:\n") : text.index("\n  mark-queued:\n")]
+
+    assert "needs: prepare" in route_job
+    assert "if: needs.prepare.outputs.route == 'true'" in route_job
+    assert (
+        "uses: Young-Consultations/.github/.github/workflows/codex-router.yml@main"
+        in route_job
+    )
+    assert "task_payload: ${{ needs.prepare.outputs.task_contract_json }}" in route_job
+    assert "execution_mode: implement" in route_job
+    assert "CODEX_ROUTER_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}" in route_job
+    assert "task_contract_json:" not in route_job
+    assert "router_token:" not in route_job
+
+
 def test_issue_edits_invalidate_approval_without_routing() -> None:
     text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
 

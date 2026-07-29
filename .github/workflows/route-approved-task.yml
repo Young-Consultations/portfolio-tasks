@@ -96,10 +96,10 @@ jobs:
     if: needs.prepare.outputs.route == 'true'
     uses: Young-Consultations/.github/.github/workflows/codex-router.yml@main
     with:
-      task_contract_json: ${{ needs.prepare.outputs.task_contract_json }}
+      task_payload: ${{ needs.prepare.outputs.task_contract_json }}
       execution_mode: implement
     secrets:
-      router_token: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+      CODEX_ROUTER_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
 
   mark-queued:
     needs: [prepare, route]
