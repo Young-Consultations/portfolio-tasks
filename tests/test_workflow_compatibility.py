@@ -93,6 +93,24 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     assert 'target_repository:"Young-Consultations/portfolio-tasks"' in text
 
 
+def test_no_change_implementation_fails_after_result_upload() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    validation = text[text.index("- name: Validate target repository") :]
+    publication = text[text.index("- name: Create task branch and draft PR") :]
+    emit = text.index("- name: Emit canonical execution result")
+    upload = text.index("- name: Upload canonical execution result")
+    fail = text.index("- name: Fail no-change implementation")
+
+    assert "steps.codex.outputs.no_changes == 'false'" in validation.split("id: validation", 1)[0]
+    assert "steps.codex.outputs.no_changes != 'true'" in publication.split("id: publish", 1)[0]
+    assert "codex_no_changes" in text
+    assert '[[ "$MODE" == verify || "$NO_CHANGES" == true ]]' in text
+    assert emit < upload < fail
+    assert "if: always()" in text[upload:fail]
+    assert "steps.codex.outputs.no_changes == 'true'" in text[fail:]
+    assert "exit 1" in text[fail:]
+
+
 def test_workflow_validation_avoids_unquoted_command_substitution() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     validation = text[text.index("- name: Validate target repository") :]
