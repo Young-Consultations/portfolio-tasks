@@ -164,18 +164,12 @@ jobs:
           ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
         run: |
           set -euo pipefail; set +x
-          printf '%s\n' publication_failed > "$RUNNER_TEMP/failure-category"
-          existing=$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$API_ROOT/repos/$REPOSITORY/pulls?state=all&head=Young-Consultations:$BRANCH")
-          [[ $(jq length <<< "$existing") -eq 0 ]]
-          git switch -c "$BRANCH"
-          git config user.name 'portfolio-codex[bot]'
-          git config user.email 'portfolio-codex[bot]@users.noreply.github.com'
-          git add --all && git commit -m "Implement approved portfolio task #$ISSUE_NUMBER"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
-          request=$(jq -n --arg title "Codex: implement portfolio task #$ISSUE_NUMBER" --arg head "$BRANCH" '{title:$title,head:$head,base:"main",body:"Automated implementation.",draft:true}')
-          response=$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -X POST "$API_ROOT/repos/$REPOSITORY/pulls" -d "$request")
-          jq -e '.draft == true' <<< "$response" >/dev/null
-          echo "url=$(jq -r .html_url <<< "$response")" >> "$GITHUB_OUTPUT"
+          export PATH=/usr/bin:/bin
+          trusted_publish="$RUNNER_TEMP/publish-draft-pr"
+          GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git show \
+            "$GITHUB_SHA:scripts/publish-draft-pr" > "$trusted_publish"
+          chmod 500 "$trusted_publish"
+          /usr/bin/bash "$trusted_publish"
 
       - name: Emit canonical execution result
         if: always() && steps.input.outcome == 'success'
