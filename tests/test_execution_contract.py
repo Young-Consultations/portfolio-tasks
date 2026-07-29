@@ -165,7 +165,8 @@ def test_workflow_is_a_thin_secure_execution_target() -> None:
     assert "load_contract_version() == 'ai-sdlc-contract/v2'" in text
     assert "python -m portfolio_tasks.execution inspect-input" in text
     assert "steps.input.outputs.execution_mode == 'implement'" in text
-    assert "draft:true" in text
+    publication = Path("scripts/publish-draft-pr").read_text(encoding="utf-8")
+    assert "draft:true" in publication
     assert "persist-credentials: false" in text
     assert "pull_request_target:" not in text
     assert "schemas/" not in text
