@@ -22,6 +22,30 @@ def test_create_skip_and_disable_actions() -> None:
     assert SyncPlanner.plan(issue(labels=()), issue(number=9), True).action is SyncAction.DISABLE_SYNC
 
 
+def test_slugger_target_is_synchronized() -> None:
+    assert SyncPlanner.plan(issue(), None).action is SyncAction.CREATE
+
+
+def test_non_slugger_targets_are_skipped() -> None:
+    for repository in (
+        "Young-Consultations/portfolio-tasks",
+        "Young-Consultations/consulting-playbook",
+    ):
+        source = issue(body=SLUGGER_ISSUE_BODY.replace("Young-Consultations/slugger", repository))
+        assert SyncPlanner.plan(source, None).action is SyncAction.SKIPPED_TARGET_REPOSITORY
+
+
+def test_missing_target_is_skipped_safely() -> None:
+    assert SyncPlanner.plan(issue(body="No structured target"), None).action is (
+        SyncAction.SKIPPED_TARGET_REPOSITORY
+    )
+
+
+def test_malformed_target_is_skipped_safely() -> None:
+    source = issue(body=SLUGGER_ISSUE_BODY.replace("Young-Consultations/slugger", "bad target"))
+    assert SyncPlanner.plan(source, None).action is SyncAction.SKIPPED_TARGET_REPOSITORY
+
+
 def test_close_reopen_and_noop() -> None:
     source = issue()
     desired = SyncPlanner.desired(source, None)

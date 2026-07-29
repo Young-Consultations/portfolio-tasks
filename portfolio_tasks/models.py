@@ -15,6 +15,7 @@ class SyncAction(str, Enum):
     REOPEN = "reopen"
     DISABLE_SYNC = "disable-sync"
     SKIPPED = "skipped"
+    SKIPPED_TARGET_REPOSITORY = "skipped-target-repository"
 
 
 @dataclass(frozen=True)
