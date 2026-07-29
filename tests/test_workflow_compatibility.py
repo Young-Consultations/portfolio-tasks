@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 WORKFLOW = Path(".github/workflows/codex-execute.yml")
+ROUTING_WORKFLOW = Path(".github/workflows/route-approved-task.yml")
 WORKFLOWS = tuple(Path(".github/workflows").glob("*.y*ml"))
 CANONICAL_INPUTS = {
     "execution_input_json",
@@ -49,6 +50,11 @@ def test_every_third_party_action_is_pinned_to_a_commit() -> None:
                 continue
             reference = match.group(1)
             if reference.startswith("./"):
+                continue
+            if reference == (
+                "Young-Consultations/.github/.github/workflows/codex-router.yml@main"
+            ):
+                # The central router is deliberately consumed from its policy branch.
                 continue
             if not re.fullmatch(r"[^@]+@[0-9a-fA-F]{40}", reference):
                 unpinned.append(f"{workflow}: {reference}")
@@ -120,3 +126,19 @@ def test_actionlint_is_independent_of_runner_shellcheck() -> None:
 
     assert invocations
     assert all(invocation.endswith(" -shellcheck=") for invocation in invocations)
+
+
+def test_execution_authorization_accepts_router_queued_status() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    authorization = text[text.index("- name: Verify router authorization") :]
+
+    assert 'index("status:approved") != null or index("status:queued") != null' in authorization
+
+
+def test_issue_edits_invalidate_approval_without_routing() -> None:
+    text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "invalidate-edited-approval:" in text
+    assert "if: github.event.action == 'edited'" in text
+    assert "labels/status%3Aapproved" in text
+    assert "prepare:\n    if: github.event.action != 'edited'" in text
