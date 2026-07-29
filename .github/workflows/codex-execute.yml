@@ -122,7 +122,24 @@ jobs:
           set -euo pipefail; set +x
           printf '%s\n' codex_failed > "$RUNNER_TEMP/failure-category"
           npm install --global @openai/codex@0.63.0
-          { printf '%s\n' 'Implement only the approved task. Do not push, create a PR, or access secrets.'; jq -r .instructions "$RUNNER_TEMP/execution-input.json"; } > "$RUNNER_TEMP/instructions.md"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from portfolio_tasks.prompts import render_execution_prompt
+
+          runner_temp = Path(os.environ["RUNNER_TEMP"])
+          execution_input = json.loads(
+              (runner_temp / "execution-input.json").read_text(encoding="utf-8")
+          )
+          prompt = render_execution_prompt(
+              task_instructions=execution_input["instructions"],
+              repository_context="",
+              validation_commands=[],
+          )
+          (runner_temp / "instructions.md").write_text(prompt, encoding="utf-8")
+          PY
           set +e
           python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
           codex_status=$?

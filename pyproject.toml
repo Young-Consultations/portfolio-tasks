@@ -11,8 +11,11 @@ requires-python = ">=3.12"
 dev = ["mypy>=1.10", "pytest>=8", "ruff>=0.5", "PyYAML>=6"]
 
 [tool.setuptools]
-packages = ["portfolio_tasks"]
-include-package-data = false
+packages = ["portfolio_tasks", "portfolio_tasks.prompts"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"portfolio_tasks.prompts" = ["execution.md"]
 
 [tool.ruff]
 line-length = 100
