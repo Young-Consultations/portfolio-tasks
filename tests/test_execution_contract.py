@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from portfolio_tasks.execution import load_execution_input, validate_result, workflow_outputs
+from portfolio_tasks.execution import (
+    CANONICAL_EXECUTION_STATUSES,
+    canonical_execution_status,
+    load_execution_input,
+    validate_result,
+    workflow_outputs,
+)
 
 RESULT_FIELDS = {
     "contract_version",
@@ -52,7 +58,7 @@ if sys.argv[1] == 'validate-input':
     valid = valid and value.get('execution_mode') in {{'verify', 'implement'}}
 elif sys.argv[1] == 'validate-result':
     valid = valid and set(value) == {RESULT_FIELDS!r}
-    valid = valid and value.get('execution_status') in {{'succeeded', 'failed'}}
+    valid = valid and value.get('execution_status') in {{'verified', 'draft-pr-created', 'no-changes', 'blocked', 'failed'}}
 else:
     valid = False
 raise SystemExit(0 if valid else 1)
@@ -70,21 +76,21 @@ def test_valid_execution_modes(tmp_path: Path, shared_contracts: None, mode: str
     assert workflow_outputs(value)["execution_mode"] == mode
 
 
-def result_payload(*, succeeded: bool = True) -> dict[str, object]:
+def result_payload(*, status: str = "verified") -> dict[str, object]:
     """Return the exact result used by the end-to-end router smoke scenario."""
     return {
         "contract_version": "ai-sdlc-contract/v2",
         "correlation_id": "router-smoke-42",
-        "execution_status": "succeeded" if succeeded else "failed",
+        "execution_status": status,
         "target_repository": "Young-Consultations/portfolio-tasks",
         "branch_name": None,
         "pull_request_url": None,
         "workflow_url": (
             "https://github.com/Young-Consultations/portfolio-tasks/actions/runs/123456"
         ),
-        "validation_result": "passed" if succeeded else "failed",
-        "test_result": "passed" if succeeded else "not_run",
-        "failure_category": None if succeeded else "validation_failed",
+        "validation_result": "failed" if status == "failed" else "passed",
+        "test_result": "not_run" if status in {"failed", "blocked"} else "passed",
+        "failure_category": "validation_failed" if status == "failed" else None,
         "failure_message": None,
         "started_at": "2026-07-28T12:00:00Z",
         "completed_at": "2026-07-28T12:01:00Z",
@@ -106,11 +112,11 @@ def test_successful_verify_smoke_result_is_canonical(
     assert "execution_mode" not in result
     assert result["branch_name"] is None
     assert result["pull_request_url"] is None
-    assert result["execution_status"] == "succeeded"
+    assert result["execution_status"] == "verified"
 
 
 def test_failure_result_remains_canonical(tmp_path: Path, shared_contracts: None) -> None:
-    validate_result(write_result(tmp_path, result_payload(succeeded=False)))
+    validate_result(write_result(tmp_path, result_payload(status="failed")))
 
 
 @pytest.mark.parametrize("mode", ["verify", "implement"])
@@ -172,8 +178,8 @@ def test_workflow_validates_codex_changes_and_reports_real_outcomes() -> None:
     publication = text.index("- name: Create task branch and draft PR")
 
     assert codex < validation < publication
-    assert '"$AUTHORIZATION_OUTCOME" == success' in text
-    assert '"$VALIDATION_OUTCOME" == success' in text
+    assert '"$AUTHORIZATION_OUTCOME" != success' in text
+    assert '"$VALIDATION_OUTCOME" != success' in text
     assert "validation_result:$validation,test_result:$tests" in text
     assert 'validation_result:"passed",test_result:"passed"' not in text
 
@@ -183,3 +189,74 @@ def test_repository_has_no_local_contract_or_schema_copy() -> None:
     assert not any(Path("schemas").glob("**/*"))
     assert not any(Path("scripts").glob("*contract*"))
     assert not Path(".github/workflows/portfolio-dispatch-contract.yml").exists()
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected"),
+    [
+        ({"mode": "verify", "authorization_ok": True, "validation_ok": True}, "verified"),
+        (
+            {
+                "mode": "implement",
+                "authorization_ok": True,
+                "validation_ok": True,
+                "publish_ok": True,
+                "pr_url": "https://github.com/Young-Consultations/portfolio-tasks/pull/43",
+            },
+            "draft-pr-created",
+        ),
+        (
+            {
+                "mode": "implement",
+                "authorization_ok": True,
+                "validation_ok": True,
+                "no_changes": True,
+            },
+            "no-changes",
+        ),
+        ({"mode": "verify", "authorization_ok": True, "validation_ok": False}, "failed"),
+        ({"mode": "verify", "authorization_ok": False}, "blocked"),
+    ],
+)
+def test_outcomes_map_to_canonical_statuses(arguments: dict[str, object], expected: str) -> None:
+    defaults: dict[str, object] = {
+        "validation_ok": False,
+        "publish_ok": False,
+        "pr_url": None,
+        "no_changes": False,
+    }
+    status = canonical_execution_status(**(defaults | arguments))  # type: ignore[arg-type]
+    assert status == expected
+    assert status in CANONICAL_EXECUTION_STATUSES
+
+
+@pytest.mark.parametrize("status", sorted(CANONICAL_EXECUTION_STATUSES))
+def test_every_emitted_status_validates(
+    tmp_path: Path, shared_contracts: None, status: str
+) -> None:
+    validate_result(write_result(tmp_path, result_payload(status=status)))
+
+
+def test_unknown_status_fails_validation(tmp_path: Path, shared_contracts: None) -> None:
+    with pytest.raises(subprocess.CalledProcessError):
+        validate_result(write_result(tmp_path, result_payload(status="unknown")))
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "expected_status"),
+    [("verify-result.json", "verified"), ("implement-result.json", "draft-pr-created")],
+)
+def test_exact_result_fixture_validates(
+    shared_contracts: None, fixture_name: str, expected_status: str
+) -> None:
+    fixture = Path("tests/fixtures") / fixture_name
+    validate_result(fixture)
+    assert json.loads(fixture.read_text(encoding="utf-8"))["execution_status"] == expected_status
+
+
+def test_active_result_generation_does_not_use_legacy_status() -> None:
+    workflow = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
+    execution = Path("portfolio_tasks/execution.py").read_text(encoding="utf-8")
+    legacy = "succeed" + "ed"
+    assert legacy not in workflow
+    assert legacy not in execution

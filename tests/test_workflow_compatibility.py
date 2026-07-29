@@ -78,9 +78,12 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     assert text.count(implement_guard) == 2
     assert text.index(implement_guard) < text.index("python -m portfolio_tasks.run_codex")
     assert text.index(implement_guard, text.index("Create task branch"))
-    assert '[[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]' in text
+    assert "codex_status=$?" in text
+    assert "codex_status != 0 && codex_status != 3" in text
+    assert "(( codex_status == 3 ))" in text
+    assert '[[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]' in text
     assert "if: always() && steps.input.outcome == 'success'" in text
-    assert '[[ "$MODE" == verify || "$PUBLISH_OUTCOME" == success ]]' in text
+    assert "python -m portfolio_tasks.execution execution-status" in text
     assert 'target_repository:"Young-Consultations/portfolio-tasks"' in text
 
 

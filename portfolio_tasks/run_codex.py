@@ -18,6 +18,7 @@ from typing import BinaryIO, TextIO, cast
 
 EX_CONFIG = 78
 EX_USAGE = 64
+NO_CHANGES_EXIT = 3
 TIMEOUT_EXIT = 124
 DEFAULT_TIMEOUT = 2400.0
 LOGGER = logging.getLogger("run-codex")
@@ -318,8 +319,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return getattr(error, "returncode", 1)
 
     LOGGER.info("::notice::Retry produced no repository changes.")
-    LOGGER.error("::error::Codex completed twice without modifying the repository.")
-    return 1
+    return NO_CHANGES_EXIT
 
 
 if __name__ == "__main__":
