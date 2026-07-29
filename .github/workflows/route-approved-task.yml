@@ -84,7 +84,7 @@ jobs:
             --issue-json "$RUNNER_TEMP/source-issue.json" \
             --execution-mode implement \
             --output "$RUNNER_TEMP/task-contract.json"
-          python -m ai_sdlc_contracts validate-task-contract "$RUNNER_TEMP/task-contract.json"
+          python -m ai_sdlc_contracts validate-task "$RUNNER_TEMP/task-contract.json"
           delimiter="contract_$(openssl rand -hex 16)"
           {
             printf 'task_contract_json<<%s\n' "$delimiter"
