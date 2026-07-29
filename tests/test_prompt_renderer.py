@@ -84,6 +84,61 @@ def test_rendering_is_deterministic() -> None:
     )
 
 
+def test_rendered_prompt_contains_required_sections() -> None:
+    result = renderer.render_execution_prompt(
+        task_instructions="Canonical task instructions.",
+        repository_context="Repository details.",
+        validation_commands=["ruff check .", "pytest"],
+    )
+
+    required_sections = [
+        "# Execution Contract",
+        "## Repository Context",
+        "## Task",
+        "## Implementation Requirements",
+        "## Validation",
+        "## Final Acceptance-Criteria Review",
+        "## Completion Report",
+    ]
+    for section in required_sections:
+        assert section in result
+
+
+def test_rendered_prompt_contains_execution_requirements() -> None:
+    task_instructions = "Canonical task instructions."
+
+    result = renderer.render_execution_prompt(
+        task_instructions=task_instructions,
+        repository_context="Repository details.",
+        validation_commands=["pytest"],
+    )
+
+    required_language = [
+        "Restate the objective",
+        "Identify the root problem",
+        "Extract every acceptance criterion",
+        "Map every acceptance criterion",
+        "Identify the files expected to change",
+        "smallest coherent set of changes",
+        "Preserve repository architecture",
+        "Add or update tests",
+        "Run the following validation commands",
+        "review every extracted acceptance criterion",
+        "broad refactoring",
+        "unrelated cleanup",
+        "symptoms",
+        "Do not skip any acceptance criterion",
+        "**Objective:**",
+        "**Files changed:**",
+        "**Tests:**",
+        "**Acceptance criteria satisfied:**",
+        "**Unresolved items:**",
+    ]
+    for requirement in required_language:
+        assert requirement in result
+    assert result.count(task_instructions) == 1
+
+
 def test_template_loading_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     class MissingTemplate:
         def joinpath(self, filename: str) -> Path:
