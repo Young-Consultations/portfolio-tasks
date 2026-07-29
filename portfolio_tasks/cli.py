@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import logging
 import os
@@ -118,6 +119,21 @@ def dispatch(args: argparse.Namespace) -> int:
 def route_check(args: argparse.Namespace) -> int:
     """Emit only non-sensitive routing outputs for a GitHub issue event."""
     event = json.loads(args.event_json.read_text(encoding="utf-8"))
+    delivery = os.getenv("GITHUB_DELIVERY", "")
+    if delivery:
+        dedupe_file = Path(os.getenv("RUNNER_TEMP", ".")) / "route-approved-deliveries.txt"
+        dedupe_file.parent.mkdir(parents=True, exist_ok=True)
+        with dedupe_file.open("a+", encoding="utf-8") as stream:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+            stream.seek(0)
+            seen = {line.strip() for line in stream if line.strip()}
+            if delivery in seen:
+                print("route=false")
+                print("reason=duplicate-delivery")
+                print(f"issue_number={event.get('issue', {}).get('number', 0)}")
+                return 0
+            stream.write(f"{delivery}\n")
+            stream.flush()
     issue = Issue.from_json(event.get("issue", {}))
     decision = route_decision(issue)
     print(f"route={str(decision.route).lower()}")
