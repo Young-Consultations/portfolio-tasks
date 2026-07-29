@@ -1,5 +1,5 @@
 SLUGGER_ISSUE_BODY = """B
 
-## Target repository
+### Target repository
 
 Young-Consultations/slugger"""

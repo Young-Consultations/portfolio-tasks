@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .github_api import GitHubApi
+from .issue_parser import IssueFormParser, TargetRepositoryParser
 from .models import Issue, SyncAction
 
 SOURCE_REPO = "Young-Consultations/portfolio-tasks"
@@ -38,6 +39,12 @@ class SyncPlan:
 
 class SyncPlanner:
     @staticmethod
+    def targets_slugger(source: Issue) -> bool:
+        """Return whether the structured target is exactly the Slugger repository."""
+        value = IssueFormParser(source.body).value("Target repository")
+        return value == TARGET_REPO and TargetRepositoryParser.parse(value) == TARGET_REPO
+
+    @staticmethod
     def body(source: Issue, managed: str = "Yes") -> str:
         body = re.sub(r"<!-- portfolio-task-source: [^>]*-->",
                       "[removed portfolio-task-source marker]", source.body)
@@ -57,6 +64,8 @@ class SyncPlanner:
 
     @classmethod
     def plan(cls, source: Issue, target: Issue | None, label_removed: bool = False) -> SyncPlan:
+        if not cls.targets_slugger(source):
+            return SyncPlan(SyncAction.SKIPPED_TARGET_REPOSITORY, None, target)
         if label_removed:
             if target is None:
                 return SyncPlan(SyncAction.NO_OP, None, None)

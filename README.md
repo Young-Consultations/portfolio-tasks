@@ -107,13 +107,15 @@ The workflow `.github/workflows/sync-slugger-issues.yml` synchronizes qualifying
 
 ### Eligibility
 
-A source item qualifies only when it is a GitHub issue, not a pull request, and currently has the `chatgpt-task` label. The equivalent GitHub search expression is:
+A source item qualifies only when it is a GitHub issue, not a pull request, currently has the `chatgpt-task` label, and its structured **Target repository** field has the exact value `Young-Consultations/slugger`. The equivalent GitHub search expression for the issue and label portion is:
 
 ```text
 is:issue label:chatgpt-task
 ```
 
 `is:issue` is a GitHub search qualifier, not a label to create.
+
+Issues that omit **Target repository**, contain a malformed value, or name any other repository (including `Young-Consultations/portfolio-tasks` or `Young-Consultations/consulting-playbook`) are skipped before the workflow searches or writes Slugger issues. The job summary reports the action as `skipped-target-repository`.
 
 ### Mapping and idempotency
 
@@ -145,7 +147,7 @@ Source assignees are included in create or update payloads. If GitHub rejects an
 
 ### Dry-run mode
 
-Manual runs default to `dry_run=true`. A dry run reads the source issue, validates `is:issue label:chatgpt-task`, searches Slugger for the metadata marker, determines the planned action (`create`, `update`, `close`, `reopen`, `disable-sync`, `no-op`, or `skipped`), writes a safe job summary, and performs no writes.
+Manual runs default to `dry_run=true`. A dry run reads the source issue, checks the structured target and `is:issue label:chatgpt-task` eligibility, searches Slugger for the metadata marker only for Slugger-targeted issues, determines the planned action (`create`, `update`, `close`, `reopen`, `disable-sync`, `no-op`, `skipped`, or `skipped-target-repository`), writes a safe job summary, and performs no writes.
 
 To perform a manual dry run:
 
