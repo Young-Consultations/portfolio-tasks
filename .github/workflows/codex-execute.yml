@@ -195,7 +195,9 @@ jobs:
           [[ -z "$PR_URL" ]] || status_args+=(--pr-url "$PR_URL")
           [[ "$NO_CHANGES" != true ]] || status_args+=(--no-changes)
           status=$(python -m portfolio_tasks.execution execution-status "${status_args[@]}")
-          if [[ "$status" != failed && "$status" != blocked ]]; then category=null; fi
+          if [[ "$status" != failed && "$status" != blocked ]]; then
+            category=$(jq -Rn --arg v "none" '$v')
+          fi
           validation=$(cat "$RUNNER_TEMP/validation-result")
           tests=$(cat "$RUNNER_TEMP/test-result")
           [[ "$MODE" == verify ]] || branch=$(jq -Rn --arg v '${{ steps.input.outputs.branch }}' '$v')
