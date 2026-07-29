@@ -27,8 +27,20 @@ def test_non_approved_task_is_skipped() -> None:
     assert not route_decision(task(target="Young-Consultations/portfolio-tasks", labels=APPROVED[:-1])).route
 
 
+def test_non_approval_status_label_is_skipped() -> None:
+    labels = ("chatgpt-task", "executor:codex", "status:running")
+    assert not route_decision(task(target="Young-Consultations/portfolio-tasks", labels=labels)).route
+
+
 def test_duplicate_queued_task_is_skipped() -> None:
     assert not route_decision(task(target="Young-Consultations/portfolio-tasks", labels=APPROVED + ("status:queued",))).route
+
+
+def test_approval_routes_once_with_duplicate_label_entries() -> None:
+    duplicated = APPROVED + ("status:approved",)
+    decision = route_decision(task(target="Young-Consultations/portfolio-tasks", labels=duplicated))
+    assert decision.route
+    assert decision.reason == "approved"
 
 
 def test_sensitive_task_is_skipped() -> None:
