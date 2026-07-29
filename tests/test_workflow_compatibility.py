@@ -50,6 +50,11 @@ def test_every_third_party_action_is_pinned_to_a_commit() -> None:
             reference = match.group(1)
             if reference.startswith("./"):
                 continue
+            if reference == (
+                "Young-Consultations/.github/.github/workflows/codex-router.yml@main"
+            ):
+                # The central router is deliberately consumed from its policy branch.
+                continue
             if not re.fullmatch(r"[^@]+@[0-9a-fA-F]{40}", reference):
                 unpinned.append(f"{workflow}: {reference}")
     assert not unpinned, "unpinned third-party actions:\n" + "\n".join(unpinned)

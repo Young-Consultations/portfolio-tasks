@@ -20,6 +20,7 @@ from .issue_sync import (
     SyncPlanner,
 )
 from .models import Issue
+from .routing import route_decision
 from .validation import validate_dispatch
 
 LOGGER = logging.getLogger("portfolio-tasks")
@@ -114,6 +115,17 @@ def dispatch(args: argparse.Namespace) -> int:
     return 0 if result.ok else 1
 
 
+def route_check(args: argparse.Namespace) -> int:
+    """Emit only non-sensitive routing outputs for a GitHub issue event."""
+    event = json.loads(args.event_json.read_text(encoding="utf-8"))
+    issue = Issue.from_json(event.get("issue", {}))
+    decision = route_decision(issue)
+    print(f"route={str(decision.route).lower()}")
+    print(f"reason={decision.reason}")
+    print(f"issue_number={issue.number}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description=__doc__)
@@ -122,8 +134,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     validate = commands.add_parser("validate-dispatch")
     validate.add_argument("issue_json", type=Path)
     validate.add_argument("--mock-open-issues", type=Path)
+    route = commands.add_parser("route-check")
+    route.add_argument("event_json", type=Path)
     args = parser.parse_args(argv)
-    return sync() if args.command == "sync" else dispatch(args)
+    if args.command == "sync":
+        return sync()
+    if args.command == "route-check":
+        return route_check(args)
+    return dispatch(args)
 
 
 if __name__ == "__main__":
