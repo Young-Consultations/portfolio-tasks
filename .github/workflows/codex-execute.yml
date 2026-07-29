@@ -157,7 +157,7 @@ jobs:
         if: steps.input.outputs.execution_mode == 'implement' && steps.codex.outputs.no_changes != 'true'
         id: publish
         env:
-          GH_TOKEN: ${{ secrets.PORTFOLIO_TASKS_TOKEN }}
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
           BRANCH: ${{ steps.input.outputs.branch }}
           ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
         run: |
