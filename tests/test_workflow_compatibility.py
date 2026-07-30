@@ -102,7 +102,7 @@ def test_no_change_implementation_fails_after_result_upload() -> None:
     fail = text.index("- name: Fail no-change implementation")
 
     assert "steps.codex.outputs.no_changes == 'false'" in validation.split("id: validation", 1)[0]
-    assert "steps.codex.outputs.no_changes != 'true'" in publication.split("id: publish", 1)[0]
+    assert "steps.codex.outcome == 'success'" in publication.split("id: publish", 1)[0]
     assert "codex_no_changes" in text
     assert '[[ "$MODE" == verify || "$NO_CHANGES" == true ]]' in text
     assert emit < upload < fail

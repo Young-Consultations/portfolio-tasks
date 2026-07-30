@@ -1,4 +1,4 @@
-"""Focused tests for idempotent draft pull-request publication."""
+"""Regression tests for repeatable task-branch and pull-request publication."""
 
 import json
 import os
@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path("scripts/publish-draft-pr").resolve()
+PUBLISH = Path("scripts/publish-draft-pr").resolve()
+PREPARE = Path("scripts/prepare-task-branch").resolve()
 PR_URL = "https://github.com/Young-Consultations/portfolio-tasks/pull/42"
 
 
@@ -16,19 +17,19 @@ def install_fakes(tmp_path: Path) -> Path:
     bin_dir.mkdir(parents=True)
     (bin_dir / "curl").write_text(
         """#!/usr/bin/env bash
-printf '%s\\n' "$*" >> "$CALL_LOG"
-if [[ " $* " == *" -X POST "* ]]; then
-  cat "$POST_RESPONSE"
-else
-  cat "$PULLS_RESPONSE"
-fi
+printf 'curl %s\\n' "$*" >> "$CALL_LOG"
+if [[ " $* " == *" -X POST "* ]]; then cat "$POST_RESPONSE"; else cat "$PULLS_RESPONSE"; fi
 """,
         encoding="utf-8",
     )
     (bin_dir / "git").write_text(
         """#!/usr/bin/env bash
 printf 'git %s\\n' "$*" >> "$CALL_LOG"
-if [[ "$1" == ls-remote ]]; then exit "${LS_REMOTE_STATUS:-2}"; fi
+case "$1 $2" in
+  "ls-remote --exit-code") exit "${LS_REMOTE_STATUS:-2}" ;;
+  "status --porcelain=v1") [[ "${HAS_CHANGES:-true}" == true ]] && printf ' M fixture\\n' ;;
+  "diff --cached") [[ "${HAS_CHANGES:-true}" == true ]] && exit 1 || exit 0 ;;
+esac
 """,
         encoding="utf-8",
     )
@@ -37,12 +38,13 @@ if [[ "$1" == ls-remote ]]; then exit "${LS_REMOTE_STATUS:-2}"; fi
     return bin_dir
 
 
-def run_publish(
+def environment(
     tmp_path: Path,
     pulls: list[dict[str, object]],
     *,
-    remote_status: int = 2,
-) -> tuple[subprocess.CompletedProcess[str], list[str], str]:
+    remote_exists: bool = False,
+    has_changes: bool = True,
+) -> tuple[dict[str, str], Path, Path]:
     bin_dir = install_fakes(tmp_path)
     call_log = tmp_path / "calls.log"
     pulls_response = tmp_path / "pulls.json"
@@ -58,74 +60,118 @@ def run_publish(
         "CALL_LOG": str(call_log),
         "PULLS_RESPONSE": str(pulls_response),
         "POST_RESPONSE": str(post_response),
-        "LS_REMOTE_STATUS": str(remote_status),
+        "LS_REMOTE_STATUS": "0" if remote_exists else "2",
+        "HAS_CHANGES": str(has_changes).lower(),
         "GH_TOKEN": "test-token",
         "API_ROOT": "https://api.github.test",
         "REPOSITORY": "Young-Consultations/portfolio-tasks",
         "BRANCH": "codex/fixture-task-42",
+        "BASE_REVISION": "base-sha",
         "ISSUE_NUMBER": "42",
         "GITHUB_OUTPUT": str(output),
         "RUNNER_TEMP": str(tmp_path),
     }
-    result = subprocess.run(
-        [str(SCRIPT)], env=env, text=True, capture_output=True, check=False
+    return env, call_log, output
+
+
+def run_script(script: Path, env: dict[str, str], log: Path) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    result = subprocess.run([str(script)], env=env, text=True, capture_output=True, check=False)
+    return result, log.read_text(encoding="utf-8").splitlines()
+
+
+def test_new_branch_is_prepared_from_base(tmp_path: Path) -> None:
+    env, log, _ = environment(tmp_path, [])
+    result, calls = run_script(PREPARE, env, log)
+    assert result.returncode == 0
+    assert any("switch --create codex/fixture-task-42 base-sha" in call for call in calls)
+    assert not any(call.startswith("git fetch") for call in calls)
+
+
+def test_existing_branch_is_fetched_and_checked_out_before_codex(tmp_path: Path) -> None:
+    env, log, _ = environment(tmp_path, [], remote_exists=True)
+    result, calls = run_script(PREPARE, env, log)
+    assert result.returncode == 0
+    assert calls.index(next(call for call in calls if call.startswith("git fetch"))) < calls.index(
+        next(call for call in calls if call.startswith("git switch"))
     )
-    calls = call_log.read_text(encoding="utf-8").splitlines()
+    assert any("refs/heads/codex/fixture-task-42:refs/remotes/origin/codex/fixture-task-42" in call for call in calls)
+    assert any("switch --force-create codex/fixture-task-42 --track origin/codex/fixture-task-42" in call for call in calls)
+
+
+def run_publish(tmp_path: Path, pulls: list[dict[str, object]], *, has_changes: bool = True):
+    env, log, output = environment(tmp_path, pulls, has_changes=has_changes)
+    result, calls = run_script(PUBLISH, env, log)
     return result, calls, output.read_text(encoding="utf-8") if output.exists() else ""
 
 
-def test_existing_draft_pr_is_an_idempotent_success(tmp_path: Path) -> None:
-    existing = [{"state": "open", "draft": True, "html_url": PR_URL}]
-
-    first, first_calls, first_output = run_publish(tmp_path / "first", existing)
-    second, second_calls, second_output = run_publish(tmp_path / "second", existing)
-
-    assert first.returncode == second.returncode == 0
-    assert first_output == second_output == f"url={PR_URL}\n"
-    for calls in (first_calls, second_calls):
-        assert not any(call.startswith("git switch") for call in calls)
-        assert not any(call.startswith("git commit") for call in calls)
-        assert not any(call.startswith("git push") for call in calls)
-        assert not any(" -X POST " in f" {call} " for call in calls)
-        assert len(calls) == 1
-
-
-def test_no_existing_pr_performs_normal_publication(tmp_path: Path) -> None:
+def test_first_publication_commits_pushes_and_creates_one_draft_pr(tmp_path: Path) -> None:
     result, calls, output = run_publish(tmp_path, [])
-
     assert result.returncode == 0
     assert output == f"url={PR_URL}\n"
-    assert sum(call.startswith("git switch -c ") for call in calls) == 1
     assert sum(call.startswith("git commit ") for call in calls) == 1
     assert sum(call.startswith("git push ") for call in calls) == 1
     assert sum(" -X POST " in f" {call} " for call in calls) == 1
 
 
-def test_existing_open_non_draft_pr_is_reused(tmp_path: Path) -> None:
-    existing = [{"state": "open", "draft": False, "html_url": PR_URL}]
+@pytest.mark.parametrize("draft", [True, False])
+def test_repeated_publication_pushes_commit_and_reuses_open_pr(tmp_path: Path, draft: bool) -> None:
+    existing = [{"state": "open", "draft": draft, "html_url": PR_URL}]
     result, calls, output = run_publish(tmp_path, existing)
-
     assert result.returncode == 0
     assert output == f"url={PR_URL}\n"
-    assert len(calls) == 1
-
-
-@pytest.mark.parametrize("state", ["closed", "merged"])
-def test_historical_pr_blocks_duplicate_publication(tmp_path: Path, state: str) -> None:
-    existing = [{"state": "closed", "merged_at": "2026-01-01" if state == "merged" else None}]
-    result, calls, output = run_publish(tmp_path, existing)
-
-    assert result.returncode != 0
-    assert output == ""
-    assert len(calls) == 1
-    assert "closed or merged" in result.stderr
-
-
-def test_remote_branch_without_pr_blocks_duplicate_publication(tmp_path: Path) -> None:
-    result, calls, output = run_publish(tmp_path, [], remote_status=0)
-
-    assert result.returncode != 0
-    assert output == ""
-    assert sum(call.startswith("git ls-remote ") for call in calls) == 1
-    assert not any(call.startswith("git switch") for call in calls)
+    commit = next(call for call in calls if call.startswith("git commit "))
+    push = next(call for call in calls if call.startswith("git push "))
+    query = next(call for call in calls if call.startswith("curl "))
+    assert calls.index(commit) < calls.index(push) < calls.index(query)
+    assert "HEAD:refs/heads/codex/fixture-task-42" in push
     assert not any(" -X POST " in f" {call} " for call in calls)
+
+
+def test_existing_pr_with_no_changes_is_explicit_no_change(tmp_path: Path) -> None:
+    existing = [{"state": "open", "draft": True, "html_url": PR_URL}]
+    result, calls, output = run_publish(tmp_path, existing, has_changes=False)
+    assert result.returncode == 0
+    assert output == f"url={PR_URL}\nno_changes=true\n"
+    assert "No changes" in result.stdout
+    assert not any(call.startswith(("git commit", "git push")) for call in calls)
+    assert not any(" -X POST " in f" {call} " for call in calls)
+
+
+def test_multiple_open_prs_fail_safely(tmp_path: Path) -> None:
+    existing = [
+        {"state": "open", "draft": True, "html_url": PR_URL},
+        {"state": "open", "draft": True, "html_url": f"{PR_URL}0"},
+    ]
+    result, calls, _ = run_publish(tmp_path, existing)
+    assert result.returncode != 0
+    assert "found 2 open pull requests" in result.stderr
+    assert not any(" -X POST " in f" {call} " for call in calls)
+
+
+def test_existing_remote_branch_without_pr_gets_a_new_draft_pr(tmp_path: Path) -> None:
+    result, calls, output = run_publish(tmp_path, [])
+    assert result.returncode == 0
+    assert output == f"url={PR_URL}\n"
+    assert any(call.startswith("git push ") for call in calls)
+    assert sum(" -X POST " in f" {call} " for call in calls) == 1
+
+
+@pytest.mark.parametrize("merged_at", [None, "2026-01-01"])
+def test_historical_pr_policy_still_blocks_reopening_branch(tmp_path: Path, merged_at: str | None) -> None:
+    historical = [{"state": "closed", "merged_at": merged_at}]
+    result, calls, output = run_publish(tmp_path, historical)
+    assert result.returncode != 0
+    assert output == ""
+    assert "closed or merged" in result.stderr
+    assert not any(" -X POST " in f" {call} " for call in calls)
+
+
+def test_two_executions_add_two_commits_to_the_same_branch(tmp_path: Path) -> None:
+    existing = [{"state": "open", "draft": True, "html_url": PR_URL}]
+    all_calls: list[str] = []
+    for name in ("first", "second"):
+        result, calls, _ = run_publish(tmp_path / name, existing)
+        assert result.returncode == 0
+        all_calls.extend(calls)
+    assert sum(call.startswith("git commit ") for call in all_calls) == 2
+    assert sum("HEAD:refs/heads/codex/fixture-task-42" in call for call in all_calls) == 2

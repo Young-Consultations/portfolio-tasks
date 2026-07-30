@@ -13,10 +13,26 @@ set +x
 printf '%s\n' publication_failed > "$RUNNER_TEMP/failure-category"
 auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json')
 owner=${REPOSITORY%%/*}
+remote="https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+changed=false
+if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+  git config user.name 'portfolio-codex[bot]'
+  git config user.email 'portfolio-codex[bot]@users.noreply.github.com'
+  git add --all
+  if git diff --cached --quiet; then
+    printf 'No publishable changes for task branch %s.\n' "$BRANCH"
+  else
+    git commit -m "Implement approved portfolio task #$ISSUE_NUMBER"
+    git push "$remote" "HEAD:refs/heads/$BRANCH"
+    changed=true
+  fi
+else
+  printf 'No changes for task branch %s.\n' "$BRANCH"
+fi
+
 existing=$(curl --fail --silent --show-error "${auth[@]}" \
   "$API_ROOT/repos/$REPOSITORY/pulls?state=all&head=$owner:$BRANCH")
 jq -e 'type == "array"' <<< "$existing" >/dev/null
-
 open_count=$(jq '[.[] | select(.state == "open")] | length' <<< "$existing")
 if (( open_count > 1 )); then
   printf 'Refusing to publish: found %s open pull requests for %s.\n' \
@@ -32,6 +48,7 @@ if (( open_count == 1 )); then
     *) printf 'Refusing to publish: existing open pull request has invalid draft state.\n' >&2; exit 1 ;;
   esac
   printf 'url=%s\n' "$pull_request_url" >> "$GITHUB_OUTPUT"
+  [[ "$changed" == true ]] || printf 'no_changes=true\n' >> "$GITHUB_OUTPUT"
   exit 0
 fi
 
@@ -41,26 +58,12 @@ if (( historical_count > 0 )); then
     "$BRANCH" >&2
   exit 1
 fi
-
-remote="https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
-if git ls-remote --exit-code --heads "$remote" "refs/heads/$BRANCH" >/dev/null 2>&1; then
-  printf 'Refusing to publish: remote branch %s exists without a pull request.\n' \
-    "$BRANCH" >&2
-  exit 1
-else
-  remote_status=$?
-  if (( remote_status != 2 )); then
-    printf 'Unable to determine whether remote branch %s exists.\n' "$BRANCH" >&2
-    exit "$remote_status"
-  fi
+if [[ "$changed" != true ]]; then
+  printf 'No changes to publish and no open pull request exists for %s.\n' "$BRANCH"
+  printf 'no_changes=true\n' >> "$GITHUB_OUTPUT"
+  exit 0
 fi
 
-git switch -c "$BRANCH"
-git config user.name 'portfolio-codex[bot]'
-git config user.email 'portfolio-codex[bot]@users.noreply.github.com'
-git add --all
-git commit -m "Implement approved portfolio task #$ISSUE_NUMBER"
-git push "$remote" "HEAD:refs/heads/$BRANCH"
 request=$(jq -n --arg title "Codex: implement portfolio task #$ISSUE_NUMBER" \
   --arg head "$BRANCH" \
   '{title:$title,head:$head,base:"main",body:"Automated implementation.",draft:true}')
