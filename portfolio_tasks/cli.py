@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import fcntl
 import json
 import logging
 import os
@@ -154,21 +153,6 @@ def route_check(args: argparse.Namespace) -> int:
         print(f"reason={gate_reason}")
         print(f"issue_number={issue.number}")
         return 0
-    delivery = os.getenv("GITHUB_DELIVERY", "")
-    if delivery:
-        dedupe_file = Path(os.getenv("RUNNER_TEMP", ".")) / "route-approved-deliveries.txt"
-        dedupe_file.parent.mkdir(parents=True, exist_ok=True)
-        with dedupe_file.open("a+", encoding="utf-8") as stream:
-            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
-            stream.seek(0)
-            seen = {line.strip() for line in stream if line.strip()}
-            if delivery in seen:
-                print("route=false")
-                print("reason=duplicate-delivery")
-                print(f"issue_number={issue.number}")
-                return 0
-            stream.write(f"{delivery}\n")
-            stream.flush()
     issue_snapshot, snapshot_reason = _route_issue_snapshot(issue)
     if issue_snapshot is None:
         print("route=false")

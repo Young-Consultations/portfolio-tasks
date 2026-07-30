@@ -115,8 +115,11 @@ jobs:
           ISSUE_NUMBER: ${{ needs.prepare.outputs.issue_number }}
         run: |
           set -euo pipefail; set +x
-          gh api --method DELETE \
-            "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels/status:approved"
+          # Persist the terminal marker first. If approval removal then fails, a
+          # redelivery sees status:queued and the live-issue gate will not route
+          # the task a second time.
           gh api --method POST \
             "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels" \
             -f 'labels[]=status:queued' >/dev/null
+          gh api --method DELETE \
+            "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels/status%3Aapproved"

@@ -207,3 +207,12 @@ def test_route_gate_has_token_for_live_issue_snapshot() -> None:
     gate_step = gate_step.split("- name: Install pinned shared contracts", 1)[0]
 
     assert "GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}" in gate_step
+
+
+def test_router_persists_queued_marker_before_removing_approval() -> None:
+    text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
+    mark_queued = text[text.index("  mark-queued:\n") :]
+
+    add_queued = mark_queued.index("-f 'labels[]=status:queued'")
+    remove_approval = mark_queued.index("labels/status%3Aapproved")
+    assert add_queued < remove_approval

@@ -126,35 +126,6 @@ def test_sync_skips_non_slugger_target_without_target_api_calls(
     )
 
 
-def test_route_check_duplicate_delivery_is_noop(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    event = {
-        "action": "labeled",
-        "label": {"name": "status:approved"},
-        "issue": {
-            "number": 42,
-            "title": "Approved work",
-            "body": "### Target repository\n\nYoung-Consultations/portfolio-tasks",
-            "state": "open",
-            "labels": [{"name": "chatgpt-task"}, {"name": "executor:codex"}, {"name": "status:approved"}],
-        }
-    }
-    event_file = tmp_path / "event.json"
-    event_file.write_text(json.dumps(event), encoding="utf-8")
-    monkeypatch.setenv("GITHUB_DELIVERY", "delivery-1")
-    monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
-
-    assert cli.main(["route-check", str(event_file)]) == 0
-    first = capsys.readouterr().out
-    assert "route=true" in first
-
-    assert cli.main(["route-check", str(event_file)]) == 0
-    second = capsys.readouterr().out
-    assert "route=false" in second
-    assert "reason=duplicate-delivery" in second
-
-
 def test_route_check_approval_label_routes_once(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
