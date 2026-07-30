@@ -224,6 +224,82 @@ class RunCodexTests(unittest.TestCase):
         self.assertIn(b"first\nsecond\n", trace.read_bytes())
         self.assertIn(b"Rendered prompt", trace.read_bytes())
 
+    def test_stdout_only_failure_is_emitted_and_returned(self):
+        process = FakeProcess(stdout=b"model_not_found: unavailable\n", returncode=1)
+        output = io.StringIO()
+        with mock.patch.object(subprocess, "Popen", return_value=process), \
+                mock.patch.object(sys, "stderr", output):
+            status, diagnostic = run_codex.execute(["codex"], b"task", self.env, 10)
+        self.assertEqual(1, status)
+        self.assertEqual("model_not_found: unavailable\n", diagnostic)
+        self.assertEqual(diagnostic, output.getvalue())
+        self.assertEqual("model unavailable", run_codex.classify_failure(diagnostic))
+
+    def test_stderr_only_failure_is_emitted_and_returned(self):
+        process = FakeProcess(stderr=b"401 invalid API key: sk-test-secret\n", returncode=1)
+        output = io.StringIO()
+        with mock.patch.object(subprocess, "Popen", return_value=process), \
+                mock.patch.object(sys, "stderr", output):
+            status, diagnostic = run_codex.execute(["codex"], b"task", self.env, 10)
+        self.assertEqual(1, status)
+        self.assertIn("401 invalid API key", diagnostic)
+        self.assertNotIn("sk-test-secret", diagnostic)
+        self.assertEqual(diagnostic, output.getvalue())
+        self.assertEqual("authentication failure", run_codex.classify_failure(diagnostic))
+
+    def test_both_failure_channels_are_combined_without_duplication(self):
+        process = FakeProcess(stdout=b"request failed\n", stderr=b"403 forbidden\n",
+                              returncode=1)
+        output = io.StringIO()
+        with mock.patch.object(subprocess, "Popen", return_value=process), \
+                mock.patch.object(sys, "stderr", output):
+            _, diagnostic = run_codex.execute(["codex"], b"task", self.env, 10)
+        self.assertIn("=== stdout ===\nrequest failed", diagnostic)
+        self.assertIn("=== stderr ===\n403 forbidden", diagnostic)
+        self.assertEqual("authorization failure", run_codex.classify_failure(diagnostic))
+        self.assertEqual(1, output.getvalue().count("request failed"))
+
+    def test_identical_failure_channels_are_not_duplicated(self):
+        process = FakeProcess(stdout=b"internal error\n", stderr=b"internal error\n",
+                              returncode=1)
+        with mock.patch.object(subprocess, "Popen", return_value=process):
+            _, diagnostic = run_codex.execute(["codex"], b"", self.env, 10)
+        self.assertEqual("internal error\n", diagnostic)
+
+    def test_failure_diagnostics_and_trace_are_sanitized(self):
+        secret = "sk-abcdefghijk"
+        output_text = (f"Authorization: Bearer top-secret\n{secret}\n"
+                       "https://user:password@example.test/path?access_token=url-secret\n"
+                       "session_id=session-secret\n")
+        process = FakeProcess(stdout=output_text.encode(), returncode=1)
+        console = io.StringIO()
+        with mock.patch.object(subprocess, "Popen", return_value=process), \
+                mock.patch.object(sys, "stderr", console):
+            _, diagnostic = run_codex.execute(
+                ["codex"], f"prompt {secret}".encode(), self.env, 10
+            )
+        trace = (Path(self.temp.name) / "codex-trace.log").read_text()
+        for unsafe in (secret, "top-secret", "user:password", "url-secret",
+                       "session-secret"):
+            self.assertNotIn(unsafe, console.getvalue())
+            self.assertNotIn(unsafe, diagnostic)
+            self.assertNotIn(unsafe, trace)
+        self.assertIn("[REDACTED]", trace)
+
+    def test_large_failure_diagnostic_console_is_bounded_but_trace_is_complete(self):
+        large = ("early-marker\n" + "x" * 20_000 + "\ntail-marker\n").encode()
+        process = FakeProcess(stdout=large, returncode=1)
+        console = io.StringIO()
+        with mock.patch.object(subprocess, "Popen", return_value=process), \
+                mock.patch.object(sys, "stderr", console):
+            _, diagnostic = run_codex.execute(["codex"], b"", self.env, 10)
+        self.assertLessEqual(len(console.getvalue()),
+                             run_codex.MAX_CONSOLE_DIAGNOSTIC_CHARS + 200)
+        self.assertNotIn("early-marker", console.getvalue())
+        self.assertIn("tail-marker", console.getvalue())
+        self.assertIn("early-marker", diagnostic)
+        self.assertIn("early-marker", (Path(self.temp.name) / "codex-trace.log").read_text())
+
     def test_stderr_is_sanitized(self):
         process = FakeProcess(stderr=b"Authorization: Bearer secret\nsk-abcdefghijk\n")
         output = io.StringIO()
@@ -282,6 +358,10 @@ class RunCodexTests(unittest.TestCase):
     def test_authentication_detection(self):
         self.assertEqual("authentication failure", run_codex.classify_failure(
             "401 invalid API key"))
+
+    def test_authorization_detection(self):
+        self.assertEqual("authorization failure", run_codex.classify_failure(
+            "403 forbidden"))
 
     def test_network_detection(self):
         self.assertEqual("network failure", run_codex.classify_failure(

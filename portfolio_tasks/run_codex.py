@@ -25,6 +25,7 @@ DEFAULT_TIMEOUT = 2400.0
 RESULT_FILENAME = "codex-result.json"
 SUPPORTED_RESULT_STATUSES = frozenset({"changed", "already_satisfied", "failed"})
 LOGGER = logging.getLogger("run-codex")
+MAX_CONSOLE_DIAGNOSTIC_CHARS = 12_000
 
 RETRY_INSTRUCTION = b"""\
 \n--------------------------------------------------
@@ -67,6 +68,10 @@ SECRET_PATTERNS = (
     (re.compile(r"sk-[A-Za-z0-9_-]+"), "[REDACTED]"),
     (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@"),
      r"\1[REDACTED]@"),
+    (re.compile(
+        r"(?i)([?&](?:access[_-]?token|api[_-]?key|auth|password|secret|token)=)"
+        r"[^&#\s]+"
+    ), r"\1[REDACTED]"),
     (re.compile(r"(?i)(session(?:[_ -]?id)?\s*[:=]\s*)[^\s,;]+"),
      r"\1[REDACTED]"),
 )
@@ -262,6 +267,24 @@ def _diagnostic_file(runner_temp: Path, channel: str) -> BinaryIO:
     ))
 
 
+def _combined_diagnostic(stdout_text: str, stderr_text: str) -> str:
+    """Combine channels for classification while avoiding identical duplicates."""
+    if stdout_text and stderr_text:
+        if stdout_text == stderr_text:
+            return stdout_text
+        return f"=== stdout ===\n{stdout_text}\n=== stderr ===\n{stderr_text}"
+    return stdout_text or stderr_text
+
+
+def _diagnostic_excerpt(diagnostic: str) -> str:
+    """Return a bounded tail suitable for the Actions console."""
+    if len(diagnostic) <= MAX_CONSOLE_DIAGNOSTIC_CHARS:
+        return diagnostic
+    omitted = len(diagnostic) - MAX_CONSOLE_DIAGNOSTIC_CHARS
+    return (f"[... {omitted} earlier diagnostic characters omitted; full output is in "
+            f"codex-trace.log ...]\n{diagnostic[-MAX_CONSOLE_DIAGNOSTIC_CHARS:]}")
+
+
 def execute(
     command: Sequence[str], prompt: bytes, env: Mapping[str, str], timeout: float
 ) -> tuple[int, str]:
@@ -285,6 +308,8 @@ def execute(
             )
         except OSError as error:
             diagnostic = sanitize(str(error))
+            with trace_path.open("ab") as trace:
+                trace.write(diagnostic.encode())
             LOGGER.error("::error title=Codex subprocess failure::%s", diagnostic)
             return 127, diagnostic
 
@@ -324,11 +349,15 @@ def execute(
     stdout_text = "".join(stdout_parts)
     stderr_text = "".join(stderr_parts)
     with trace_path.open("ab") as trace:
+        trace.write(b"=== stdout ===\n")
         trace.write(stdout_text.encode())
+        trace.write(b"\n=== stderr ===\n")
         trace.write(stderr_text.encode())
-    if return_code and stderr_text:
-        print(stderr_text, end="" if stderr_text.endswith("\n") else "\n", file=sys.stderr)
-    return return_code, stderr_text
+    diagnostic = _combined_diagnostic(stdout_text, stderr_text)
+    if return_code and diagnostic:
+        excerpt = _diagnostic_excerpt(diagnostic)
+        print(excerpt, end="" if excerpt.endswith("\n") else "\n", file=sys.stderr)
+    return return_code, diagnostic
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -423,8 +452,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     return_code, diagnostic = execute(command, prompt, env, args.timeout)
     if return_code:
         category = "timeout" if return_code == TIMEOUT_EXIT else classify_failure(diagnostic)
-        LOGGER.error("::error title=Codex %s::Codex CLI failed with exit code %d.",
-                     category, return_code)
+        LOGGER.error(
+            "::error title=Codex %s::category=%s; exit_code=%d; "
+            "see the bounded diagnostic above and codex-trace.log artifact.",
+            category, category, return_code
+        )
         return return_code
 
     try:
