@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import re
@@ -21,18 +22,22 @@ EX_USAGE = 64
 NO_CHANGES_EXIT = 3
 TIMEOUT_EXIT = 124
 DEFAULT_TIMEOUT = 2400.0
+RESULT_FILENAME = "codex-result.json"
+SUPPORTED_RESULT_STATUSES = frozenset({"changed", "already_satisfied", "failed"})
 LOGGER = logging.getLogger("run-codex")
 
 RETRY_INSTRUCTION = b"""\
 \n--------------------------------------------------
 
-Your previous attempt completed successfully but produced no repository changes.
+Your previous attempt exited successfully but produced no repository changes and did
+not provide a valid structured already_satisfied result.
 
-You must now implement the requested task by editing the repository.
+Continue the autonomous execution without asking for confirmation. Implement any
+missing behavior by editing the repository, or, if every acceptance criterion was
+already satisfied, validate it and write the required structured result with concrete
+criterion-by-criterion evidence. Never create an artificial change.
 
 Do not only analyze, inspect files, or describe proposed changes.
-
-You must modify files within the stated scope.
 
 Run any requested validation.
 
@@ -40,9 +45,11 @@ Before finishing, ensure:
 
 git status --porcelain=v1 --untracked-files=all
 
-shows modified or newly created files.
+agrees with the structured status: real task changes for changed, or a clean tree for
+already_satisfied.
 
-If implementation is genuinely impossible, stop with a non-zero exit code and explain the blocking reason.
+If implementation is genuinely impossible, write a failed structured result and stop
+with a non-zero exit code.
 
 Do not describe hypothetical or intended changes as completed work.
 
@@ -112,7 +119,8 @@ def _inspect(command: Sequence[str], env: Mapping[str, str]) -> str:
 def repository_has_changes(env: Mapping[str, str]) -> bool:
     """Return whether Git reports tracked or untracked repository changes."""
     result = subprocess.run(
-        ("git", "status", "--porcelain=v1", "--untracked-files=all"),
+        ("git", "status", "--porcelain=v1", "--untracked-files=all", "--", ".",
+         f":(exclude){RESULT_FILENAME}"),
         check=False, capture_output=True, env=dict(env), shell=False
     )
     if result.returncode:
@@ -120,6 +128,68 @@ def repository_has_changes(env: Mapping[str, str]) -> bool:
             result.returncode, result.args, output=result.stdout, stderr=result.stderr
         )
     return bool(result.stdout)
+
+
+def result_path(env: Mapping[str, str]) -> Path:
+    """Return the structured result path inside the writable task worktree."""
+    return Path.cwd() / RESULT_FILENAME
+
+
+def clear_result(env: Mapping[str, str]) -> None:
+    """Remove a result from an earlier attempt so it cannot authorize this one."""
+    result_path(env).unlink(missing_ok=True)
+
+
+def validate_completion_result(
+    path: Path, *, repository_changed: bool
+) -> tuple[bool, str]:
+    """Validate Codex's result and return its trusted terminal status."""
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False, "missing or invalid structured result"
+    if not isinstance(value, dict) or value.get("status") not in SUPPORTED_RESULT_STATUSES:
+        return False, "unsupported structured result status"
+    status = str(value["status"])
+    if status == "failed":
+        return False, status
+    objective = value.get("objective")
+    criteria = value.get("acceptance_criteria")
+    validation = value.get("validation")
+    unresolved = value.get("unresolved_items")
+    files = value.get("files_changed")
+    if not isinstance(objective, str) or not objective.strip():
+        return False, "missing objective"
+    if not isinstance(criteria, list) or not criteria:
+        return False, "missing acceptance-criterion evidence"
+    if any(
+        not isinstance(item, dict)
+        or item.get("status") != "satisfied"
+        or not isinstance(item.get("criterion"), str)
+        or not item["criterion"].strip()
+        or not isinstance(item.get("evidence"), str)
+        or not item["evidence"].strip()
+        for item in criteria
+    ):
+        return False, "acceptance criteria are unresolved or lack evidence"
+    if not isinstance(validation, list) or not validation:
+        return False, "missing validation evidence"
+    if any(
+        not isinstance(item, dict)
+        or item.get("status") != "passed"
+        or not isinstance(item.get("command"), str)
+        or not item["command"].strip()
+        for item in validation
+    ):
+        return False, "validation did not pass"
+    if unresolved != [] or not isinstance(files, list):
+        return False, "unresolved items or invalid files_changed"
+    if repository_changed:
+        if status != "changed" or not files:
+            return False, "changed repository requires a changed result with files"
+    elif status != "already_satisfied" or files:
+        return False, "clean repository requires an already_satisfied result"
+    return True, status
 
 
 def print_repository_diagnostics(env: Mapping[str, str]) -> None:
@@ -305,6 +375,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         compatibility.append("Git repository check managed by installed CLI")
     if "--full-auto" in capabilities:
         command.append("--full-auto")
+    if "--config" in capabilities:
+        effort = os.environ.get("CODEX_REASONING_EFFORT", "high")
+        if effort not in {"minimal", "low", "medium", "high"}:
+            LOGGER.error("::error title=Invalid reasoning effort::Unsupported value %s.",
+                         sanitize(effort))
+            return EX_CONFIG
+        command.extend(("--config", f'model_reasoning_effort="{effort}"'))
+    else:
+        compatibility.append("reasoning configuration unavailable")
     model = os.environ.get("CODEX_MODEL")
     if model:
         command.extend(("--model", model))
@@ -317,6 +396,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # first attempt must not give its retry another full timeout and overrun the
     # enclosing workflow deadline.
     deadline = time.monotonic() + args.timeout
+    clear_result(env)
     return_code, diagnostic = execute(command, prompt, env, args.timeout)
     if return_code:
         category = "timeout" if return_code == TIMEOUT_EXIT else classify_failure(diagnostic)
@@ -325,18 +405,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         return return_code
 
     try:
-        if repository_has_changes(env):
-            return 0
+        changed = repository_has_changes(env)
     except (OSError, subprocess.CalledProcessError) as error:
         LOGGER.error("::error title=Git status failed::%s", sanitize(str(error)))
         return getattr(error, "returncode", 1)
 
-    LOGGER.info("::notice::Codex produced no changes; retrying once.")
+    valid, outcome = validate_completion_result(result_path(env), repository_changed=changed)
+    if valid:
+        LOGGER.info("::notice::Codex terminal outcome: %s", outcome)
+        return 0
+    if changed:
+        LOGGER.error("::error title=Invalid Codex result::%s", outcome)
+        return 1
+
+    LOGGER.info("::notice::Codex produced unexplained no changes (%s); retrying once.",
+                outcome)
     retry_timeout = deadline - time.monotonic()
     if retry_timeout <= 0:
         LOGGER.error("::error title=Codex timeout::Codex execution budget was "
                      "exhausted before retry.")
         return TIMEOUT_EXIT
+    clear_result(env)
     return_code, diagnostic = execute(
         command, prompt + RETRY_INSTRUCTION, env, retry_timeout
     )
@@ -347,15 +436,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         return return_code
 
     try:
-        if repository_has_changes(env):
-            LOGGER.info("::notice::Retry produced repository changes.")
-            return 0
+        changed = repository_has_changes(env)
     except (OSError, subprocess.CalledProcessError) as error:
         LOGGER.error("::error title=Git status failed::%s", sanitize(str(error)))
         return getattr(error, "returncode", 1)
 
-    LOGGER.error("::error title=Codex produced no changes::Retry produced no "
-                 "repository changes.")
+    valid, outcome = validate_completion_result(result_path(env), repository_changed=changed)
+    if valid:
+        LOGGER.info("::notice::Codex terminal outcome: %s", outcome)
+        return 0
+    if changed:
+        LOGGER.error("::error title=Invalid Codex result::%s", outcome)
+        return 1
+    LOGGER.error("::error title=Codex produced no changes::Retry produced unexplained "
+                 "no repository changes (%s).", outcome)
     try:
         print_repository_diagnostics(env)
     except (OSError, subprocess.CalledProcessError) as error:

@@ -12,7 +12,7 @@ from unittest import mock
 
 from portfolio_tasks import run_codex
 
-HELP = "Usage: codex exec --sandbox MODE --skip-git-repo-check --ask-for-approval"
+HELP = "Usage: codex exec --sandbox MODE --skip-git-repo-check --ask-for-approval --config"
 FULL_AUTO_HELP = HELP + " --full-auto"
 
 
@@ -39,7 +39,7 @@ class RunCodexTests(unittest.TestCase):
         self.env = {"CODEX_API_KEY": "test-key", "RUNNER_TEMP": self.temp.name}
 
     def run_main(self, extra_env=None, *, executions=((0, ""),), changes=(True,),
-                 help_text=HELP):
+                 help_text=HELP, results=((True, "changed"),)):
         env = dict(self.env)
         env.update(extra_env or {})
         stdin = mock.Mock()
@@ -49,7 +49,9 @@ class RunCodexTests(unittest.TestCase):
                 mock.patch.object(run_codex, "_inspect", side_effect=["1.2.3", help_text]), \
                 mock.patch.object(run_codex, "execute", side_effect=executions) as execute, \
                 mock.patch.object(run_codex, "repository_has_changes",
-                                  side_effect=changes) as git_status:
+                                  side_effect=changes) as git_status, \
+                mock.patch.object(run_codex, "validate_completion_result",
+                                  side_effect=results):
             status = run_codex.main([])
         return status, execute, git_status
 
@@ -66,6 +68,17 @@ class RunCodexTests(unittest.TestCase):
         _, execute, _ = self.run_main({"CODEX_MODEL": "optional-model"})
         command = execute.call_args.args[0]
         self.assertEqual("optional-model", command[command.index("--model") + 1])
+
+    def test_supported_reasoning_configuration_is_passed(self):
+        _, execute, _ = self.run_main()
+        command = execute.call_args.args[0]
+        self.assertEqual(
+            'model_reasoning_effort="high"', command[command.index("--config") + 1]
+        )
+
+    def test_reasoning_configuration_is_omitted_when_cli_lacks_capability(self):
+        _, execute, _ = self.run_main(help_text=HELP.replace(" --config", ""))
+        self.assertNotIn("--config", execute.call_args.args[0])
 
     def test_capability_detection_includes_future_flags(self):
         capabilities = run_codex.detect_capabilities(
@@ -88,7 +101,8 @@ class RunCodexTests(unittest.TestCase):
 
     def test_noop_retries_successfully_once(self):
         status, execute, git_status = self.run_main(
-            executions=((0, ""), (0, "")), changes=(False, True)
+            executions=((0, ""), (0, "")), changes=(False, True),
+            results=((False, "missing"), (True, "changed"))
         )
         self.assertEqual(0, status)
         self.assertEqual(2, execute.call_count)
@@ -107,7 +121,8 @@ class RunCodexTests(unittest.TestCase):
         with mock.patch.object(run_codex.time, "monotonic",
                                side_effect=[100.0, 125.0]):
             status, execute, _ = self.run_main(
-                executions=((0, ""), (0, "")), changes=(False, True)
+                executions=((0, ""), (0, "")), changes=(False, True),
+            results=((False, "missing"), (True, "changed"))
             )
 
         self.assertEqual(0, status)
@@ -117,7 +132,7 @@ class RunCodexTests(unittest.TestCase):
     def test_exhausted_budget_does_not_start_retry(self):
         with mock.patch.object(run_codex.time, "monotonic",
                                side_effect=[100.0, 2500.0]):
-            status, execute, git_status = self.run_main(changes=(False,))
+            status, execute, git_status = self.run_main(changes=(False,), results=((False, "missing"),))
 
         self.assertEqual(run_codex.TIMEOUT_EXIT, status)
         execute.assert_called_once()
@@ -128,11 +143,21 @@ class RunCodexTests(unittest.TestCase):
             status, execute, git_status = self.run_main(
                 executions=((0, "implemented"), (0, "implemented")),
                 changes=(False, False),
+                results=((False, "missing"), (False, "missing")),
             )
         self.assertEqual(run_codex.NO_CHANGES_EXIT, status)
         self.assertEqual(2, execute.call_count)
         self.assertEqual(2, git_status.call_count)
         diagnostics.assert_called_once()
+
+    def test_permission_request_with_no_changes_is_rejected(self):
+        status, execute, _ = self.run_main(
+            executions=((0, "If you want, I'll proceed now."), (0, "May I continue?")),
+            changes=(False, False),
+            results=((False, "missing"), (False, "missing")),
+        )
+        self.assertEqual(run_codex.NO_CHANGES_EXIT, status)
+        self.assertEqual(2, execute.call_count)
 
     def test_no_change_diagnostics_use_objective_git_commands(self):
         completed = subprocess.CompletedProcess([], 0, stdout=b"", stderr=b"")
@@ -151,8 +176,8 @@ class RunCodexTests(unittest.TestCase):
 
     def test_retry_prompt_requires_changes_and_honest_failure(self):
         instruction = run_codex.RETRY_INSTRUCTION.decode()
-        self.assertIn("editing the repository", instruction)
-        self.assertIn("git status --porcelain=v1 --untracked-files=all", instruction)
+        self.assertIn("autonomous execution", instruction)
+        self.assertIn("structured already_satisfied", instruction)
         self.assertIn("non-zero exit code", instruction)
         self.assertIn("hypothetical or intended changes", instruction)
 
@@ -164,7 +189,8 @@ class RunCodexTests(unittest.TestCase):
 
     def test_retry_nonzero_exit_is_preserved(self):
         status, execute, git_status = self.run_main(
-            executions=((0, ""), (17, "blocked")), changes=(False,)
+            executions=((0, ""), (17, "blocked")), changes=(False,),
+            results=((False, "missing"),)
         )
         self.assertEqual(17, status)
         self.assertEqual(2, execute.call_count)
@@ -183,7 +209,8 @@ class RunCodexTests(unittest.TestCase):
             self.assertFalse(run_codex.repository_has_changes(self.env))
             self.assertTrue(run_codex.repository_has_changes(self.env))
         expected = ("git", "status", "--porcelain=v1", "--untracked-files=all")
-        self.assertEqual(expected, run.call_args_list[0].args[0])
+        self.assertEqual(expected + ("--", ".", ":(exclude)codex-result.json"),
+                         run.call_args_list[0].args[0])
 
     def test_stdout_streaming_and_diagnostic_capture(self):
         process = FakeProcess(stdout=b"first\nsecond\n")
@@ -269,6 +296,45 @@ class RunCodexTests(unittest.TestCase):
                 mock.patch.object(run_codex, "repository_has_changes") as git_status:
             self.assertEqual(37, run_codex.main([]))
         git_status.assert_not_called()
+
+
+    def test_valid_already_satisfied_result_accepts_clean_tree(self):
+        path = Path(self.temp.name) / run_codex.RESULT_FILENAME
+        path.write_text(self._result("already_satisfied", []), encoding="utf-8")
+        self.assertEqual((True, "already_satisfied"),
+                         run_codex.validate_completion_result(
+                             path, repository_changed=False))
+
+    def test_result_path_is_inside_current_worktree(self):
+        with mock.patch.object(Path, "cwd", return_value=Path(self.temp.name)):
+            self.assertEqual(
+                Path(self.temp.name) / run_codex.RESULT_FILENAME,
+                run_codex.result_path(self.env),
+            )
+
+    def test_missing_criterion_evidence_rejects_clean_tree(self):
+        path = Path(self.temp.name) / run_codex.RESULT_FILENAME
+        path.write_text(self._result("already_satisfied", [], evidence=""), encoding="utf-8")
+        valid, _ = run_codex.validate_completion_result(path, repository_changed=False)
+        self.assertFalse(valid)
+
+    def test_changed_tree_requires_successful_structured_result(self):
+        path = Path(self.temp.name) / run_codex.RESULT_FILENAME
+        path.write_text(self._result("changed", ["module.py"]), encoding="utf-8")
+        self.assertEqual((True, "changed"),
+                         run_codex.validate_completion_result(
+                             path, repository_changed=True))
+
+    @staticmethod
+    def _result(status, files, evidence="test passed"):
+        import json
+        return json.dumps({
+            "status": status, "objective": "Do the task", "files_changed": files,
+            "acceptance_criteria": [{"criterion": "requested behavior",
+                                     "status": "satisfied", "evidence": evidence}],
+            "validation": [{"command": "pytest", "status": "passed"}],
+            "unresolved_items": [],
+        })
 
 
 if __name__ == "__main__":

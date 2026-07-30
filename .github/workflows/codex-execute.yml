@@ -170,20 +170,25 @@ jobs:
           python -m portfolio_tasks.run_codex --working-directory "$TASK_WORKTREE" < "$RUNNER_TEMP/instructions.md"
           codex_status=$?
           set -e
-          if (( codex_status != 0 && codex_status != 3 )); then
+          if (( codex_status != 0 )); then
             exit "$codex_status"
           fi
-          if [[ -z "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)" ]]; then
-            (( codex_status == 3 ))
-            printf '%s\n' codex_no_changes > "$RUNNER_TEMP/failure-category"
+          codex_outcome=$(jq -r .status "$TASK_WORKTREE/codex-result.json")
+          rm -- "$TASK_WORKTREE/codex-result.json"
+          tree_changed=false
+          [[ -z "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)" ]] || tree_changed=true
+          [[ "$codex_outcome" == changed && "$tree_changed" == true || \
+             "$codex_outcome" == already_satisfied && "$tree_changed" == false ]]
+          printf '%s\n' "outcome=$codex_outcome" >> "$GITHUB_OUTPUT"
+          if [[ "$codex_outcome" == already_satisfied ]]; then
             printf '%s\n' 'no_changes=true' >> "$GITHUB_OUTPUT"
           else
-            (( codex_status == 0 ))
+            [[ "$codex_outcome" == changed ]]
             printf '%s\n' 'no_changes=false' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Validate target repository
-        if: steps.input.outputs.execution_mode == 'verify' || (steps.codex.outcome == 'success' && steps.codex.outputs.no_changes == 'false')
+        if: steps.input.outputs.execution_mode == 'verify' || steps.codex.outcome == 'success'
         id: validation
         run: |
           set -euo pipefail
@@ -200,7 +205,7 @@ jobs:
           printf '%s\n' passed > "$RUNNER_TEMP/test-result"
 
       - name: Create task branch and draft PR
-        if: steps.input.outputs.execution_mode == 'implement' && steps.codex.outcome == 'success'
+        if: steps.input.outputs.execution_mode == 'implement' && steps.codex.outputs.outcome == 'changed'
         id: publish
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
@@ -261,9 +266,3 @@ jobs:
           path: ${{ runner.temp }}/execution-result.json
           if-no-files-found: error
           retention-days: 30
-
-      - name: Fail no-change implementation
-        if: always() && steps.codex.outputs.no_changes == 'true'
-        run: |
-          echo '::error title=Codex produced no changes::Implementation failed after one retry.'
-          exit 1

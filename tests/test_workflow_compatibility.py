@@ -85,8 +85,9 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     assert text.index(implement_guard) < text.index("python -m portfolio_tasks.run_codex")
     assert text.index(implement_guard, text.index("Create task branch"))
     assert "codex_status=$?" in text
-    assert "codex_status != 0 && codex_status != 3" in text
-    assert "(( codex_status == 3 ))" in text
+    assert "codex_status != 0" in text
+    assert 'codex_outcome=$(jq -r .status "$TASK_WORKTREE/codex-result.json")' in text
+    assert 'rm -- "$TASK_WORKTREE/codex-result.json"' in text
     assert (
         '[[ -z "$(git -C "$TASK_WORKTREE" status '
         '--porcelain=v1 --untracked-files=all)" ]]' in text
@@ -96,22 +97,18 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     assert 'target_repository:"Young-Consultations/portfolio-tasks"' in text
 
 
-def test_no_change_implementation_fails_after_result_upload() -> None:
+def test_already_satisfied_implementation_is_validated_without_publication() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     validation = text[text.index("- name: Validate target repository") :]
     publication = text[text.index("- name: Create task branch and draft PR") :]
     emit = text.index("- name: Emit canonical execution result")
     upload = text.index("- name: Upload canonical execution result")
-    fail = text.index("- name: Fail no-change implementation")
-
-    assert "steps.codex.outputs.no_changes == 'false'" in validation.split("id: validation", 1)[0]
-    assert "steps.codex.outcome == 'success'" in publication.split("id: publish", 1)[0]
-    assert "codex_no_changes" in text
+    assert "steps.codex.outcome == 'success'" in validation.split("id: validation", 1)[0]
+    assert "steps.codex.outputs.outcome == 'changed'" in publication.split("id: publish", 1)[0]
+    assert "already_satisfied" in text
     assert '[[ "$MODE" == verify || "$NO_CHANGES" == true ]]' in text
-    assert emit < upload < fail
-    assert "if: always()" in text[upload:fail]
-    assert "steps.codex.outputs.no_changes == 'true'" in text[fail:]
-    assert "exit 1" in text[fail:]
+    assert emit < upload
+    assert "if: always()" in text[upload:]
 
 
 def test_publication_uses_helper_from_trusted_commit() -> None:
