@@ -132,6 +132,16 @@ jobs:
           /usr/bin/bash "$trusted_prepare"
           printf 'TARGET_WORKTREE=%s\n' "$TASK_WORKTREE" >> "$GITHUB_ENV"
 
+      - name: Install pinned actionlint before Codex execution
+        env:
+          ACTIONLINT_VERSION: v1.7.7
+        run: |
+          set -euo pipefail; set +x
+          go install "github.com/rhysd/actionlint/cmd/actionlint@$ACTIONLINT_VERSION"
+          printf '%s/bin\n' "$(go env GOPATH)" >> "$GITHUB_PATH"
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          actionlint -version
+
       - name: Install and execute Codex
         if: steps.input.outputs.execution_mode == 'implement'
         id: codex
@@ -174,6 +184,7 @@ jobs:
             exit "$codex_status"
           fi
           codex_outcome=$(jq -r .status "$TASK_WORKTREE/codex-result.json")
+          cp "$TASK_WORKTREE/codex-result.json" "$RUNNER_TEMP/codex-result.json"
           rm -- "$TASK_WORKTREE/codex-result.json"
           tree_changed=false
           [[ -z "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)" ]] || tree_changed=true
@@ -191,17 +202,13 @@ jobs:
         if: steps.input.outputs.execution_mode == 'verify' || steps.codex.outcome == 'success'
         id: validation
         run: |
-          set -euo pipefail
+          set -euo pipefail; set +x
           printf '%s\n' validation_failed > "$RUNNER_TEMP/failure-category"
           cd "$TARGET_WORKTREE"
-          git diff --check
-          ruby -e 'require "yaml"; Dir.glob(".github/**/*.{yml,yaml}").each { |f| YAML.safe_load_file(f, aliases: true) }'
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-          "$(go env GOPATH)/bin/actionlint" -shellcheck=
-          ruff check .
-          mypy portfolio_tasks
+          python -m portfolio_tasks.runtime_validation \
+            --log "$RUNNER_TEMP/validation.log" \
+            --result "$RUNNER_TEMP/codex-result.json"
           printf '%s\n' passed > "$RUNNER_TEMP/validation-result"
-          python -m pytest
           printf '%s\n' passed > "$RUNNER_TEMP/test-result"
 
       - name: Create task branch and draft PR
@@ -257,6 +264,27 @@ jobs:
             '{contract_version:$version,correlation_id:$correlation,execution_status:$status,target_repository:"Young-Consultations/portfolio-tasks",branch_name:$branch,pull_request_url:$pr,workflow_url:(env.GITHUB_SERVER_URL+"/"+env.GITHUB_REPOSITORY+"/actions/runs/"+env.GITHUB_RUN_ID),validation_result:$validation,test_result:$tests,failure_category:$category,failure_message:null,started_at:$started,completed_at:$completed}' \
             > "$RUNNER_TEMP/execution-result.json"
           python -m portfolio_tasks.execution validate-result "$RUNNER_TEMP/execution-result.json"
+
+      - name: Prepare full execution diagnostics
+        if: always()
+        run: |
+          set -euo pipefail; set +x
+          [[ -e "$RUNNER_TEMP/codex-trace.log" ]] || : > "$RUNNER_TEMP/codex-trace.log"
+          [[ -e "$RUNNER_TEMP/validation.log" ]] || : > "$RUNNER_TEMP/validation.log"
+          git -C "$TARGET_WORKTREE" diff --binary --no-ext-diff > "$RUNNER_TEMP/git-diff.patch"
+
+      - name: Upload full execution diagnostics
+        if: failure() || vars.CODEX_DEBUG_LOGGING == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codex-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/codex-trace.log
+            ${{ runner.temp }}/codex-result.json
+            ${{ runner.temp }}/validation.log
+            ${{ runner.temp }}/git-diff.patch
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Upload canonical execution result
         if: always()

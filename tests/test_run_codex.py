@@ -212,16 +212,17 @@ class RunCodexTests(unittest.TestCase):
         self.assertEqual(expected + ("--", ".", ":(exclude)codex-result.json"),
                          run.call_args_list[0].args[0])
 
-    def test_stdout_streaming_and_diagnostic_capture(self):
+    def test_stdout_is_captured_without_console_noise(self):
         process = FakeProcess(stdout=b"first\nsecond\n")
         output = io.StringIO()
         with mock.patch.object(subprocess, "Popen", return_value=process), \
                 mock.patch.object(sys, "stdout", output):
             status, _ = run_codex.execute(["codex"], b"input", self.env, 10)
         self.assertEqual(0, status)
-        self.assertEqual("first\nsecond\n", output.getvalue())
-        logs = list(Path(self.temp.name).glob("codex-stdout-*.log"))
-        self.assertEqual(b"first\nsecond\n", logs[0].read_bytes())
+        self.assertEqual("", output.getvalue())
+        trace = Path(self.temp.name) / "codex-trace.log"
+        self.assertIn(b"first\nsecond\n", trace.read_bytes())
+        self.assertIn(b"Rendered prompt", trace.read_bytes())
 
     def test_stderr_is_sanitized(self):
         process = FakeProcess(stderr=b"Authorization: Bearer secret\nsk-abcdefghijk\n")
