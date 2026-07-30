@@ -112,6 +112,21 @@ jobs:
           jq -e '.state == "open" and (has("pull_request") | not)' "$RUNNER_TEMP/source-issue.json" >/dev/null
           jq -e '[.labels[].name] | index("executor:codex") != null and (index("status:approved") != null or index("status:queued") != null) and index("sensitive") == null' "$RUNNER_TEMP/source-issue.json" >/dev/null
 
+      - name: Prepare deterministic task branch
+        if: ${{ steps.input.outputs.execution_mode == 'implement' }}
+        env:
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          BRANCH: ${{ steps.input.outputs.branch }}
+          BASE_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail; set +x
+          export PATH=/usr/bin:/bin
+          trusted_prepare="$RUNNER_TEMP/prepare-task-branch"
+          GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git show \
+            "$GITHUB_SHA:scripts/prepare-task-branch" > "$trusted_prepare"
+          chmod 500 "$trusted_prepare"
+          /usr/bin/bash "$trusted_prepare"
+
       - name: Install and execute Codex
         if: steps.input.outputs.execution_mode == 'implement'
         id: codex
@@ -173,7 +188,7 @@ jobs:
           printf '%s\n' passed > "$RUNNER_TEMP/test-result"
 
       - name: Create task branch and draft PR
-        if: steps.input.outputs.execution_mode == 'implement' && steps.codex.outputs.no_changes != 'true'
+        if: steps.input.outputs.execution_mode == 'implement' && steps.codex.outcome == 'success'
         id: publish
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
