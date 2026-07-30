@@ -112,6 +112,16 @@ jobs:
           jq -e '.state == "open" and (has("pull_request") | not)' "$RUNNER_TEMP/source-issue.json" >/dev/null
           jq -e '[.labels[].name] | index("executor:codex") != null and (index("status:approved") != null or index("status:queued") != null) and index("sensitive") == null' "$RUNNER_TEMP/source-issue.json" >/dev/null
 
+      - name: Materialize trusted Codex helpers
+        if: steps.input.outputs.execution_mode == 'implement'
+        run: |
+          set -euo pipefail
+          trusted_source="$RUNNER_TEMP/trusted-source"
+          mkdir -m 700 "$trusted_source"
+          GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git archive "$GITHUB_SHA" portfolio_tasks \
+            | /usr/bin/tar -x -C "$trusted_source"
+          printf 'TRUSTED_PYTHONPATH=%s\n' "$trusted_source" >> "$GITHUB_ENV"
+
       - name: Prepare deterministic task branch
         if: ${{ steps.input.outputs.execution_mode == 'implement' }}
         env:
@@ -133,11 +143,12 @@ jobs:
         env:
           CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CODEX_MODEL: gpt-5.3-codex
+          PYTHONPATH: ${{ env.TRUSTED_PYTHONPATH }}
         run: |
           set -euo pipefail; set +x
           printf '%s\n' codex_failed > "$RUNNER_TEMP/failure-category"
           npm install --global @openai/codex@0.63.0
-          python - <<'PY'
+          python -P - <<'PY'
           import json
           import os
           from pathlib import Path
@@ -156,7 +167,7 @@ jobs:
           (runner_temp / "instructions.md").write_text(prompt, encoding="utf-8")
           PY
           set +e
-          python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
+          python -P -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
           codex_status=$?
           set -e
           if (( codex_status != 0 && codex_status != 3 )); then
