@@ -136,7 +136,12 @@ def test_trusted_runtime_and_mutable_task_worktree_are_isolated() -> None:
     assert text.index("Trusted runtime preflight failed") < text.index("npm install --global")
     assert '--working-directory "$TASK_WORKTREE"' in text
     assert 'git -C "$TASK_WORKTREE" status' in text
-    assert 'cd "$TARGET_WORKTREE"' in text
+    validation = text[text.index("- name: Validate target repository") :]
+    validation = validation.split("- name: Create task branch", 1)[0]
+    assert 'cd "$GITHUB_WORKSPACE"' in validation
+    assert 'export PYTHONPATH="$GITHUB_WORKSPACE"' in validation
+    assert '--working-directory "$TARGET_WORKTREE"' in validation
+    assert 'cd "$TARGET_WORKTREE"' not in validation
 
 
 def test_publication_git_operations_are_scoped_to_task_worktree() -> None:
@@ -148,12 +153,7 @@ def test_publication_git_operations_are_scoped_to_task_worktree() -> None:
 def test_workflow_validation_avoids_unquoted_command_substitution() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     validation = text[text.index("- name: Validate target repository") :]
-    yaml_validation = next(
-        line for line in validation.splitlines() if "YAML.safe_load_file" in line
-    )
-
-    assert "$(find " not in yaml_validation
-    assert 'Dir.glob(".github/**/*.{yml,yaml}")' in yaml_validation
+    assert "$(find " not in validation
 
     unsafe_yaml_checks = [
         str(workflow)
@@ -178,6 +178,29 @@ def test_actionlint_is_independent_of_runner_shellcheck() -> None:
 
     assert invocations
     assert all(invocation.endswith(" -shellcheck=") for invocation in invocations)
+
+
+def test_actionlint_is_installed_before_codex_and_not_during_validation() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    install = text.index("- name: Install pinned actionlint before Codex execution")
+    codex = text.index("- name: Install and execute Codex")
+    validation = text[text.index("- name: Validate target repository") :]
+
+    assert install < codex
+    assert "@v1.7.7" not in validation
+    assert "go install" not in validation
+    assert "python -m portfolio_tasks.runtime_validation" in validation
+
+
+def test_diagnostics_upload_is_failure_or_debug_only() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    diagnostics = text[text.index("- name: Upload full execution diagnostics") :]
+
+    assert "if: failure() || vars.CODEX_DEBUG_LOGGING == 'true'" in diagnostics
+    for artifact in (
+        "codex-trace.log", "codex-result.json", "validation.log", "git-diff.patch"
+    ):
+        assert artifact in diagnostics
 
 
 def test_execution_authorization_accepts_router_queued_status() -> None:

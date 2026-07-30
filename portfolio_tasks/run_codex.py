@@ -15,7 +15,7 @@ import threading
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import BinaryIO, TextIO, cast
+from typing import BinaryIO, cast
 
 EX_CONFIG = 78
 EX_USAGE = 64
@@ -192,6 +192,19 @@ def validate_completion_result(
     return True, status
 
 
+def enrich_completion_result(path: Path) -> list[str]:
+    """Add diagnostic artifact metadata and return the reported changed files."""
+    if not path.exists():
+        # Unit-test doubles may validate a synthetic result without materializing it.
+        return []
+    result = json.loads(path.read_text(encoding="utf-8"))
+    result["log_artifact"] = "codex-trace.log"
+    result["diff_artifact"] = "git-diff.patch"
+    path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    files = result.get("files_changed", [])
+    return [str(file) for file in files] if isinstance(files, list) else []
+
+
 def print_repository_diagnostics(env: Mapping[str, str]) -> None:
     """Print objective, non-payload Git diagnostics for a no-change outcome."""
     commands = (
@@ -216,10 +229,8 @@ def print_repository_diagnostics(env: Mapping[str, str]) -> None:
             )
 
 
-def _stream(
-    source: BinaryIO, destination: TextIO, capture: BinaryIO, collected: list[str]
-) -> None:
-    """Stream one subprocess channel while redacting and capturing it."""
+def _stream(source: BinaryIO, capture: BinaryIO, collected: list[str]) -> None:
+    """Capture one subprocess channel without flooding the user console."""
     while True:
         chunk = source.readline()
         if not chunk:
@@ -229,8 +240,6 @@ def _stream(
         capture.write(encoded)
         capture.flush()
         collected.append(safe)
-        destination.write(safe)
-        destination.flush()
 
 
 def _forward_stdin(destination: BinaryIO, prompt: bytes) -> None:
@@ -256,8 +265,14 @@ def _diagnostic_file(runner_temp: Path, channel: str) -> BinaryIO:
 def execute(
     command: Sequence[str], prompt: bytes, env: Mapping[str, str], timeout: float
 ) -> tuple[int, str]:
-    """Execute Codex, forwarding input and streaming sanitized output."""
+    """Execute Codex, capturing a full trace and printing output only on failure."""
     runner_temp = Path(env.get("RUNNER_TEMP", tempfile.gettempdir()))
+    trace_path = runner_temp / "codex-trace.log"
+    runner_temp.mkdir(parents=True, exist_ok=True)
+    with trace_path.open("ab") as trace:
+        trace.write(b"=== Rendered prompt ===\n")
+        trace.write(sanitize(prompt.decode("utf-8", errors="replace")).encode())
+        trace.write(b"\n=== Codex output ===\n")
     stderr_parts: list[str] = []
     stdout_parts: list[str] = []
     with _diagnostic_file(runner_temp, "stdout") as stdout_capture, \
@@ -275,10 +290,10 @@ def execute(
 
         assert process.stdin and process.stdout and process.stderr
         readers = (
-            threading.Thread(target=_stream, args=(process.stdout, sys.stdout,
-                                                   stdout_capture, stdout_parts)),
-            threading.Thread(target=_stream, args=(process.stderr, sys.stderr,
-                                                   stderr_capture, stderr_parts)),
+            threading.Thread(target=_stream, args=(process.stdout, stdout_capture,
+                                                   stdout_parts)),
+            threading.Thread(target=_stream, args=(process.stderr, stderr_capture,
+                                                   stderr_parts)),
         )
         writer = threading.Thread(target=_forward_stdin,
                                   args=(process.stdin, prompt))
@@ -306,7 +321,14 @@ def execute(
             process.stdout.close()
             process.stderr.close()
 
-    return return_code, "".join(stderr_parts)
+    stdout_text = "".join(stdout_parts)
+    stderr_text = "".join(stderr_parts)
+    with trace_path.open("ab") as trace:
+        trace.write(stdout_text.encode())
+        trace.write(stderr_text.encode())
+    if return_code and stderr_text:
+        print(stderr_text, end="" if stderr_text.endswith("\n") else "\n", file=sys.stderr)
+    return return_code, stderr_text
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -354,9 +376,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return getattr(error, "returncode", 1)
 
     capabilities = detect_capabilities(help_text)
+    print("Stage: Codex preflight", flush=True)
     print(f"Codex version: {sanitize(version)}", flush=True)
-    print("Detected capabilities: " +
-          (" ".join(sorted(capabilities)) if capabilities else "none"), flush=True)
+    print(f"Codex model: {sanitize(os.environ.get('CODEX_MODEL', 'default'))}", flush=True)
+    print(f"Working directory: {Path.cwd()}", flush=True)
 
     if "--sandbox" not in capabilities:
         LOGGER.error("::error title=Unsupported Codex CLI::The required --sandbox "
@@ -389,7 +412,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         command.extend(("--model", model))
     command.append("-")
     mode = "; ".join(compatibility) if compatibility else "all wrapper flags supported"
-    print(f"Compatibility mode: {mode}", flush=True)
+    LOGGER.debug("Compatibility mode: %s", mode)
 
     prompt = sys.stdin.buffer.read()
     # Treat --timeout as one shared execution budget.  In particular, a no-op
@@ -412,6 +435,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     valid, outcome = validate_completion_result(result_path(env), repository_changed=changed)
     if valid:
+        files = enrich_completion_result(result_path(env))
+        print("Files modified: " + (", ".join(files) if files else "none"), flush=True)
         LOGGER.info("::notice::Codex terminal outcome: %s", outcome)
         return 0
     if changed:
@@ -443,6 +468,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     valid, outcome = validate_completion_result(result_path(env), repository_changed=changed)
     if valid:
+        files = enrich_completion_result(result_path(env))
+        print("Files modified: " + (", ".join(files) if files else "none"), flush=True)
         LOGGER.info("::notice::Codex terminal outcome: %s", outcome)
         return 0
     if changed:
