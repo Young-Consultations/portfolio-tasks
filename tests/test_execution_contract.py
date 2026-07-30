@@ -185,6 +185,20 @@ def test_workflow_validates_codex_changes_and_reports_real_outcomes() -> None:
     assert 'validation_result:"passed",test_result:"passed"' not in text
 
 
+def test_codex_helpers_are_loaded_from_the_trusted_revision() -> None:
+    text = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
+    materialize = text.index("- name: Materialize trusted Codex helpers")
+    prepare = text.index("- name: Prepare deterministic task branch")
+    codex = text.index("- name: Install and execute Codex")
+    codex_step = text[codex:text.index("- name: Validate target repository")]
+
+    assert materialize < prepare < codex
+    assert '/usr/bin/git archive "$GITHUB_SHA" portfolio_tasks' in text
+    assert "PYTHONPATH: ${{ env.TRUSTED_PYTHONPATH }}" in codex_step
+    assert "python -P - <<'PY'" in codex_step
+    assert "python -P -m portfolio_tasks.run_codex" in codex_step
+
+
 def test_repository_has_no_local_contract_or_schema_copy() -> None:
     assert not any(Path("contracts").glob("**/*"))
     assert not any(Path("schemas").glob("**/*"))
