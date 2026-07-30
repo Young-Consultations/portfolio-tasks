@@ -8,6 +8,7 @@ import logging
 import os
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from .github_api import GitHubApi, GitHubApiError
 from .issue_sync import (
@@ -24,6 +25,7 @@ from .routing import route_decision
 from .validation import validate_dispatch
 
 LOGGER = logging.getLogger("portfolio-tasks")
+APPROVAL_LABEL = "status:approved"
 
 
 def _api(dry_run: bool = False) -> GitHubApi:
@@ -115,10 +117,49 @@ def dispatch(args: argparse.Namespace) -> int:
     return 0 if result.ok else 1
 
 
+def _route_event_gate(event: dict[str, Any]) -> tuple[bool, str]:
+    action = str(event.get("action") or "")
+    if action == "edited":
+        return False, "edited-approval-invalidated"
+    if action == "labeled":
+        label = event.get("label")
+        label_name = str(label.get("name") if isinstance(label, dict) else "")
+        if label_name != APPROVAL_LABEL:
+            return False, "non-approval-label"
+    return True, ""
+
+
+def _route_issue_snapshot(issue: Issue) -> tuple[Issue | None, str]:
+    repository = os.getenv("GITHUB_REPOSITORY", "")
+    token = os.getenv("GH_TOKEN")
+    if issue.number <= 0:
+        return None, "invalid-issue"
+    if not repository or not token:
+        return issue, ""
+    try:
+        current = _api().request("GET", f"repos/{repository}/issues/{issue.number}")
+    except GitHubApiError:
+        return None, "live-issue-fetch-failed"
+    return Issue.from_json(current), ""
+
+
 def route_check(args: argparse.Namespace) -> int:
     """Emit only non-sensitive routing outputs for a GitHub issue event."""
     event = json.loads(args.event_json.read_text(encoding="utf-8"))
     issue = Issue.from_json(event.get("issue", {}))
+    event_allowed, gate_reason = _route_event_gate(event)
+    if not event_allowed:
+        print("route=false")
+        print(f"reason={gate_reason}")
+        print(f"issue_number={issue.number}")
+        return 0
+    issue_snapshot, snapshot_reason = _route_issue_snapshot(issue)
+    if issue_snapshot is None:
+        print("route=false")
+        print(f"reason={snapshot_reason}")
+        print(f"issue_number={issue.number}")
+        return 0
+    issue = issue_snapshot
     decision = route_decision(issue)
     print(f"route={str(decision.route).lower()}")
     print(f"reason={decision.reason}")
