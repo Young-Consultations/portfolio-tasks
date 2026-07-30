@@ -24,6 +24,23 @@ def test_success_is_concise_and_full_output_stays_in_log(tmp_path: Path) -> None
     assert noisy in (tmp_path / "validation.log").read_text(encoding="utf-8")
 
 
+def test_commands_run_in_explicit_working_directory(tmp_path: Path) -> None:
+    completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+    target = tmp_path / "task-worktree"
+    target.mkdir()
+    with mock.patch.object(runtime_validation.shutil, "which", return_value="/bin/tool"), \
+            mock.patch.object(
+                runtime_validation.subprocess, "run", return_value=completed
+            ) as run:
+        status = runtime_validation.run_validations(
+            tmp_path / "validation.log", working_directory=target
+        )
+
+    assert status == 0
+    assert run.call_count == len(runtime_validation.COMMANDS)
+    assert all(call.kwargs["cwd"] == target for call in run.call_args_list)
+
+
 def test_failure_prints_stderr_and_updates_result(tmp_path: Path) -> None:
     result = tmp_path / "codex-result.json"
     result.write_text(json.dumps({"status": "changed"}), encoding="utf-8")

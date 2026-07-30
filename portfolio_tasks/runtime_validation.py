@@ -39,8 +39,11 @@ def _update_result(path: Path | None, validation: list[dict[str, str]]) -> None:
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
-def run_validations(log_path: Path, result_path: Path | None = None) -> int:
+def run_validations(
+    log_path: Path, result_path: Path | None = None, working_directory: Path | None = None
+) -> int:
     """Run every command, keeping successful output in the diagnostic log only."""
+    command_directory = working_directory or Path.cwd()
     validation: list[dict[str, str]] = []
     log_path.parent.mkdir(parents=True, exist_ok=True)
     print("Validation")
@@ -55,7 +58,12 @@ def run_validations(log_path: Path, result_path: Path | None = None) -> int:
                 _update_result(result_path, validation)
                 return INFRASTRUCTURE_EXIT
             completed = subprocess.run(
-                command.argv, check=False, capture_output=True, text=True, env=os.environ.copy()
+                command.argv,
+                check=False,
+                capture_output=True,
+                text=True,
+                env=os.environ.copy(),
+                cwd=command_directory,
             )
             log.write(f"$ {' '.join(command.argv)}\n{completed.stdout}{completed.stderr}")
             status = "passed" if completed.returncode == 0 else "failed"
@@ -78,8 +86,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", type=Path, required=True)
     parser.add_argument("--result", type=Path)
+    parser.add_argument("--working-directory", type=Path, required=True)
     args = parser.parse_args()
-    return run_validations(args.log, args.result)
+    return run_validations(args.log, args.result, args.working_directory)
 
 
 if __name__ == "__main__":

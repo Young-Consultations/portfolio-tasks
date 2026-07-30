@@ -204,8 +204,10 @@ jobs:
         run: |
           set -euo pipefail; set +x
           printf '%s\n' validation_failed > "$RUNNER_TEMP/failure-category"
-          cd "$TARGET_WORKTREE"
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
           python -m portfolio_tasks.runtime_validation \
+            --working-directory "$TARGET_WORKTREE" \
             --log "$RUNNER_TEMP/validation.log" \
             --result "$RUNNER_TEMP/codex-result.json"
           printf '%s\n' passed > "$RUNNER_TEMP/validation-result"

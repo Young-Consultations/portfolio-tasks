@@ -136,7 +136,12 @@ def test_trusted_runtime_and_mutable_task_worktree_are_isolated() -> None:
     assert text.index("Trusted runtime preflight failed") < text.index("npm install --global")
     assert '--working-directory "$TASK_WORKTREE"' in text
     assert 'git -C "$TASK_WORKTREE" status' in text
-    assert 'cd "$TARGET_WORKTREE"' in text
+    validation = text[text.index("- name: Validate target repository") :]
+    validation = validation.split("- name: Create task branch", 1)[0]
+    assert 'cd "$GITHUB_WORKSPACE"' in validation
+    assert 'export PYTHONPATH="$GITHUB_WORKSPACE"' in validation
+    assert '--working-directory "$TARGET_WORKTREE"' in validation
+    assert 'cd "$TARGET_WORKTREE"' not in validation
 
 
 def test_publication_git_operations_are_scoped_to_task_worktree() -> None:
