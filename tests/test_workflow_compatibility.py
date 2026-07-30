@@ -192,15 +192,21 @@ def test_actionlint_is_installed_before_codex_and_not_during_validation() -> Non
     assert "python -m portfolio_tasks.runtime_validation" in validation
 
 
-def test_diagnostics_upload_is_failure_or_debug_only() -> None:
+def test_diagnostics_upload_always_runs() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     diagnostics = text[text.index("- name: Upload full execution diagnostics") :]
 
-    assert "if: failure() || vars.CODEX_DEBUG_LOGGING == 'true'" in diagnostics
+    assert "if: always()" in diagnostics
     for artifact in (
         "codex-trace.log", "codex-result.json", "validation.log", "git-diff.patch"
     ):
         assert artifact in diagnostics
+
+
+def test_codex_model_uses_repository_override_with_safe_default() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "CODEX_MODEL: ${{ vars.CODEX_MODEL || 'gpt-5.3-codex' }}" in text
 
 
 def test_execution_authorization_accepts_router_queued_status() -> None:
