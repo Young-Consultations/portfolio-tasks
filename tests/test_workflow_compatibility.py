@@ -81,8 +81,10 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     implement_guard = "if: steps.input.outputs.execution_mode == 'implement'"
 
-    assert text.count(implement_guard) == 2
-    assert text.index(implement_guard) < text.index("python -m portfolio_tasks.run_codex")
+    assert text.count(implement_guard) == 3
+    assert text.index(implement_guard) < text.index(
+        "python -P -m portfolio_tasks.run_codex"
+    )
     assert text.index(implement_guard, text.index("Create task branch"))
     assert "codex_status=$?" in text
     assert "codex_status != 0 && codex_status != 3" in text
