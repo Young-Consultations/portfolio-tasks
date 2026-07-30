@@ -37,7 +37,7 @@ def canonical_execution_status(
     if not authorization_ok:
         return "blocked"
     if no_changes:
-        return "verified" if mode == "verify" else "failed"
+        return "verified"
     if not validation_ok:
         return "failed"
     if mode == "verify":

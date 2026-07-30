@@ -93,12 +93,12 @@ def test_rendered_prompt_contains_required_sections() -> None:
     )
 
     required_sections = [
-        "# Execution Contract",
+        "# Autonomous Execution Contract",
         "## Repository Context",
         "## Task",
-        "## Implementation Requirements",
+        "## Required Execution Sequence",
         "## Validation",
-        "## Final Acceptance-Criteria Review",
+        "## Structured Result",
         "## Completion Report",
     ]
     for section in required_sections:
@@ -115,25 +115,18 @@ def test_rendered_prompt_contains_execution_requirements() -> None:
     )
 
     required_language = [
-        "Restate the objective",
-        "Identify the root problem",
-        "Extract every acceptance criterion",
-        "Map every acceptance criterion",
-        "Identify the files expected to change",
-        "smallest coherent set of changes",
-        "Preserve repository architecture",
+        "fully autonomous, noninteractive execution",
+        "Do not ask the user for permission, confirmation, clarification, or approval",
+        "After planning, immediately edit the repository",
+        "Planning is not a terminal outcome",
+        "do not create artificial",
+        "structured `already_satisfied` result",
+        "Compare the current behavior to every acceptance criterion",
         "Add or update tests",
         "Run the following validation commands",
-        "review every extracted acceptance criterion",
         "broad refactoring",
         "unrelated cleanup",
-        "symptoms",
-        "Do not skip any acceptance criterion",
-        "**Objective:**",
-        "**Files changed:**",
-        "**Tests:**",
-        "**Acceptance criteria satisfied:**",
-        "**Unresolved items:**",
+        "$RUNNER_TEMP/codex-result.json",
     ]
     for requirement in required_language:
         assert requirement in result
@@ -148,7 +141,7 @@ def test_implementation_profile_loads_execution_template() -> None:
         validation_commands=["pytest"],
     )
 
-    assert result.startswith("# Execution Contract")
+    assert result.startswith("# Autonomous Execution Contract")
     assert "Implement the task." in result
 
 
