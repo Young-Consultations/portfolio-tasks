@@ -246,6 +246,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=float(os.environ.get("CODEX_TIMEOUT_SECONDS", DEFAULT_TIMEOUT)),
         help="maximum execution time in seconds (default: %(default)s)",
     )
+    parser.add_argument(
+        "--working-directory", type=Path,
+        help="repository worktree in which Codex and Git commands must run",
+    )
     return parser
 
 
@@ -255,6 +259,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.timeout <= 0:
         LOGGER.error("::error title=Invalid Codex timeout::Timeout must be positive.")
         return EX_USAGE
+    if args.working_directory is not None:
+        try:
+            os.chdir(args.working_directory)
+        except OSError as error:
+            LOGGER.error("::error title=Invalid task worktree::%s", sanitize(str(error)))
+            return EX_USAGE
 
     api_key = os.environ.get("CODEX_API_KEY")
     if not api_key:

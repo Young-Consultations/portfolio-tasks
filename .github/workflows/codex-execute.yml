@@ -38,15 +38,19 @@ jobs:
       - name: Check out target repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.sha }}
+          fetch-depth: 0
 
       - name: Initialize result state
         run: |
+          set -euo pipefail
           printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$RUNNER_TEMP/started-at"
           printf '%s\n' invalid_input > "$RUNNER_TEMP/failure-category"
           printf '%s\n' not_run > "$RUNNER_TEMP/validation-result"
           printf '%s\n' not_run > "$RUNNER_TEMP/test-result"
+          printf 'TASK_WORKTREE=%s\n' "$RUNNER_TEMP/task-worktree" >> "$GITHUB_ENV"
+          printf 'TARGET_WORKTREE=%s\n' "$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
 
       - name: Download execution-input.json
         if: inputs.execution_input_json == '' && inputs.execution_input_artifact != ''
@@ -126,6 +130,7 @@ jobs:
             "$GITHUB_SHA:scripts/prepare-task-branch" > "$trusted_prepare"
           chmod 500 "$trusted_prepare"
           /usr/bin/bash "$trusted_prepare"
+          printf 'TARGET_WORKTREE=%s\n' "$TASK_WORKTREE" >> "$GITHUB_ENV"
 
       - name: Install and execute Codex
         if: steps.input.outputs.execution_mode == 'implement'
@@ -136,6 +141,12 @@ jobs:
         run: |
           set -euo pipefail; set +x
           printf '%s\n' codex_failed > "$RUNNER_TEMP/failure-category"
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          if ! python -c "from portfolio_tasks.prompts import render_execution_prompt"; then
+            echo '::error title=Trusted runtime preflight failed::portfolio_tasks.prompts is missing from the trusted GITHUB_SHA checkout.'
+            exit 1
+          fi
           npm install --global @openai/codex@0.63.0
           python - <<'PY'
           import json
@@ -156,13 +167,13 @@ jobs:
           (runner_temp / "instructions.md").write_text(prompt, encoding="utf-8")
           PY
           set +e
-          python -m portfolio_tasks.run_codex < "$RUNNER_TEMP/instructions.md"
+          python -m portfolio_tasks.run_codex --working-directory "$TASK_WORKTREE" < "$RUNNER_TEMP/instructions.md"
           codex_status=$?
           set -e
           if (( codex_status != 0 && codex_status != 3 )); then
             exit "$codex_status"
           fi
-          if [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+          if [[ -z "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)" ]]; then
             (( codex_status == 3 ))
             printf '%s\n' codex_no_changes > "$RUNNER_TEMP/failure-category"
             printf '%s\n' 'no_changes=true' >> "$GITHUB_OUTPUT"
@@ -177,6 +188,7 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s\n' validation_failed > "$RUNNER_TEMP/failure-category"
+          cd "$TARGET_WORKTREE"
           git diff --check
           ruby -e 'require "yaml"; Dir.glob(".github/**/*.{yml,yaml}").each { |f| YAML.safe_load_file(f, aliases: true) }'
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
@@ -214,6 +226,8 @@ jobs:
           NO_CHANGES: ${{ steps.codex.outputs.no_changes }}
         run: |
           set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
           branch=null; pr=null
           category=$(jq -Rn --arg v "$(cat "$RUNNER_TEMP/failure-category")" '$v')
           status_args=(--mode "$MODE")

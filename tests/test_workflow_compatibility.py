@@ -87,7 +87,10 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     assert "codex_status=$?" in text
     assert "codex_status != 0 && codex_status != 3" in text
     assert "(( codex_status == 3 ))" in text
-    assert '[[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]' in text
+    assert (
+        '[[ -z "$(git -C "$TASK_WORKTREE" status '
+        '--porcelain=v1 --untracked-files=all)" ]]' in text
+    )
     assert "if: always() && steps.input.outcome == 'success'" in text
     assert "python -m portfolio_tasks.execution execution-status" in text
     assert 'target_repository:"Young-Consultations/portfolio-tasks"' in text
@@ -122,6 +125,27 @@ def test_publication_uses_helper_from_trusted_commit() -> None:
     assert '"$RUNNER_TEMP/publish-draft-pr"' in publication
     assert '/usr/bin/bash "$trusted_publish"' in publication
     assert "scripts/publish-draft-pr\n" not in publication
+
+
+def test_trusted_runtime_and_mutable_task_worktree_are_isolated() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "ref: ${{ github.sha }}" in text
+    assert 'TASK_WORKTREE=%s\\n' in text
+    assert 'git worktree add' in Path("scripts/prepare-task-branch").read_text(encoding="utf-8")
+    assert "git switch" not in Path("scripts/prepare-task-branch").read_text(encoding="utf-8")
+    assert 'export PYTHONPATH="$GITHUB_WORKSPACE"' in text
+    assert 'python -c "from portfolio_tasks.prompts import render_execution_prompt"' in text
+    assert text.index("Trusted runtime preflight failed") < text.index("npm install --global")
+    assert '--working-directory "$TASK_WORKTREE"' in text
+    assert 'git -C "$TASK_WORKTREE" status' in text
+    assert 'cd "$TARGET_WORKTREE"' in text
+
+
+def test_publication_git_operations_are_scoped_to_task_worktree() -> None:
+    script = Path("scripts/publish-draft-pr").read_text(encoding="utf-8")
+    for operation in ("status", "config", "add", "diff", "commit", "push"):
+        assert f'git -C "$TASK_WORKTREE" {operation}' in script
 
 
 def test_workflow_validation_avoids_unquoted_command_substitution() -> None:

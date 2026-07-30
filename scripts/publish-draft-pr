@@ -9,21 +9,22 @@ set +x
 : "${ISSUE_NUMBER:?ISSUE_NUMBER must be set}"
 : "${GITHUB_OUTPUT:?GITHUB_OUTPUT must be set}"
 : "${RUNNER_TEMP:?RUNNER_TEMP must be set}"
+: "${TASK_WORKTREE:?TASK_WORKTREE must be set}"
 
 printf '%s\n' publication_failed > "$RUNNER_TEMP/failure-category"
 auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json')
 owner=${REPOSITORY%%/*}
 remote="https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
 changed=false
-if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
-  git config user.name 'portfolio-codex[bot]'
-  git config user.email 'portfolio-codex[bot]@users.noreply.github.com'
-  git add --all
-  if git diff --cached --quiet; then
+if [[ -n "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)" ]]; then
+  git -C "$TASK_WORKTREE" config user.name 'portfolio-codex[bot]'
+  git -C "$TASK_WORKTREE" config user.email 'portfolio-codex[bot]@users.noreply.github.com'
+  git -C "$TASK_WORKTREE" add --all
+  if git -C "$TASK_WORKTREE" diff --cached --quiet; then
     printf 'No publishable changes for task branch %s.\n' "$BRANCH"
   else
-    git commit -m "Implement approved portfolio task #$ISSUE_NUMBER"
-    git push "$remote" "HEAD:refs/heads/$BRANCH"
+    git -C "$TASK_WORKTREE" commit -m "Implement approved portfolio task #$ISSUE_NUMBER"
+    git -C "$TASK_WORKTREE" push "$remote" "HEAD:refs/heads/$BRANCH"
     changed=true
   fi
 else
