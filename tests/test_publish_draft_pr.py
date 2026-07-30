@@ -25,10 +25,10 @@ if [[ " $* " == *" -X POST "* ]]; then cat "$POST_RESPONSE"; else cat "$PULLS_RE
     (bin_dir / "git").write_text(
         """#!/usr/bin/env bash
 printf 'git %s\\n' "$*" >> "$CALL_LOG"
-case "$1 $2" in
-  "ls-remote --exit-code") exit "${LS_REMOTE_STATUS:-2}" ;;
-  "status --porcelain=v1") [[ "${HAS_CHANGES:-true}" == true ]] && printf ' M fixture\\n' ;;
-  "diff --cached") [[ "${HAS_CHANGES:-true}" == true ]] && exit 1 || exit 0 ;;
+case " $* " in
+  *" ls-remote --exit-code "*) exit "${LS_REMOTE_STATUS:-2}" ;;
+  *" status --porcelain=v1 "*) [[ "${HAS_CHANGES:-true}" == true ]] && printf ' M fixture\\n' ;;
+  *" diff --cached "*) [[ "${HAS_CHANGES:-true}" == true ]] && exit 1 || exit 0 ;;
 esac
 """,
         encoding="utf-8",
@@ -70,6 +70,7 @@ def environment(
         "ISSUE_NUMBER": "42",
         "GITHUB_OUTPUT": str(output),
         "RUNNER_TEMP": str(tmp_path),
+        "TASK_WORKTREE": str(tmp_path / "task-worktree"),
     }
     return env, call_log, output
 
@@ -83,7 +84,8 @@ def test_new_branch_is_prepared_from_base(tmp_path: Path) -> None:
     env, log, _ = environment(tmp_path, [])
     result, calls = run_script(PREPARE, env, log)
     assert result.returncode == 0
-    assert any("switch --create codex/fixture-task-42 base-sha" in call for call in calls)
+    assert any("worktree add -b codex/fixture-task-42" in call for call in calls)
+    assert any("task-worktree base-sha" in call for call in calls)
     assert not any(call.startswith("git fetch") for call in calls)
 
 
@@ -92,10 +94,14 @@ def test_existing_branch_is_fetched_and_checked_out_before_codex(tmp_path: Path)
     result, calls = run_script(PREPARE, env, log)
     assert result.returncode == 0
     assert calls.index(next(call for call in calls if call.startswith("git fetch"))) < calls.index(
-        next(call for call in calls if call.startswith("git switch"))
+        next(call for call in calls if "worktree add" in call)
     )
     assert any("refs/heads/codex/fixture-task-42:refs/remotes/origin/codex/fixture-task-42" in call for call in calls)
-    assert any("switch --force-create codex/fixture-task-42 --track origin/codex/fixture-task-42" in call for call in calls)
+    assert any(
+        "worktree add --force -B codex/fixture-task-42" in call
+        and "origin/codex/fixture-task-42" in call
+        for call in calls
+    )
 
 
 def run_publish(tmp_path: Path, pulls: list[dict[str, object]], *, has_changes: bool = True):
@@ -108,8 +114,11 @@ def test_first_publication_commits_pushes_and_creates_one_draft_pr(tmp_path: Pat
     result, calls, output = run_publish(tmp_path, [])
     assert result.returncode == 0
     assert output == f"url={PR_URL}\n"
-    assert sum(call.startswith("git commit ") for call in calls) == 1
-    assert sum(call.startswith("git push ") for call in calls) == 1
+    assert sum(" commit " in f" {call} " for call in calls) == 1
+    assert sum(" push " in f" {call} " for call in calls) == 1
+    assert all(" -C " in f" {call} " for call in calls if any(
+        operation in f" {call} " for operation in (" status ", " config ", " add ", " diff ", " commit ", " push ")
+    ))
     assert sum(" -X POST " in f" {call} " for call in calls) == 1
 
 
@@ -119,8 +128,8 @@ def test_repeated_publication_pushes_commit_and_reuses_open_pr(tmp_path: Path, d
     result, calls, output = run_publish(tmp_path, existing)
     assert result.returncode == 0
     assert output == f"url={PR_URL}\n"
-    commit = next(call for call in calls if call.startswith("git commit "))
-    push = next(call for call in calls if call.startswith("git push "))
+    commit = next(call for call in calls if " commit " in f" {call} ")
+    push = next(call for call in calls if " push " in f" {call} ")
     query = next(call for call in calls if call.startswith("curl "))
     assert calls.index(commit) < calls.index(push) < calls.index(query)
     assert "HEAD:refs/heads/codex/fixture-task-42" in push
@@ -133,7 +142,7 @@ def test_existing_pr_with_no_changes_is_explicit_no_change(tmp_path: Path) -> No
     assert result.returncode == 0
     assert output == f"url={PR_URL}\nno_changes=true\n"
     assert "No changes" in result.stdout
-    assert not any(call.startswith(("git commit", "git push")) for call in calls)
+    assert not any(operation in f" {call} " for call in calls for operation in (" commit ", " push "))
     assert not any(" -X POST " in f" {call} " for call in calls)
 
 
@@ -152,7 +161,7 @@ def test_existing_remote_branch_without_pr_gets_a_new_draft_pr(tmp_path: Path) -
     result, calls, output = run_publish(tmp_path, [])
     assert result.returncode == 0
     assert output == f"url={PR_URL}\n"
-    assert any(call.startswith("git push ") for call in calls)
+    assert any(" push " in f" {call} " for call in calls)
     assert sum(" -X POST " in f" {call} " for call in calls) == 1
 
 
@@ -173,5 +182,5 @@ def test_two_executions_add_two_commits_to_the_same_branch(tmp_path: Path) -> No
         result, calls, _ = run_publish(tmp_path / name, existing)
         assert result.returncode == 0
         all_calls.extend(calls)
-    assert sum(call.startswith("git commit ") for call in all_calls) == 2
+    assert sum(" commit " in f" {call} " for call in all_calls) == 2
     assert sum("HEAD:refs/heads/codex/fixture-task-42" in call for call in all_calls) == 2

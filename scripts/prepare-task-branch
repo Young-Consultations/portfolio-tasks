@@ -6,12 +6,19 @@ set +x
 : "${REPOSITORY:?REPOSITORY must be set}"
 : "${BRANCH:?BRANCH must be set}"
 : "${BASE_REVISION:?BASE_REVISION must be set}"
+: "${TASK_WORKTREE:?TASK_WORKTREE must be set}"
 
 remote="https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+if [[ -e "$TASK_WORKTREE" ]]; then
+  printf 'Task worktree path already exists: %s\n' "$TASK_WORKTREE" >&2
+  exit 1
+fi
+
 if git ls-remote --exit-code --heads "$remote" "refs/heads/$BRANCH" >/dev/null 2>&1; then
   git fetch "$remote" \
     "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
-  git switch --force-create "$BRANCH" --track "origin/$BRANCH"
+  git worktree add --force -B "$BRANCH" "$TASK_WORKTREE" "origin/$BRANCH"
+  git -C "$TASK_WORKTREE" branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
   printf 'Prepared existing task branch %s.\n' "$BRANCH"
 else
   remote_status=$?
@@ -19,6 +26,6 @@ else
     printf 'Unable to determine whether remote branch %s exists.\n' "$BRANCH" >&2
     exit "$remote_status"
   fi
-  git switch --create "$BRANCH" "$BASE_REVISION"
+  git worktree add -b "$BRANCH" "$TASK_WORKTREE" "$BASE_REVISION"
   printf 'Prepared new task branch %s from %s.\n' "$BRANCH" "$BASE_REVISION"
 fi
