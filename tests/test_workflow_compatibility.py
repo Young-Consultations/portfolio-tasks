@@ -199,3 +199,11 @@ def test_issue_edits_invalidate_approval_without_routing() -> None:
     assert "if: github.event.action == 'edited'" in text
     assert "labels/status%3Aapproved" in text
     assert "prepare:\n    if: github.event.action != 'edited'" in text
+
+
+def test_route_gate_has_token_for_live_issue_snapshot() -> None:
+    text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
+    gate_step = text[text.index("- name: Apply approval and idempotency gate") :]
+    gate_step = gate_step.split("- name: Install pinned shared contracts", 1)[0]
+
+    assert "GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}" in gate_step

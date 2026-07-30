@@ -47,6 +47,8 @@ jobs:
 
       - name: Apply approval and idempotency gate
         id: gate
+        env:
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
         run: python -m portfolio_tasks.cli route-check "$GITHUB_EVENT_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Install pinned shared contracts
