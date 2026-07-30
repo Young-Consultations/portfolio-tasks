@@ -119,7 +119,8 @@ def _inspect(command: Sequence[str], env: Mapping[str, str]) -> str:
 def repository_has_changes(env: Mapping[str, str]) -> bool:
     """Return whether Git reports tracked or untracked repository changes."""
     result = subprocess.run(
-        ("git", "status", "--porcelain=v1", "--untracked-files=all"),
+        ("git", "status", "--porcelain=v1", "--untracked-files=all", "--", ".",
+         f":(exclude){RESULT_FILENAME}"),
         check=False, capture_output=True, env=dict(env), shell=False
     )
     if result.returncode:
@@ -130,8 +131,8 @@ def repository_has_changes(env: Mapping[str, str]) -> bool:
 
 
 def result_path(env: Mapping[str, str]) -> Path:
-    """Return the per-run structured completion result path."""
-    return Path(env.get("RUNNER_TEMP", tempfile.gettempdir())) / RESULT_FILENAME
+    """Return the structured result path inside the writable task worktree."""
+    return Path.cwd() / RESULT_FILENAME
 
 
 def clear_result(env: Mapping[str, str]) -> None:

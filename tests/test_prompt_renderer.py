@@ -126,7 +126,7 @@ def test_rendered_prompt_contains_execution_requirements() -> None:
         "Run the following validation commands",
         "broad refactoring",
         "unrelated cleanup",
-        "$RUNNER_TEMP/codex-result.json",
+        "$TASK_WORKTREE/codex-result.json",
     ]
     for requirement in required_language:
         assert requirement in result

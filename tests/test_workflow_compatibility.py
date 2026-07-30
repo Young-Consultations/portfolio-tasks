@@ -86,7 +86,8 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     assert text.index(implement_guard, text.index("Create task branch"))
     assert "codex_status=$?" in text
     assert "codex_status != 0" in text
-    assert 'codex_outcome=$(jq -r .status "$RUNNER_TEMP/codex-result.json")' in text
+    assert 'codex_outcome=$(jq -r .status "$TASK_WORKTREE/codex-result.json")' in text
+    assert 'rm -- "$TASK_WORKTREE/codex-result.json"' in text
     assert (
         '[[ -z "$(git -C "$TASK_WORKTREE" status '
         '--porcelain=v1 --untracked-files=all)" ]]' in text

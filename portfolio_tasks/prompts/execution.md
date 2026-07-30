@@ -45,7 +45,7 @@ Also run the targeted tests needed to prove each criterion. Report every command
 
 ## Structured Result
 
-Before the completion report, write `$RUNNER_TEMP/codex-result.json` as valid JSON:
+Before the completion report, write `$TASK_WORKTREE/codex-result.json` as valid JSON:
 
 ```json
 {

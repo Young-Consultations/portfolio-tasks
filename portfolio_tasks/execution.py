@@ -36,7 +36,7 @@ def canonical_execution_status(
         raise ValueError("mode must be verify or implement")
     if not authorization_ok:
         return "blocked"
-    if no_changes:
+    if no_changes and validation_ok:
         return "verified"
     if not validation_ok:
         return "failed"

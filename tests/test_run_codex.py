@@ -209,7 +209,8 @@ class RunCodexTests(unittest.TestCase):
             self.assertFalse(run_codex.repository_has_changes(self.env))
             self.assertTrue(run_codex.repository_has_changes(self.env))
         expected = ("git", "status", "--porcelain=v1", "--untracked-files=all")
-        self.assertEqual(expected, run.call_args_list[0].args[0])
+        self.assertEqual(expected + ("--", ".", ":(exclude)codex-result.json"),
+                         run.call_args_list[0].args[0])
 
     def test_stdout_streaming_and_diagnostic_capture(self):
         process = FakeProcess(stdout=b"first\nsecond\n")
@@ -303,6 +304,13 @@ class RunCodexTests(unittest.TestCase):
         self.assertEqual((True, "already_satisfied"),
                          run_codex.validate_completion_result(
                              path, repository_changed=False))
+
+    def test_result_path_is_inside_current_worktree(self):
+        with mock.patch.object(Path, "cwd", return_value=Path(self.temp.name)):
+            self.assertEqual(
+                Path(self.temp.name) / run_codex.RESULT_FILENAME,
+                run_codex.result_path(self.env),
+            )
 
     def test_missing_criterion_evidence_rejects_clean_tree(self):
         path = Path(self.temp.name) / run_codex.RESULT_FILENAME

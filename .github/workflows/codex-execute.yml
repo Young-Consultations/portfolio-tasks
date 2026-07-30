@@ -173,7 +173,8 @@ jobs:
           if (( codex_status != 0 )); then
             exit "$codex_status"
           fi
-          codex_outcome=$(jq -r .status "$RUNNER_TEMP/codex-result.json")
+          codex_outcome=$(jq -r .status "$TASK_WORKTREE/codex-result.json")
+          rm -- "$TASK_WORKTREE/codex-result.json"
           tree_changed=false
           [[ -z "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)" ]] || tree_changed=true
           [[ "$codex_outcome" == changed && "$tree_changed" == true || \

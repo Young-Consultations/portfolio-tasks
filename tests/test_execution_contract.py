@@ -212,7 +212,7 @@ def test_repository_has_no_local_contract_or_schema_copy() -> None:
                 "authorization_ok": True,
                 "no_changes": True,
             },
-            "verified",
+            "failed",
         ),
         (
             {"mode": "verify", "authorization_ok": True, "validation_ok": True,
