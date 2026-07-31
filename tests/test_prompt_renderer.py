@@ -37,9 +37,7 @@ def test_renders_multiline_values(monkeypatch: pytest.MonkeyPatch) -> None:
         validation_commands=[],
     )
 
-    assert result == (
-        "Context:\nline one\nline two\nTask:\nfirst step\nsecond step"
-    )
+    assert result == ("Context:\nline one\nline two\nTask:\nfirst step\nsecond step")
 
 
 def test_empty_repository_context(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -49,11 +47,14 @@ def test_empty_repository_context(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda profile: "before{{repository_context}}after",
     )
 
-    assert renderer.render_execution_prompt(
-        task_instructions="",
-        repository_context="",
-        validation_commands=[],
-    ) == "beforeafter"
+    assert (
+        renderer.render_execution_prompt(
+            task_instructions="",
+            repository_context="",
+            validation_commands=[],
+        )
+        == "beforeafter"
+    )
 
 
 def test_validation_commands_preserve_order(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -168,3 +169,20 @@ def test_template_loading_failure(monkeypatch: pytest.MonkeyPatch) -> None:
             repository_context="context",
             validation_commands=[],
         )
+
+
+def test_draft_pr_criterion_becomes_workflow_postcondition() -> None:
+    result = renderer.render_execution_prompt(
+        task_instructions="- Implement behavior\n- One focused draft PR is opened against main",
+        repository_context="",
+        validation_commands=[],
+    )
+    task = result.split("## Task", 1)[1].split("## Implementation Acceptance Criteria", 1)[0]
+    postconditions = result.split("## Workflow Postconditions", 1)[1].split(
+        "## Required Execution Sequence", 1
+    )[0]
+    assert "Implement behavior" in task
+    assert "draft PR" not in task
+    assert "One focused draft PR is opened against main" in postconditions
+    assert "Do not push, create a pull request" in result
+    assert "Do not attempt workflow postconditions" in result

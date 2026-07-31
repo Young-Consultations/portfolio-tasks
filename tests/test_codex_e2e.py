@@ -107,6 +107,8 @@ def test_complete_stubbed_execution_path(tmp_path: Path) -> None:
     assert (worktree / "task.txt").read_text() == "changed by deterministic fake\n"
     payload = json.loads((worktree / "codex-result.json").read_text())
     assert payload["status"] == "changed"
+    assert payload["implementation_status"] == "passed"
+    assert payload["workflow_postconditions"][0]["status"] == "pending_workflow"
     assert validate_completion_result(worktree / "codex-result.json", repository_changed=True) == (
         True,
         "changed",

@@ -1,91 +1,119 @@
-"""Regression tests for concise runtime validation reporting."""
+"""Regression tests for baseline-aware runtime validation."""
 
-import io
 import json
-import subprocess
 from pathlib import Path
 from unittest import mock
 
 from portfolio_tasks import runtime_validation
 
 
-def test_success_is_concise_and_full_output_stays_in_log(tmp_path: Path) -> None:
-    noisy = "detail\n" * 1000
-    completed = subprocess.CompletedProcess([], 0, stdout=noisy, stderr="")
-    console = io.StringIO()
-    with mock.patch.object(runtime_validation.shutil, "which", return_value="/bin/tool"), \
-            mock.patch.object(runtime_validation.subprocess, "run", return_value=completed), \
-            mock.patch("sys.stdout", console):
-        status = runtime_validation.run_validations(tmp_path / "validation.log")
-
-    assert status == 0
-    assert noisy not in console.getvalue()
-    assert console.getvalue().count("PASS ") == len(runtime_validation.COMMANDS)
-    assert noisy in (tmp_path / "validation.log").read_text(encoding="utf-8")
+def outcome(command, status="passed", digest="ok", detail=""):
+    return {
+        "command": command.label,
+        "status": status,
+        "digest": digest,
+        "exit_code": 0 if status == "passed" else 1,
+        "detail": detail,
+    }
 
 
-def test_commands_run_in_explicit_working_directory(tmp_path: Path) -> None:
-    completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
-    target = tmp_path / "task-worktree"
-    target.mkdir()
-    with mock.patch.object(runtime_validation.shutil, "which", return_value="/bin/tool"), \
-            mock.patch.object(
-                runtime_validation.subprocess, "run", return_value=completed
-            ) as run:
-        status = runtime_validation.run_validations(
-            tmp_path / "validation.log", working_directory=target
+def baseline(path: Path, values: list[dict]) -> None:
+    path.write_text(json.dumps({"schema_version": "1", "commands": values}))
+
+
+def test_unchanged_pre_existing_failure_is_reported_and_allowed(tmp_path: Path) -> None:
+    base = tmp_path / "baseline.json"
+    values = [outcome(c) for c in runtime_validation.COMMANDS]
+    values[1] = outcome(runtime_validation.COMMANDS[1], "failed", "existing")
+    baseline(base, values)
+    post = list(values)
+    result = tmp_path / "result.json"
+    result.write_text(json.dumps({"status": "changed"}))
+    with (
+        mock.patch.object(runtime_validation, "_outcome", side_effect=post),
+        mock.patch.object(runtime_validation, "_changed_python_files", return_value=[]),
+    ):
+        code = runtime_validation.run_validations(tmp_path / "log", result, tmp_path, base)
+    assert code == 0
+    payload = json.loads(result.read_text())
+    assert payload["validation"]["repository_baseline"] == "has_pre_existing_failures"
+    assert payload["pre_existing_failures"] == [
+        {"command": "ruff check .", "classification": "pre_existing_unchanged"}
+    ]
+
+
+def test_new_failure_introduced_by_task_fails(tmp_path: Path) -> None:
+    base = tmp_path / "baseline.json"
+    values = [outcome(c) for c in runtime_validation.COMMANDS]
+    baseline(base, values)
+    post = list(values)
+    post[0] = outcome(runtime_validation.COMMANDS[0], "failed", "new")
+    with (
+        mock.patch.object(runtime_validation, "_outcome", side_effect=post),
+        mock.patch.object(runtime_validation, "_changed_python_files", return_value=[]),
+    ):
+        assert (
+            runtime_validation.run_validations(
+                tmp_path / "log", working_directory=tmp_path, baseline_path=base
+            )
+            == 1
         )
 
-    assert status == 0
-    assert run.call_count == len(runtime_validation.COMMANDS)
-    assert all(call.kwargs["cwd"] == target for call in run.call_args_list)
+
+def test_changed_file_formatting_failure_is_task_scoped_and_fails(tmp_path: Path) -> None:
+    base = tmp_path / "baseline.json"
+    values = [outcome(c) for c in runtime_validation.COMMANDS]
+    baseline(base, values)
+    formatting = {
+        "command": "ruff format changed Python files",
+        "status": "failed",
+        "detail": "bad",
+        "digest": "x",
+    }
+    with (
+        mock.patch.object(runtime_validation, "_outcome", side_effect=[*values, formatting]) as run,
+        mock.patch.object(runtime_validation, "_changed_python_files", return_value=["changed.py"]),
+    ):
+        assert (
+            runtime_validation.run_validations(
+                tmp_path / "log", working_directory=tmp_path, baseline_path=base
+            )
+            == 1
+        )
+    assert run.call_args_list[-1].args[0].argv == ("ruff", "format", "--check", "changed.py")
 
 
-def test_failure_prints_stderr_and_updates_result(tmp_path: Path) -> None:
-    result = tmp_path / "codex-result.json"
-    result.write_text(json.dumps({"status": "changed"}), encoding="utf-8")
-    completed = subprocess.CompletedProcess([], 1, stdout="", stderr="workflow is invalid")
-    console = io.StringIO()
-    with mock.patch.object(runtime_validation.shutil, "which", return_value="/bin/tool"), \
-            mock.patch.object(runtime_validation.subprocess, "run", return_value=completed), \
-            mock.patch("sys.stdout", console):
-        status = runtime_validation.run_validations(
-            tmp_path / "validation.log", result
+def test_infrastructure_is_not_pre_existing_debt(tmp_path: Path) -> None:
+    base = tmp_path / "baseline.json"
+    values = [outcome(c) for c in runtime_validation.COMMANDS]
+    baseline(base, values)
+    post = list(values)
+    post[-1] = outcome(runtime_validation.COMMANDS[-1], "infrastructure_failure")
+    with (
+        mock.patch.object(runtime_validation, "_outcome", side_effect=post),
+        mock.patch.object(runtime_validation, "_changed_python_files", return_value=[]),
+    ):
+        assert (
+            runtime_validation.run_validations(
+                tmp_path / "log", working_directory=tmp_path, baseline_path=base
+            )
+            == 1
         )
 
-    assert status == 1
-    assert "FAIL python -m pytest" in console.getvalue()
-    assert "workflow is invalid" in console.getvalue()
-    value = json.loads(result.read_text(encoding="utf-8"))
-    assert value["validation"][0]["status"] == "failed"
-    assert value["log_artifact"] == "codex-trace.log"
-    assert value["diff_artifact"] == "git-diff.patch"
+
+def test_missing_or_invalid_baseline_is_infrastructure_failure(tmp_path: Path) -> None:
+    assert (
+        runtime_validation.run_validations(tmp_path / "log", baseline_path=tmp_path / "missing")
+        == runtime_validation.INFRASTRUCTURE_EXIT
+    )
 
 
-def test_missing_actionlint_is_an_infrastructure_failure(tmp_path: Path) -> None:
-    successes = iter([
-        subprocess.CompletedProcess([], 0, stdout="", stderr="")
-        for _ in range(4)
-    ])
-
-    def available(name: str) -> str | None:
-        return None if name == "actionlint" else f"/bin/{name}"
-
-    console = io.StringIO()
-    with mock.patch.object(runtime_validation.shutil, "which", side_effect=available), \
-            mock.patch.object(runtime_validation.subprocess, "run", side_effect=successes), \
-            mock.patch("sys.stdout", console):
-        status = runtime_validation.run_validations(tmp_path / "validation.log")
-
-    assert status == runtime_validation.INFRASTRUCTURE_EXIT
-    assert "FAIL actionlint" in console.getvalue()
-    assert "required validation tool is unavailable" in console.getvalue()
-
-
-def test_actionlint_failure_fails_validation(tmp_path: Path) -> None:
-    outcomes = [subprocess.CompletedProcess([], 0, stdout="", stderr="") for _ in range(4)]
-    outcomes.append(subprocess.CompletedProcess([], 1, stdout="", stderr="bad workflow"))
-    with mock.patch.object(runtime_validation.shutil, "which", return_value="/bin/tool"), \
-            mock.patch.object(runtime_validation.subprocess, "run", side_effect=outcomes):
-        status = runtime_validation.run_validations(tmp_path / "validation.log")
-    assert status == 1
+def test_capture_baseline_records_all_commands(tmp_path: Path) -> None:
+    path = tmp_path / "baseline.json"
+    with mock.patch.object(
+        runtime_validation,
+        "_outcome",
+        side_effect=[outcome(c) for c in runtime_validation.COMMANDS],
+    ):
+        assert runtime_validation.capture_baseline(path, tmp_path) == 0
+    assert len(json.loads(path.read_text())["commands"]) == len(runtime_validation.COMMANDS)
