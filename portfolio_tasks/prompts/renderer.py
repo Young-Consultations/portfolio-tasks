@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import re
 from importlib import resources
-
 
 _PROFILE_TEMPLATES = {
     "implementation": "execution.md",
