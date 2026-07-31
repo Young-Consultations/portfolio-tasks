@@ -8,7 +8,6 @@ import sys
 import time
 from pathlib import Path
 
-
 HELP = "--sandbox --ask-for-approval --skip-git-repo-check --full-auto --config --model"
 
 
