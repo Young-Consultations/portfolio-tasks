@@ -21,21 +21,12 @@ def triggers(workflow: dict[object, object]) -> dict[object, object]:
     return value
 
 
-def test_pr_trigger_and_relevant_paths() -> None:
+def test_pr_trigger_runs_for_every_path() -> None:
     workflow = load(PR_WORKFLOW)
     event = triggers(workflow)
     assert "pull_request" in event
     assert "pull_request_target" not in event
-    paths = event["pull_request"]["paths"]
-    for required in (
-        ".github/workflows/**",
-        "portfolio_tasks/**",
-        "tests/**",
-        "pyproject.toml",
-        "scripts/**",
-        "**/*.sh",
-    ):
-        assert required in paths
+    assert event["pull_request"] is None
 
 
 def test_pr_ci_is_offline_and_runs_every_required_check() -> None:

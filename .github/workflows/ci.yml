@@ -2,15 +2,6 @@ name: PR CI
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/**"
-      - "portfolio_tasks/**"
-      - "tests/**"
-      - "pyproject.toml"
-      - "*.lock"
-      - "**/*.lock"
-      - "scripts/**"
-      - "**/*.sh"
   push:
     branches: [main]
 
@@ -53,7 +44,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with: {persist-credentials: false}
       - run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-      - run: '"$(go env GOPATH)/bin/actionlint" -shellcheck='
+      - run: "$(go env GOPATH)/bin/actionlint" -shellcheck=
       - name: Shell syntax validation
         run: find scripts tests -type f \( -name '*.sh' -o -path 'scripts/*' \) -print0 | xargs -0 -n1 bash -n
 
