@@ -95,6 +95,7 @@ def invoke(
         env=env,
         cwd=ROOT,
         timeout=10,
+        check=False,
     )
     assert not marker.exists(), "the real-name Codex sentinel was invoked"
     return result, worktree
