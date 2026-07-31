@@ -343,6 +343,12 @@ The check confirms that the form exists, required machine-friendly field IDs and
 
 `portfolio-tasks` is the authoritative backlog for Slugger, consulting, and future repositories. Each issue should represent one independently reviewable issue or feature. Large efforts should be split before Codex dispatch so each issue has its own approval, dependency, risk, scope, and acceptance criteria.
 
+The GitHub Projects Phase 1 portfolio dashboard contract is defined in
+`docs/github-projects-phase1-contract.md`. It documents the responsibility
+split between issues, Projects, router workflows, and target repositories,
+the deterministic field mapping, four required views, reproducible
+organization-owner setup, and required identifiers, variables, and secrets.
+
 ### Canonical metadata fields
 
 The `ChatGPT Automation Task` issue form captures these required governance fields before the detailed requirements sections:
