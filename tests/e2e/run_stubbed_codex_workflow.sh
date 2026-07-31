@@ -8,7 +8,7 @@ trap 'git -C "$temporary/repository" worktree remove --force "$temporary/worktre
 
 repo="$temporary/repository"
 worktree="$temporary/worktree"
-mkdir -p "$repo" "$temporary/sentinel"
+mkdir -p "$repo" "$temporary/sentinel" "$temporary/runner"
 git -C "$repo" init -q -b main
 git -C "$repo" config user.email tests@example.invalid
 git -C "$repo" config user.name 'Offline Workflow Test'

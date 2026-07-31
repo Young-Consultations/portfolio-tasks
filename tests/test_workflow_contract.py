@@ -55,6 +55,22 @@ def test_pr_ci_is_offline_and_runs_every_required_check() -> None:
     assert "pull_request_target" not in text
 
 
+def test_actionlint_and_shell_validation_commands_are_yaml_safe_and_scoped() -> None:
+    workflow = load(PR_WORKFLOW)
+    steps = workflow["jobs"]["actionlint"]["steps"]
+    commands = [step["run"].strip() for step in steps if "run" in step]
+    assert '"$(go env GOPATH)/bin/actionlint" -shellcheck=' in commands
+    assert ("find scripts tests -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n") in commands
+    assert "-path 'scripts/*'" not in PR_WORKFLOW.read_text(encoding="utf-8")
+
+
+def test_wrapper_unit_tests_do_not_receive_a_global_fixture_override() -> None:
+    workflow = load(PR_WORKFLOW)
+    steps = workflow["jobs"]["wrapper-integration"]["steps"]
+    pytest_step = next(step for step in steps if step.get("run", "").startswith("python -m pytest"))
+    assert "env" not in pytest_step
+
+
 def test_trusted_execution_workflow_contract() -> None:
     text = EXECUTION_WORKFLOW.read_text(encoding="utf-8")
     workflow = load(EXECUTION_WORKFLOW)
