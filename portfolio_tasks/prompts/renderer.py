@@ -10,8 +10,19 @@ _PROFILE_TEMPLATES = {
 }
 
 _WORKFLOW_POSTCONDITION = re.compile(
-    r"(?:\b(?:open(?:ed)?|create(?:d)?|push(?:ed)?|publish(?:ed)?|post(?:ed)?|update(?:d)?)\b.*\b(?:draft\s+)?(?:pull request|pr|branch|source issue|workflow url)\b|\b(?:draft\s+)?(?:pull request|pr|branch)\b.*\b(?:open(?:ed)?|create(?:d)?|push(?:ed)?|publish(?:ed)?)\b)",
-    re.IGNORECASE,
+    r"""(?:
+        (?:one|a|an|the)?\s*(?:focused\s+)?draft\s+(?:pull\s+request|pr)\s+
+            (?:is|will\s+be|must\s+be|should\s+be)\s+(?:opened|created|published)\b.*
+        |(?:open|create|publish)\s+(?:one|a|an|the)?\s*(?:focused\s+)?draft\s+
+            (?:pull\s+request|pr)\b.*
+        |(?:changes|commits)\s+(?:are|will\s+be|must\s+be|should\s+be)\s+pushed\b.*
+        |push\s+(?:the\s+)?(?:changes|commits)\b.*
+        |(?:one|a|an|the)?\s*(?:task|feature|implementation)\s+branch\s+
+            (?:is|will\s+be|must\s+be|should\s+be)\s+(?:created|pushed)\b.*
+        |(?:the\s+)?source\s+issue\s+(?:is|will\s+be|must\s+be|should\s+be)\s+
+            (?:updated|posted\s+to)\b.*(?:workflow\s+url|pull\s+request|draft\s+pr)\b.*
+    )""",
+    re.IGNORECASE | re.VERBOSE,
 )
 
 
@@ -20,9 +31,22 @@ def _separate_responsibilities(task: str) -> tuple[str, str]:
     implementation: list[str] = []
     postconditions: list[str] = []
     for line in task.splitlines():
-        if _WORKFLOW_POSTCONDITION.search(line):
-            postconditions.append(line.strip().lstrip("-* "))
-        else:
+        indentation = line[: len(line) - len(line.lstrip())]
+        content = line.strip()
+        bullet = ""
+        if content.startswith(("- ", "* ")):
+            bullet, content = content[:2], content[2:]
+
+        implementation_clauses: list[str] = []
+        for clause in (item.strip() for item in content.split(";")):
+            if clause and _WORKFLOW_POSTCONDITION.fullmatch(clause):
+                postconditions.append(clause)
+            elif clause:
+                implementation_clauses.append(clause)
+
+        if implementation_clauses:
+            implementation.append(f"{indentation}{bullet}{'; '.join(implementation_clauses)}")
+        elif not content:
             implementation.append(line)
     rendered = "\n".join(f"- {item}" for item in postconditions)
     return "\n".join(implementation).strip(), rendered or "- None specified."

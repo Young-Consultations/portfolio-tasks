@@ -186,3 +186,44 @@ def test_draft_pr_criterion_becomes_workflow_postcondition() -> None:
     assert "One focused draft PR is opened against main" in postconditions
     assert "Do not push, create a pull request" in result
     assert "Do not attempt workflow postconditions" in result
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "- Update branch protection documentation",
+        "- Create a branch-name validator",
+        "- Update the PR template parser",
+    ],
+)
+def test_implementation_criteria_that_mention_publication_terms_are_preserved(
+    criterion: str,
+) -> None:
+    result = renderer.render_execution_prompt(
+        task_instructions=criterion,
+        repository_context="",
+        validation_commands=[],
+    )
+    task = result.split("## Task", 1)[1].split("## Implementation Acceptance Criteria", 1)[0]
+    postconditions = result.split("## Workflow Postconditions", 1)[1].split(
+        "## Required Execution Sequence", 1
+    )[0]
+
+    assert criterion in task
+    assert "None specified" in postconditions
+
+
+def test_mixed_implementation_and_publication_criterion_is_split() -> None:
+    result = renderer.render_execution_prompt(
+        task_instructions="- Implement retry behavior; one draft PR is opened afterward",
+        repository_context="",
+        validation_commands=[],
+    )
+    task = result.split("## Task", 1)[1].split("## Implementation Acceptance Criteria", 1)[0]
+    postconditions = result.split("## Workflow Postconditions", 1)[1].split(
+        "## Required Execution Sequence", 1
+    )[0]
+
+    assert "- Implement retry behavior" in task
+    assert "draft PR" not in task
+    assert "one draft PR is opened afterward" in postconditions
