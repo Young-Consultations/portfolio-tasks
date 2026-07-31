@@ -1,6 +1,7 @@
 """Render prompts used by the task execution boundary."""
 
 from __future__ import annotations
+
 import re
 from importlib import resources
 
