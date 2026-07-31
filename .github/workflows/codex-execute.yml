@@ -142,6 +142,16 @@ jobs:
           export PATH="$(go env GOPATH)/bin:$PATH"
           actionlint -version
 
+      - name: Capture trusted pre-change validation baseline
+        run: |
+          set -euo pipefail; set +x
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          python -m portfolio_tasks.runtime_validation \
+            --capture-baseline \
+            --working-directory "$TARGET_WORKTREE" \
+            --baseline "$RUNNER_TEMP/validation-baseline.json"
+
       - name: Install and execute Codex
         if: steps.input.outputs.execution_mode == 'implement'
         id: codex
@@ -169,9 +179,13 @@ jobs:
           execution_input = json.loads(
               (runner_temp / "execution-input.json").read_text(encoding="utf-8")
           )
+          baseline = json.loads((runner_temp / "validation-baseline.json").read_text())
+          baseline_context = "Trusted pre-change validation baseline (status only):\n" + "\n".join(
+              f"- {item['command']}: {item['status']}" for item in baseline["commands"]
+          )
           prompt = render_execution_prompt(
               task_instructions=execution_input["instructions"],
-              repository_context="",
+              repository_context=baseline_context,
               validation_commands=[],
           )
           (runner_temp / "instructions.md").write_text(prompt, encoding="utf-8")
@@ -208,13 +222,14 @@ jobs:
           export PYTHONPATH="$GITHUB_WORKSPACE"
           python -m portfolio_tasks.runtime_validation \
             --working-directory "$TARGET_WORKTREE" \
+            --baseline "$RUNNER_TEMP/validation-baseline.json" \
             --log "$RUNNER_TEMP/validation.log" \
             --result "$RUNNER_TEMP/codex-result.json"
           printf '%s\n' passed > "$RUNNER_TEMP/validation-result"
           printf '%s\n' passed > "$RUNNER_TEMP/test-result"
 
       - name: Create task branch and draft PR
-        if: steps.input.outputs.execution_mode == 'implement' && steps.codex.outputs.outcome == 'changed'
+        if: steps.input.outputs.execution_mode == 'implement' && steps.codex.outputs.outcome == 'changed' && steps.validation.outcome == 'success'
         id: publish
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
@@ -228,6 +243,11 @@ jobs:
             "$GITHUB_SHA:scripts/publish-draft-pr" > "$trusted_publish"
           chmod 500 "$trusted_publish"
           /usr/bin/bash "$trusted_publish"
+          {
+            echo '### Workflow postconditions'
+            echo '- completed: controlled branch committed and pushed'
+            echo '- completed: one draft pull request opened'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Emit canonical execution result
         if: always() && steps.input.outcome == 'success'

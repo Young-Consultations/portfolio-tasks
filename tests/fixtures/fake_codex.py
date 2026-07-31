@@ -13,16 +13,26 @@ HELP = "--sandbox --ask-for-approval --skip-git-repo-check --full-auto --config 
 
 def valid_result(status: str, changed: bool) -> dict[str, object]:
     return {
+        "schema_version": "1",
         "status": status,
+        "implementation_status": "passed",
         "objective": "Exercise the complete offline execution path.",
         "acceptance_criteria": [
             {
                 "criterion": "The deterministic fixture completed.",
-                "status": "satisfied",
+                "status": "passed",
                 "evidence": "The fake executable recorded and applied its scenario.",
             }
         ],
-        "validation": [{"command": "git status --porcelain=v1", "status": "passed"}],
+        "workflow_postconditions": [
+            {
+                "condition": "Open one draft pull request",
+                "status": "pending_workflow",
+                "owner": "github_actions",
+            }
+        ],
+        "validation": {"task_scoped": "passed", "repository_baseline": "passed"},
+        "pre_existing_failures": [],
         "unresolved_items": [],
         "files_changed": ["task.txt"] if changed else [],
     }

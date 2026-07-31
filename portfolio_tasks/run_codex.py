@@ -58,34 +58,43 @@ Do not describe hypothetical or intended changes as completed work.
 """
 
 SECRET_PATTERNS = (
-    (re.compile(r"(?i)(authorization\s*:\s*)(?:bearer\s+)?\S+"),
-     r"\1[REDACTED]"),
+    (re.compile(r"(?i)(authorization\s*:\s*)(?:bearer\s+)?\S+"), r"\1[REDACTED]"),
     (re.compile(r"(?i)(bearer\s+)[^\s,;]+"), r"\1[REDACTED]"),
-    (re.compile(r"(?i)((?:CODEX|OPENAI)_API_KEY\s*[:=]\s*)[^\s,;]+"),
-     r"\1[REDACTED]"),
-    (re.compile(r"(?i)(api[_-]?key\s*[:=]\s*)[^\s,;]+"),
-     r"\1[REDACTED]"),
+    (re.compile(r"(?i)((?:CODEX|OPENAI)_API_KEY\s*[:=]\s*)[^\s,;]+"), r"\1[REDACTED]"),
+    (re.compile(r"(?i)(api[_-]?key\s*[:=]\s*)[^\s,;]+"), r"\1[REDACTED]"),
     (re.compile(r"sk-[A-Za-z0-9_-]+"), "[REDACTED]"),
-    (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@"),
-     r"\1[REDACTED]@"),
-    (re.compile(
-        r"(?i)([?&](?:access[_-]?token|api[_-]?key|auth|password|secret|token)=)"
-        r"[^&#\s]+"
-    ), r"\1[REDACTED]"),
-    (re.compile(r"(?i)(session(?:[_ -]?id)?\s*[:=]\s*)[^\s,;]+"),
-     r"\1[REDACTED]"),
+    (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@"), r"\1[REDACTED]@"),
+    (
+        re.compile(
+            r"(?i)([?&](?:access[_-]?token|api[_-]?key|auth|password|secret|token)=)"
+            r"[^&#\s]+"
+        ),
+        r"\1[REDACTED]",
+    ),
+    (re.compile(r"(?i)(session(?:[_ -]?id)?\s*[:=]\s*)[^\s,;]+"), r"\1[REDACTED]"),
 )
 
 FAILURES = (
     ("authentication failure", ("authentication", "invalid api key", "unauthorized", "401")),
     ("authorization failure", ("permission denied", "forbidden", "not authorized", "403")),
     ("deprecated model", ("deprecated model", "model is deprecated", "model has been deprecated")),
-    ("model unavailable", ("model_not_found", "model not found", "model unavailable", "does not have access to model")),
+    (
+        "model unavailable",
+        (
+            "model_not_found",
+            "model not found",
+            "model unavailable",
+            "does not have access to model",
+        ),
+    ),
     ("rate limit", ("rate limit", "too many requests", "429")),
     ("TLS failure", ("tls handshake", "ssl error", "certificate verify", "unknown ca")),
     ("DNS failure", ("could not resolve", "name resolution", "dns error", "dns lookup")),
     ("timeout", ("timed out", "timeout", "etimedout")),
-    ("network failure", ("connection refused", "econnrefused", "network is unreachable", "connection reset")),
+    (
+        "network failure",
+        ("connection refused", "econnrefused", "network is unreachable", "connection reset"),
+    ),
     ("Codex internal exception", ("traceback", "internal exception", "internal error", "panic")),
 )
 
@@ -112,9 +121,7 @@ def detect_capabilities(help_text: str) -> set[str]:
 
 
 def _inspect(command: Sequence[str], env: Mapping[str, str]) -> str:
-    result = subprocess.run(
-        command, check=False, capture_output=True, env=dict(env), shell=False
-    )
+    result = subprocess.run(command, check=False, capture_output=True, env=dict(env), shell=False)
     output = result.stdout + result.stderr
     if result.returncode:
         raise subprocess.CalledProcessError(result.returncode, command, output=output)
@@ -124,9 +131,19 @@ def _inspect(command: Sequence[str], env: Mapping[str, str]) -> str:
 def repository_has_changes(env: Mapping[str, str]) -> bool:
     """Return whether Git reports tracked or untracked repository changes."""
     result = subprocess.run(
-        ("git", "status", "--porcelain=v1", "--untracked-files=all", "--", ".",
-         f":(exclude){RESULT_FILENAME}"),
-        check=False, capture_output=True, env=dict(env), shell=False
+        (
+            "git",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--",
+            ".",
+            f":(exclude){RESULT_FILENAME}",
+        ),
+        check=False,
+        capture_output=True,
+        env=dict(env),
+        shell=False,
     )
     if result.returncode:
         raise subprocess.CalledProcessError(
@@ -145,10 +162,8 @@ def clear_result(env: Mapping[str, str]) -> None:
     result_path(env).unlink(missing_ok=True)
 
 
-def validate_completion_result(
-    path: Path, *, repository_changed: bool
-) -> tuple[bool, str]:
-    """Validate Codex's result and return its trusted terminal status."""
+def validate_completion_result(path: Path, *, repository_changed: bool) -> tuple[bool, str]:
+    """Validate versioned or unambiguous legacy results and tree consistency."""
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -158,18 +173,17 @@ def validate_completion_result(
     status = str(value["status"])
     if status == "failed":
         return False, status
-    objective = value.get("objective")
-    criteria = value.get("acceptance_criteria")
-    validation = value.get("validation")
-    unresolved = value.get("unresolved_items")
-    files = value.get("files_changed")
+    objective, criteria = value.get("objective"), value.get("acceptance_criteria")
+    files, unresolved = value.get("files_changed"), value.get("unresolved_items")
     if not isinstance(objective, str) or not objective.strip():
         return False, "missing objective"
     if not isinstance(criteria, list) or not criteria:
         return False, "missing acceptance-criterion evidence"
+    version = value.get("schema_version")
+    criterion_status = "passed" if version == "1" else "satisfied"
     if any(
         not isinstance(item, dict)
-        or item.get("status") != "satisfied"
+        or item.get("status") != criterion_status
         or not isinstance(item.get("criterion"), str)
         or not item["criterion"].strip()
         or not isinstance(item.get("evidence"), str)
@@ -177,16 +191,44 @@ def validate_completion_result(
         for item in criteria
     ):
         return False, "acceptance criteria are unresolved or lack evidence"
-    if not isinstance(validation, list) or not validation:
-        return False, "missing validation evidence"
-    if any(
-        not isinstance(item, dict)
-        or item.get("status") != "passed"
-        or not isinstance(item.get("command"), str)
-        or not item["command"].strip()
-        for item in validation
-    ):
-        return False, "validation did not pass"
+    validation = value.get("validation")
+    if version == "1":
+        if value.get("implementation_status") != "passed":
+            return False, "implementation did not pass"
+        if (
+            not isinstance(validation, dict)
+            or validation.get("task_scoped") != "passed"
+            or validation.get("repository_baseline") not in {"passed", "has_pre_existing_failures"}
+        ):
+            return False, "validation did not pass"
+        failures = value.get("pre_existing_failures")
+        if not isinstance(failures, list):
+            return False, "invalid pre-existing failure evidence"
+        if validation["repository_baseline"] == "has_pre_existing_failures" and not failures:
+            return False, "missing pre-existing failure evidence"
+        postconditions = value.get("workflow_postconditions")
+        if not isinstance(postconditions, list) or any(
+            not isinstance(item, dict)
+            or item.get("status") != "pending_workflow"
+            or item.get("owner") != "github_actions"
+            or not isinstance(item.get("condition"), str)
+            or not item["condition"].strip()
+            for item in postconditions
+        ):
+            return False, "invalid workflow postconditions"
+    else:
+        if (
+            not isinstance(validation, list)
+            or not validation
+            or any(
+                not isinstance(item, dict)
+                or item.get("status") != "passed"
+                or not isinstance(item.get("command"), str)
+                or not item["command"].strip()
+                for item in validation
+            )
+        ):
+            return False, "validation did not pass"
     if unresolved != [] or not isinstance(files, list):
         return False, "unresolved items or invalid files_changed"
     if repository_changed:
@@ -223,9 +265,7 @@ def print_repository_diagnostics(env: Mapping[str, str]) -> None:
         result = subprocess.run(
             command, check=False, capture_output=True, env=dict(env), shell=False
         )
-        output = sanitize((result.stdout + result.stderr).decode(
-            "utf-8", errors="replace"
-        ))
+        output = sanitize((result.stdout + result.stderr).decode("utf-8", errors="replace"))
         if output:
             print(output, end="" if output.endswith("\n") else "\n", flush=True)
         if result.returncode:
@@ -261,10 +301,12 @@ def _forward_stdin(destination: BinaryIO, prompt: bytes) -> None:
 
 def _diagnostic_file(runner_temp: Path, channel: str) -> BinaryIO:
     runner_temp.mkdir(parents=True, exist_ok=True)
-    return cast(BinaryIO, tempfile.NamedTemporaryFile(
-        mode="w+b", prefix=f"codex-{channel}-", suffix=".log",
-        dir=runner_temp, delete=False
-    ))
+    return cast(
+        BinaryIO,
+        tempfile.NamedTemporaryFile(
+            mode="w+b", prefix=f"codex-{channel}-", suffix=".log", dir=runner_temp, delete=False
+        ),
+    )
 
 
 def _combined_diagnostic(stdout_text: str, stderr_text: str) -> str:
@@ -281,8 +323,10 @@ def _diagnostic_excerpt(diagnostic: str) -> str:
     if len(diagnostic) <= MAX_CONSOLE_DIAGNOSTIC_CHARS:
         return diagnostic
     omitted = len(diagnostic) - MAX_CONSOLE_DIAGNOSTIC_CHARS
-    return (f"[... {omitted} earlier diagnostic characters omitted; full output is in "
-            f"codex-trace.log ...]\n{diagnostic[-MAX_CONSOLE_DIAGNOSTIC_CHARS:]}")
+    return (
+        f"[... {omitted} earlier diagnostic characters omitted; full output is in "
+        f"codex-trace.log ...]\n{diagnostic[-MAX_CONSOLE_DIAGNOSTIC_CHARS:]}"
+    )
 
 
 def execute(
@@ -298,13 +342,19 @@ def execute(
         trace.write(b"\n=== Codex output ===\n")
     stderr_parts: list[str] = []
     stdout_parts: list[str] = []
-    with _diagnostic_file(runner_temp, "stdout") as stdout_capture, \
-            _diagnostic_file(runner_temp, "stderr") as stderr_capture:
+    with (
+        _diagnostic_file(runner_temp, "stdout") as stdout_capture,
+        _diagnostic_file(runner_temp, "stderr") as stderr_capture,
+    ):
         try:
             process = subprocess.Popen(
-                list(command), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, env=dict(env), shell=False,
-                start_new_session=True
+                list(command),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=dict(env),
+                shell=False,
+                start_new_session=True,
             )
         except OSError as error:
             diagnostic = sanitize(str(error))
@@ -315,13 +365,10 @@ def execute(
 
         assert process.stdin and process.stdout and process.stderr
         readers = (
-            threading.Thread(target=_stream, args=(process.stdout, stdout_capture,
-                                                   stdout_parts)),
-            threading.Thread(target=_stream, args=(process.stderr, stderr_capture,
-                                                   stderr_parts)),
+            threading.Thread(target=_stream, args=(process.stdout, stdout_capture, stdout_parts)),
+            threading.Thread(target=_stream, args=(process.stderr, stderr_capture, stderr_parts)),
         )
-        writer = threading.Thread(target=_forward_stdin,
-                                  args=(process.stdin, prompt))
+        writer = threading.Thread(target=_forward_stdin, args=(process.stdin, prompt))
         for reader in readers:
             reader.start()
         writer.start()
@@ -363,12 +410,14 @@ def execute(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--timeout", type=float,
+        "--timeout",
+        type=float,
         default=float(os.environ.get("CODEX_TIMEOUT_SECONDS", DEFAULT_TIMEOUT)),
         help="maximum execution time in seconds (default: %(default)s)",
     )
     parser.add_argument(
-        "--working-directory", type=Path,
+        "--working-directory",
+        type=Path,
         help="repository worktree in which Codex and Git commands must run",
     )
     parser.add_argument(
@@ -421,8 +470,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Working directory: {Path.cwd()}", flush=True)
 
     if "--sandbox" not in capabilities:
-        LOGGER.error("::error title=Unsupported Codex CLI::The required --sandbox "
-                     "workspace-write capability is unavailable.")
+        LOGGER.error(
+            "::error title=Unsupported Codex CLI::The required --sandbox "
+            "workspace-write capability is unavailable."
+        )
         return EX_USAGE
 
     command = [executable, "exec", "--sandbox", "workspace-write"]
@@ -440,8 +491,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if "--config" in capabilities:
         effort = os.environ.get("CODEX_REASONING_EFFORT", "high")
         if effort not in {"minimal", "low", "medium", "high"}:
-            LOGGER.error("::error title=Invalid reasoning effort::Unsupported value %s.",
-                         sanitize(effort))
+            LOGGER.error(
+                "::error title=Invalid reasoning effort::Unsupported value %s.", sanitize(effort)
+            )
             return EX_CONFIG
         command.extend(("--config", f'model_reasoning_effort="{effort}"'))
     else:
@@ -465,7 +517,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         LOGGER.error(
             "::error title=Codex %s::category=%s; exit_code=%d; "
             "see the bounded diagnostic above and codex-trace.log artifact.",
-            category, category, return_code
+            category,
+            category,
+            return_code,
         )
         return return_code
 
@@ -485,21 +539,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         LOGGER.error("::error title=Invalid Codex result::%s", outcome)
         return 1
 
-    LOGGER.info("::notice::Codex produced unexplained no changes (%s); retrying once.",
-                outcome)
+    LOGGER.info("::notice::Codex produced unexplained no changes (%s); retrying once.", outcome)
     retry_timeout = deadline - time.monotonic()
     if retry_timeout <= 0:
-        LOGGER.error("::error title=Codex timeout::Codex execution budget was "
-                     "exhausted before retry.")
+        LOGGER.error(
+            "::error title=Codex timeout::Codex execution budget was exhausted before retry."
+        )
         return TIMEOUT_EXIT
     clear_result(env)
-    return_code, diagnostic = execute(
-        command, prompt + RETRY_INSTRUCTION, env, retry_timeout
-    )
+    return_code, diagnostic = execute(command, prompt + RETRY_INSTRUCTION, env, retry_timeout)
     if return_code:
         category = "timeout" if return_code == TIMEOUT_EXIT else classify_failure(diagnostic)
-        LOGGER.error("::error title=Codex %s::Codex CLI failed with exit code %d.",
-                     category, return_code)
+        LOGGER.error(
+            "::error title=Codex %s::Codex CLI failed with exit code %d.", category, return_code
+        )
         return return_code
 
     try:
@@ -517,8 +570,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if changed:
         LOGGER.error("::error title=Invalid Codex result::%s", outcome)
         return 1
-    LOGGER.error("::error title=Codex produced no changes::Retry produced unexplained "
-                 "no repository changes (%s).", outcome)
+    LOGGER.error(
+        "::error title=Codex produced no changes::Retry produced unexplained "
+        "no repository changes (%s).",
+        outcome,
+    )
     try:
         print_repository_diagnostics(env)
     except (OSError, subprocess.CalledProcessError) as error:

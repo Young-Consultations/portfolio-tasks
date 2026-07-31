@@ -51,9 +51,7 @@ def test_every_third_party_action_is_pinned_to_a_commit() -> None:
             reference = match.group(1)
             if reference.startswith("./"):
                 continue
-            if reference == (
-                "Young-Consultations/.github/.github/workflows/codex-router.yml@main"
-            ):
+            if reference == ("Young-Consultations/.github/.github/workflows/codex-router.yml@main"):
                 # The central router is deliberately consumed from its policy branch.
                 continue
             if not re.fullmatch(r"[^@]+@[0-9a-fA-F]{40}", reference):
@@ -72,8 +70,8 @@ def test_checkout_never_persists_github_credentials() -> None:
             if "persist-credentials: false" not in step:
                 unsafe_checkouts.append(str(workflow))
 
-    assert not unsafe_checkouts, (
-        "checkout persists the workflow token: " + ", ".join(unsafe_checkouts)
+    assert not unsafe_checkouts, "checkout persists the workflow token: " + ", ".join(
+        unsafe_checkouts
     )
 
 
@@ -89,8 +87,7 @@ def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     assert 'codex_outcome=$(jq -r .status "$TASK_WORKTREE/codex-result.json")' in text
     assert 'rm -- "$TASK_WORKTREE/codex-result.json"' in text
     assert (
-        '[[ -z "$(git -C "$TASK_WORKTREE" status '
-        '--porcelain=v1 --untracked-files=all)" ]]' in text
+        '[[ -z "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)" ]]' in text
     )
     assert "if: always() && steps.input.outcome == 'success'" in text
     assert "python -m portfolio_tasks.execution execution-status" in text
@@ -111,13 +108,22 @@ def test_already_satisfied_implementation_is_validated_without_publication() -> 
     assert "if: always()" in text[upload:]
 
 
+def test_publication_requires_validated_implementation_and_records_postcondition() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    publication = text[text.index("- name: Create task branch and draft PR") :]
+    publication = publication.split("- name: Emit canonical execution result", 1)[0]
+    assert "steps.validation.outcome == 'success'" in publication
+    assert "one draft pull request opened" in publication
+    assert "GITHUB_STEP_SUMMARY" in publication
+
+
 def test_publication_uses_helper_from_trusted_commit() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     publication = text[text.index("- name: Create task branch and draft PR") :]
     publication = publication.split("- name: Emit canonical execution result", 1)[0]
 
     assert "export PATH=/usr/bin:/bin" in publication
-    assert 'GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git show \\' in publication
+    assert "GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git show \\" in publication
     assert '"$GITHUB_SHA:scripts/publish-draft-pr"' in publication
     assert '"$RUNNER_TEMP/publish-draft-pr"' in publication
     assert '/usr/bin/bash "$trusted_publish"' in publication
@@ -128,8 +134,8 @@ def test_trusted_runtime_and_mutable_task_worktree_are_isolated() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
 
     assert "ref: ${{ github.sha }}" in text
-    assert 'TASK_WORKTREE=%s\\n' in text
-    assert 'git worktree add' in Path("scripts/prepare-task-branch").read_text(encoding="utf-8")
+    assert "TASK_WORKTREE=%s\\n" in text
+    assert "git worktree add" in Path("scripts/prepare-task-branch").read_text(encoding="utf-8")
     assert "git switch" not in Path("scripts/prepare-task-branch").read_text(encoding="utf-8")
     assert 'export PYTHONPATH="$GITHUB_WORKSPACE"' in text
     assert 'python -c "from portfolio_tasks.prompts import render_execution_prompt"' in text
@@ -197,9 +203,7 @@ def test_diagnostics_upload_always_runs() -> None:
     diagnostics = text[text.index("- name: Upload full execution diagnostics") :]
 
     assert "if: always()" in diagnostics
-    for artifact in (
-        "codex-trace.log", "codex-result.json", "validation.log", "git-diff.patch"
-    ):
+    for artifact in ("codex-trace.log", "codex-result.json", "validation.log", "git-diff.patch"):
         assert artifact in diagnostics
 
 
@@ -222,10 +226,7 @@ def test_approved_task_router_uses_shared_workflow_contract() -> None:
 
     assert "needs: prepare" in route_job
     assert "if: needs.prepare.outputs.route == 'true'" in route_job
-    assert (
-        "uses: Young-Consultations/.github/.github/workflows/codex-router.yml@main"
-        in route_job
-    )
+    assert "uses: Young-Consultations/.github/.github/workflows/codex-router.yml@main" in route_job
     assert "task_payload: ${{ needs.prepare.outputs.task_contract_json }}" in route_job
     assert "execution_mode: implement" in route_job
     assert "CODEX_ROUTER_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}" in route_job
