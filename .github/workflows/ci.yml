@@ -47,7 +47,12 @@ jobs:
       - run: |
           "$(go env GOPATH)/bin/actionlint" -shellcheck=
       - name: Shell syntax validation
-        run: find scripts tests -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+        run: |
+          find scripts tests -type f \( \
+            -name '*.sh' \
+            -o -path 'scripts/prepare-task-branch' \
+            -o -path 'scripts/publish-draft-pr' \
+          \) -print0 | xargs -0 -r -n1 bash -n
 
   wrapper-integration:
     name: Codex wrapper integration tests

@@ -60,8 +60,12 @@ def test_actionlint_and_shell_validation_commands_are_yaml_safe_and_scoped() -> 
     steps = workflow["jobs"]["actionlint"]["steps"]
     commands = [step["run"].strip() for step in steps if "run" in step]
     assert '"$(go env GOPATH)/bin/actionlint" -shellcheck=' in commands
-    assert ("find scripts tests -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n") in commands
-    assert "-path 'scripts/*'" not in PR_WORKFLOW.read_text(encoding="utf-8")
+    shell_validation = next(command for command in commands if command.startswith("find "))
+    assert "-name '*.sh'" in shell_validation
+    assert "-path 'scripts/prepare-task-branch'" in shell_validation
+    assert "-path 'scripts/publish-draft-pr'" in shell_validation
+    assert shell_validation.endswith("-print0 | xargs -0 -r -n1 bash -n")
+    assert "-path 'scripts/*'" not in shell_validation
 
 
 def test_wrapper_unit_tests_do_not_receive_a_global_fixture_override() -> None:
