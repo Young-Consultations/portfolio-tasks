@@ -371,6 +371,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--working-directory", type=Path,
         help="repository worktree in which Codex and Git commands must run",
     )
+    parser.add_argument(
+        "--codex-executable",
+        default=os.environ.get("CODEX_EXECUTABLE", "codex"),
+        help="Codex executable path or name (default: CODEX_EXECUTABLE or codex)",
+    )
     return parser
 
 
@@ -387,16 +392,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             LOGGER.error("::error title=Invalid task worktree::%s", sanitize(str(error)))
             return EX_USAGE
 
+    executable = args.codex_executable
+    if not executable or any(character.isspace() for character in executable):
+        LOGGER.error("::error title=Invalid Codex executable::Expected one path or name.")
+        return EX_USAGE
     api_key = os.environ.get("CODEX_API_KEY")
-    if not api_key:
+    if executable == "codex" and not api_key:
         LOGGER.error("::error title=Codex authentication::CODEX_API_KEY is required.")
         return EX_CONFIG
 
     env = os.environ.copy()
-    env["OPENAI_API_KEY"] = api_key
+    if api_key:
+        env["OPENAI_API_KEY"] = api_key
     try:
-        version = _inspect(("codex", "--version"), env)
-        help_text = _inspect(("codex", "exec", "--help"), env)
+        version = _inspect((executable, "--version"), env)
+        help_text = _inspect((executable, "exec", "--help"), env)
     except FileNotFoundError:
         LOGGER.error("::error title=Codex unavailable::codex was not found in PATH.")
         return 127
@@ -415,7 +425,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                      "workspace-write capability is unavailable.")
         return EX_USAGE
 
-    command = ["codex", "exec", "--sandbox", "workspace-write"]
+    command = [executable, "exec", "--sandbox", "workspace-write"]
     compatibility: list[str] = []
     if "--ask-for-approval" in capabilities:
         command.extend(("--ask-for-approval", "never"))
