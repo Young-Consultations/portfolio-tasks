@@ -44,7 +44,7 @@ Project fields are synchronized outputs and never become dispatch authorization.
 
 ## Configuration and least privilege
 
-Workflow: `.github/workflows/sync-github-projects-phase2.yml`
+Workflow: `.github/workflows/sync-github-projects.yml`
 
 Required configuration when enabling synchronization:
 

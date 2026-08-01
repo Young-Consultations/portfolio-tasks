@@ -2,8 +2,8 @@ from pathlib import Path
 
 import yaml
 
-DOC_PATH = Path("docs/github-projects-phase2-sync.md")
-WORKFLOW_PATH = Path(".github/workflows/sync-github-projects-phase2.yml")
+DOC_PATH = Path("docs/github-projects-sync.md")
+WORKFLOW_PATH = Path(".github/workflows/sync-github-projects.yml")
 
 
 def _workflow() -> dict[object, object]:
@@ -64,4 +64,3 @@ def test_phase2_sync_does_not_modify_execution_or_router_workflows() -> None:
     assert "PROJECTS_PHASE2_SYNC_ENABLED" not in route_text
     assert "sync-projects-phase2" not in execute_text
     assert "PROJECTS_PHASE2_SYNC_ENABLED" not in execute_text
-

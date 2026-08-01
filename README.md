@@ -350,7 +350,7 @@ the deterministic field mapping, four required views, reproducible
 organization-owner setup, and required identifiers, variables, and secrets.
 
 Optional GitHub Projects Phase 2 synchronization is defined in
-`docs/github-projects-phase2-sync.md`. Phase 2 mirrors the canonical issue
+`docs/github-projects-sync.md`. Phase 2 mirrors the canonical issue
 metadata into organization project fields only when explicitly enabled and
 correctly configured with least-privilege credentials. It is disabled by
 default and fails closed when prerequisite or configuration gates are missing.
