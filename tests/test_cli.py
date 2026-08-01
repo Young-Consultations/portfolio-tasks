@@ -71,6 +71,19 @@ class UnexpectedApi:
         )
 
 
+def test_main_routes_sync_projects_phase2(monkeypatch: pytest.MonkeyPatch) -> None:
+    called = {"value": False}
+
+    def _sync_projects_phase2() -> int:
+        called["value"] = True
+        return 0
+
+    monkeypatch.setattr(cli, "sync_projects_phase2", _sync_projects_phase2)
+
+    assert cli.main(["sync-projects-phase2"]) == 0
+    assert called["value"]
+
+
 @pytest.mark.parametrize("fail_on", [1, 3], ids=["source-get", "create-request"])
 def test_sync_reports_api_failure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fail_on: int
