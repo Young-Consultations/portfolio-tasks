@@ -21,6 +21,7 @@ from .issue_sync import (
     SyncPlanner,
 )
 from .models import Issue
+from .projects_sync import sync_projects_phase2
 from .routing import route_decision
 from .validation import validate_dispatch
 
@@ -185,6 +186,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("sync")
+    commands.add_parser("sync-projects-phase2")
     validate = commands.add_parser("validate-dispatch")
     validate.add_argument("issue_json", type=Path)
     validate.add_argument("--mock-open-issues", type=Path)
@@ -193,6 +195,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "sync":
         return sync()
+    if args.command == "sync-projects-phase2":
+        return sync_projects_phase2()
     if args.command == "route-check":
         return route_check(args)
     return dispatch(args)

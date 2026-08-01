@@ -1,0 +1,59 @@
+name: Sync Portfolio Tasks to GitHub Projects Phase 2
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - labeled
+      - unlabeled
+      - reopened
+      - closed
+  workflow_dispatch:
+    inputs:
+      source_issue_number:
+        description: "Optional portfolio-tasks issue number to synchronize"
+        required: false
+        type: string
+      dry_run:
+        description: "Preview project synchronization without modifying project fields"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: sync-projects-phase2-${{ github.event.issue.number || inputs.source_issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  sync-projects-phase2:
+    name: Synchronize GitHub Projects fields
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROJECTS_PHASE2_SYNC_ENABLED: ${{ vars.PROJECTS_PHASE2_SYNC_ENABLED || 'false' }}
+      PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE: ${{ vars.PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE || 'false' }}
+      PROJECTS_PHASE2_PROJECT_ID: ${{ vars.PROJECTS_PHASE2_PROJECT_ID || '' }}
+      PROJECTS_PHASE2_TOKEN: ${{ secrets.PROJECTS_PHASE2_TOKEN }}
+      GITHUB_EVENT_ACTION: ${{ github.event.action }}
+      SOURCE_ISSUE_NUMBER: ${{ github.event.issue.number || inputs.source_issue_number }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+    steps:
+      - name: Check out portfolio-tasks
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Validate manual dispatch inputs
+        if: github.event_name == 'workflow_dispatch' && inputs.source_issue_number == ''
+        run: |
+          set -euo pipefail
+          echo "Manual runs require source_issue_number." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      - name: Synchronize issue into GitHub Projects
+        run: python -m portfolio_tasks.cli sync-projects-phase2
