@@ -38,9 +38,12 @@ class Issue:
             )
 
         return cls(
-            number=int(value.get("number", 0)), title=str(value.get("title") or ""),
-            body=str(value.get("body") or ""), state=str(value.get("state") or ""),
-            labels=names("labels", "name"), assignees=names("assignees", "login"),
+            number=int(value.get("number", 0)),
+            title=str(value.get("title") or ""),
+            body=str(value.get("body") or ""),
+            state=str(value.get("state") or ""),
+            labels=names("labels", "name"),
+            assignees=names("assignees", "login"),
             html_url=str(value.get("html_url") or ""),
             is_pull_request="pull_request" in value,
         )
