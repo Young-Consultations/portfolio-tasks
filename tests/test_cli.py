@@ -14,9 +14,7 @@ class FailingApi:
         self.fail_on = fail_on
         self.calls = 0
 
-    def request(
-        self, method: str, endpoint: str, payload: dict[str, Any] | None = None
-    ) -> Any:
+    def request(self, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> Any:
         self.calls += 1
         if self.calls == self.fail_on:
             raise GitHubApiError("request rejected")
@@ -37,9 +35,7 @@ class RecordingApi:
         self.body = body
         self.calls: list[tuple[str, str]] = []
 
-    def request(
-        self, method: str, endpoint: str, payload: dict[str, Any] | None = None
-    ) -> Any:
+    def request(self, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> Any:
         self.calls.append((method, endpoint))
         if len(self.calls) == 1:
             return {
@@ -57,9 +53,7 @@ class SequencedIssueApi:
         self.issues = issues
         self.calls = 0
 
-    def request(
-        self, method: str, endpoint: str, payload: dict[str, Any] | None = None
-    ) -> Any:
+    def request(self, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> Any:
         assert method == "GET"
         assert endpoint.startswith("repos/Young-Consultations/portfolio-tasks/issues/")
         assert payload is None
@@ -71,9 +65,7 @@ class SequencedIssueApi:
 
 
 class UnexpectedApi:
-    def request(
-        self, method: str, endpoint: str, payload: dict[str, Any] | None = None
-    ) -> Any:
+    def request(self, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> Any:
         raise AssertionError(
             f"unexpected API call: method={method}, endpoint={endpoint}, payload={payload}"
         )

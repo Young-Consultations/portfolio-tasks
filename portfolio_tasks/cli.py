@@ -30,8 +30,12 @@ APPROVAL_LABEL = "status:approved"
 
 def _api(dry_run: bool = False) -> GitHubApi:
     mock = os.getenv("GH_MOCK_DIR")
-    return GitHubApi(os.getenv("GH_TOKEN"), float(os.getenv("API_TIMEOUT", "20")),
-                     mock_dir=Path(mock) if mock else None, dry_run=dry_run)
+    return GitHubApi(
+        os.getenv("GH_TOKEN"),
+        float(os.getenv("API_TIMEOUT", "20")),
+        mock_dir=Path(mock) if mock else None,
+        dry_run=dry_run,
+    )
 
 
 def sync() -> int:
@@ -67,17 +71,17 @@ def sync() -> int:
             raise ValueError
         if SyncPlanner.targets_slugger(source):
             try:
-                targets = api.request(
-                    "GET", f"repos/{TARGET_REPO}/issues?state=all&per_page=100"
-                )
+                targets = api.request("GET", f"repos/{TARGET_REPO}/issues?state=all&per_page=100")
             except GitHubApiError:
                 failures.append("Could not search target issues")
                 raise
             target = MirrorLocator.locate(
                 (Issue.from_json(item) for item in targets), source.number
             )
-            removed = (os.getenv("GITHUB_EVENT_ACTION") == "unlabeled"
-                       and event.get("label", {}).get("name") == SOURCE_LABEL)
+            removed = (
+                os.getenv("GITHUB_EVENT_ACTION") == "unlabeled"
+                and event.get("label", {}).get("name") == SOURCE_LABEL
+            )
             plan = SyncPlanner.plan(source, target, removed)
         else:
             plan = SyncPlanner.plan(source, None)
@@ -90,18 +94,27 @@ def sync() -> int:
             failures.append("GitHub API request failed")
     title = source.title if source else ""
     labels = source.labels if source else ()
-    skipped = [f"{label} (optional source label skipped)" for label in labels if label != SOURCE_LABEL]
-    lines = ["## Slugger Issue Synchronization", f"- Source repository: `{SOURCE_REPO}`",
-             f"- Source issue number: `{number}`", f"- Source issue title: {title}",
-             f"- chatgpt-task present: `{str(SOURCE_LABEL in labels).lower()}`",
-             f"- Target repository: `{TARGET_REPO}`",
-             f"- Matching target issue number: `{target.number if target else 'none'}`",
-             f"- Planned/completed action: `{action}`", f"- Dry run: `{str(dry_run).lower()}`",
-             f"- Labels applied: {MANAGED_LABEL if action not in ('no-op', 'skipped', 'disable-sync') else 'none'}",
-             f"- Labels skipped: {' '.join(skipped) or 'none'}", "- Assignees applied: none",
-             "- Assignees skipped: none", f"- Validation errors: {' '.join(errors) or 'none'}",
-             f"- API failures: {' '.join(failures) or 'none'}",
-             f"- Final synchronization result: `{'failed' if errors or failures else 'success'}`"]
+    skipped = [
+        f"{label} (optional source label skipped)" for label in labels if label != SOURCE_LABEL
+    ]
+    lines = [
+        "## Slugger Issue Synchronization",
+        f"- Source repository: `{SOURCE_REPO}`",
+        f"- Source issue number: `{number}`",
+        f"- Source issue title: {title}",
+        f"- chatgpt-task present: `{str(SOURCE_LABEL in labels).lower()}`",
+        f"- Target repository: `{TARGET_REPO}`",
+        f"- Matching target issue number: `{target.number if target else 'none'}`",
+        f"- Planned/completed action: `{action}`",
+        f"- Dry run: `{str(dry_run).lower()}`",
+        f"- Labels applied: {MANAGED_LABEL if action not in ('no-op', 'skipped', 'disable-sync') else 'none'}",
+        f"- Labels skipped: {' '.join(skipped) or 'none'}",
+        "- Assignees applied: none",
+        "- Assignees skipped: none",
+        f"- Validation errors: {' '.join(errors) or 'none'}",
+        f"- API failures: {' '.join(failures) or 'none'}",
+        f"- Final synchronization result: `{'failed' if errors or failures else 'success'}`",
+    ]
     with summary_path.open("a", encoding="utf-8") as stream:
         stream.write("\n".join(lines) + "\n")
     return 1 if errors or failures else 0
