@@ -31,7 +31,7 @@ def test_intake_documentation_covers_credentials_and_permissions() -> None:
         assert required in text
 
 
-def test_intake_workflow_uses_exact_label_trigger_and_least_privilege() -> None:
+def test_intake_workflow_uses_exact_label_trigger_and_router_token() -> None:
     workflow = _workflow()
     triggers = _triggers(workflow)
     assert set(triggers) == {"issues"}
@@ -40,11 +40,11 @@ def test_intake_workflow_uses_exact_label_trigger_and_least_privilege() -> None:
 
     route = workflow["jobs"]["route"]
     assert route["if"] == "github.event.label.name == 'chatgpt-task'"
-    token_step = next(step for step in route["steps"] if step.get("id") == "app-token")
-    assert token_step["with"]["permission-issues"] == "read"
-    assert token_step["with"]["permission-organization-projects"] == "write"
-    assert token_step["with"]["repositories"] == "portfolio-tasks"
-    assert route["steps"][-1]["run"] == "python -m portfolio_tasks.project_intake"
+    intake_step = route["steps"][-1]
+    assert intake_step["env"] == {
+        "PROJECT_ROUTER_TOKEN": "${{ secrets.SLUGGER_GITHUB_TOKEN }}"
+    }
+    assert intake_step["run"] == "python -m portfolio_tasks.project_intake"
 
 
 def test_project_router_does_not_modify_execution_or_router_workflows() -> None:
