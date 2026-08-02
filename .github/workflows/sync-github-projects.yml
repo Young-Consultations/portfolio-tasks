@@ -22,7 +22,18 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Generate scoped installation token
+        id: app-token
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
+        with:
+          app-id: ${{ secrets.PROJECT_ROUTER_APP_ID }}
+          private-key: ${{ secrets.PROJECT_ROUTER_APP_PRIVATE_KEY }}
+          owner: Young-Consultations
+          repositories: portfolio-tasks
+          permission-issues: read
+          permission-organization-projects: write
+
       - name: Add issue and initialize project fields
         env:
-          PROJECT_ROUTER_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          PROJECT_ROUTER_TOKEN: ${{ steps.app-token.outputs.token }}
         run: python -m portfolio_tasks.project_intake
