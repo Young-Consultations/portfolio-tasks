@@ -1,116 +1,60 @@
-# GitHub Projects Phase 2 synchronization contract
+# Phase 1 project intake routing
 
-This document defines the optional Phase 2 automation that mirrors canonical
-issue metadata from `Young-Consultations/portfolio-tasks` into an organization
-GitHub Project item.
+`.github/workflows/sync-github-projects.yml` runs only when an issue receives the
+`chatgpt-task` label. It adds that issue to the `Young-Consultations`
+organization project named **Portfolio Tasks - Phase 1** and initializes these
+single-select fields:
 
-Phase 2 remains disabled by default and should stay in `proposed` operating
-status until the organization-owned project identifier and least-privilege
-credentials are available.
+| Project field | Source |
+| --- | --- |
+| `Execution status` | Fixed intake metadata: `proposed` |
+| `Executor` | Fixed intake metadata: `codex` |
+| `Priority` | The issue form's required `Priority` section (`P0`-`P3`) |
 
-## Prerequisite gate
+The router does not infer priority, executor, or status from arbitrary prose.
+Project, field, and option node IDs are discovered with GraphQL by their
+configured names. The add mutation's returned item ID is used for field
+updates. If the issue is already in the project, its existing item ID is used
+instead, making reruns safe.
 
-Before enabling Phase 2, confirm the Phase 1 governance prerequisite is merged
-and adopted:
+## Required secrets and GitHub App permissions
 
-- Phase 1 issue `#17` must be complete and merged.
-- The manual Phase 1 contract in `docs/github-projects-phase1-contract.md`
-  remains the source of truth for field names, allowed values, and governance.
-- Set repository variable `PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE=true` only
-  after that verification is complete.
+Create and install a GitHub App on `Young-Consultations`, then configure these
+repository Actions secrets:
 
-If the prerequisite variable is not true, Phase 2 exits fail-closed without
-performing project mutations.
+- `PROJECT_ROUTER_APP_ID`: the GitHub App ID (not its client ID).
+- `PROJECT_ROUTER_APP_PRIVATE_KEY`: the complete PEM private key generated for
+  the App.
 
-## Contract scope and source of truth
+Grant the App only:
 
-Phase 2 synchronization follows the Phase 1 deterministic field mapping
-exactly. These issue-form sections are synchronized to same-named project
-fields in deterministic order:
+- **Repository permissions / Issues: Read-only** for `portfolio-tasks`.
+- **Organization permissions / Projects: Read and write**.
 
-- `Project`
-- `Priority`
-- `Executor`
-- `Execution status`
-- `Target repository`
-- `Parallel-safe`
-- `Dependency issue references`
-- `Risk`
-- `Estimated scope`
-- `Task type`
+Install it only on the `portfolio-tasks` repository. No Contents, Pull requests,
+Actions, Administration, or Members write permission is needed. The workflow's
+built-in `GITHUB_TOKEN` has only `contents: read`, is used to check out the
+trusted router, and is not used for issue or project GraphQL operations. The
+short-lived installation token is scoped in the workflow to this organization,
+repository, and the two declared App permissions.
 
-Issue form values in `Young-Consultations/portfolio-tasks` remain canonical.
-Project fields are synchronized outputs and never become dispatch authorization.
+## Project configuration
 
-## Configuration and least privilege
+The organization project must have single-select fields named exactly
+`Execution status`, `Executor`, and `Priority`, with options `proposed`, `codex`,
+and `P0` through `P3`, respectively. The project lookup currently searches the
+first 100 organization projects, and field lookup searches its first 100
+fields. Missing projects, fields, options, event data, credentials, or API
+permissions stop the workflow with an Actions error annotation explaining the
+configuration to fix. Successful logs state whether the item was added or
+reused, show the captured Project item ID, and list each initialized field.
 
-Workflow: `.github/workflows/sync-github-projects.yml`
+The workflow deliberately reacts only to the `labeled` issue event and has an
+additional job guard requiring the event's added label to equal
+`chatgpt-task`. Removing or editing the label does not route an issue.
 
-Required configuration when enabling synchronization:
+## Validation
 
-- Repository variable `PROJECTS_PHASE2_SYNC_ENABLED=true`
-- Repository variable `PROJECTS_PHASE2_PROJECT_ID=<organization-project-node-id>`
-- Repository variable `PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE=true`
-- Repository secret `PROJECTS_PHASE2_TOKEN=<least-privilege token>`
-
-Least-privilege boundary for `PROJECTS_PHASE2_TOKEN`:
-
-- Read access to `Young-Consultations/portfolio-tasks` issues.
-- Read/write access only to the target organization GitHub Project used for
-  portfolio governance updates.
-- No permissions for repository contents write, pull-request publication,
-  workflow dispatch, or unrelated organization resources.
-
-## Safe behavior and failure modes
-
-The synchronization command `python -m portfolio_tasks.cli sync-projects-phase2`
-is fail-closed and non-destructive under missing configuration:
-
-- If `PROJECTS_PHASE2_SYNC_ENABLED` is not true, outcome is `disabled` and no
-  API mutation is attempted.
-- If enabled but prerequisite, project ID, or token is missing, outcome is
-  `failed` with clear summary errors and no API mutation.
-- If required project fields or single-select options are missing, outcome is
-  `failed` before any update mutation.
-- If issue metadata already matches project field values, outcome is `no-op`.
-
-Updates are deterministic and idempotent: rerunning with unchanged input yields
-`no-op` and does not alter unrelated project data.
-
-## Operations
-
-Enable:
-
-1. Verify Phase 1 issue `#17` is merged and adopted.
-2. Configure `PROJECTS_PHASE2_PROJECT_ID` with the organization project node ID.
-3. Create `PROJECTS_PHASE2_TOKEN` with least privilege.
-4. Set `PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE=true`.
-5. Set `PROJECTS_PHASE2_SYNC_ENABLED=true`.
-6. Run a manual workflow dispatch with `dry_run=true` first.
-
-Disable:
-
-- Set `PROJECTS_PHASE2_SYNC_ENABLED=false` (or unset it).
-
-Rollback:
-
-1. Disable synchronization (`PROJECTS_PHASE2_SYNC_ENABLED=false`).
-2. Revert any unwanted project field values manually in GitHub Projects.
-3. Keep issue metadata authoritative in `portfolio-tasks`; do not rewrite issue
-   history for rollback.
-
-Operation:
-
-- Trigger automatically on issue open/edit/label/unlabel/reopen/close events.
-- Manual `workflow_dispatch` supports explicit `source_issue_number` and
-  defaults to `dry_run=true`.
-
-Troubleshooting:
-
-- `PROJECTS_PHASE2_PROJECT_ID is not a ProjectV2`: verify the project node ID.
-- `Project is missing required field`: add missing field using exact Phase 1
-  field name.
-- `Project field option missing`: add the missing single-select option exactly.
-- `Pull requests are not synchronized`: provide an issue number, not a PR.
-- Token or permission failures: verify `PROJECTS_PHASE2_TOKEN` exists and has
-  only the required issue-read plus project-read/write permissions.
+`tests/test_project_intake.py` validates GraphQL request construction, dynamic
+field/option resolution, both new and already-present project items, all three
+field-update payloads, and rejection of priority mentioned only in prose.
