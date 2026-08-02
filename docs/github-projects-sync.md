@@ -17,26 +17,29 @@ configured names. The add mutation's returned item ID is used for field
 updates. If the issue is already in the project, its existing item ID is used
 instead, making reruns safe.
 
-## Required secrets and GitHub App permissions
+## Required secret and token permissions
 
-Create and install a GitHub App on `Young-Consultations`, then configure these
-repository Actions secrets:
+Configure the repository Actions secret `SLUGGER_GITHUB_TOKEN`. The workflow
+provides it to GitHub CLI and Project GraphQL operations only through the
+`GH_TOKEN` environment variable; it is not written to outputs, artifacts, or
+logs.
 
-- `PROJECT_ROUTER_APP_ID`: the GitHub App ID (not its client ID).
-- `PROJECT_ROUTER_APP_PRIVATE_KEY`: the complete PEM private key generated for
-  the App.
+The token must have access to:
 
-Grant the App only:
+- the `Young-Consultations/portfolio-tasks` repository;
+- the `Young-Consultations` organization Project **Portfolio Tasks - Phase 1**;
+- every destination repository used by later router steps, including
+  `Young-Consultations/slugger`;
+- read access to issues;
+- read and write access to organization Projects; and
+- any additional issue write permissions required by later routing steps, such
+  as creating or updating destination issues and changing source issue labels.
 
-- **Repository permissions / Issues: Read-only** for `portfolio-tasks`.
-- **Organization permissions / Projects: Read and write**.
-
-Install it only on the `portfolio-tasks` repository. No Contents, Pull requests,
-Actions, Administration, or Members write permission is needed. The workflow's
-built-in `GITHUB_TOKEN` has only `contents: read`, is used to check out the
-trusted router, and is not used for issue or project GraphQL operations. The
-short-lived installation token is scoped in the workflow to this organization,
-repository, and the two declared App permissions.
+Grant no unrelated scopes. The workflow's built-in `GITHUB_TOKEN` has only
+`contents: read`, is used to check out the trusted router, and is not used for
+issue or Project GraphQL operations. Token lifetime depends on the credential
+stored in `SLUGGER_GITHUB_TOKEN`; rotate it before it expires and update the
+secret without logging its value.
 
 ## Project configuration
 

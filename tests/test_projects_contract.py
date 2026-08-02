@@ -21,11 +21,12 @@ def _triggers(workflow: dict[object, object]) -> dict[object, object]:
 def test_intake_documentation_covers_credentials_and_permissions() -> None:
     text = DOC_PATH.read_text(encoding="utf-8")
     for required in (
-        "PROJECT_ROUTER_APP_ID",
-        "PROJECT_ROUTER_APP_PRIVATE_KEY",
-        "Issues: Read-only",
-        "Projects: Read and write",
+        "SLUGGER_GITHUB_TOKEN",
+        "read access to issues",
+        "read and write access to organization Projects",
         "Portfolio Tasks - Phase 1",
+        "Young-Consultations/portfolio-tasks",
+        "Young-Consultations/slugger",
         "already in the project",
     ):
         assert required in text
@@ -40,11 +41,16 @@ def test_intake_workflow_uses_exact_label_trigger_and_router_token() -> None:
 
     route = workflow["jobs"]["route"]
     assert route["if"] == "github.event.label.name == 'chatgpt-task'"
+    validation_step = route["steps"][0]
+    assert validation_step["env"] == {"GH_TOKEN": "${{ secrets.SLUGGER_GITHUB_TOKEN }}"}
+    assert "SLUGGER_GITHUB_TOKEN is unavailable" in validation_step["run"]
     intake_step = route["steps"][-1]
-    assert intake_step["env"] == {
-        "PROJECT_ROUTER_TOKEN": "${{ steps.app-token.outputs.token }}"
-    }
+    assert intake_step["env"] == {"GH_TOKEN": "${{ secrets.SLUGGER_GITHUB_TOKEN }}"}
     assert intake_step["run"] == "python -m portfolio_tasks.project_intake"
+    assert len(route["steps"]) == 3
+    assert [step.get("uses") for step in route["steps"] if "uses" in step] == [
+        "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683"
+    ]
 
 
 def test_project_router_does_not_modify_execution_or_router_workflows() -> None:
@@ -52,6 +58,4 @@ def test_project_router_does_not_modify_execution_or_router_workflows() -> None:
     execute_text = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
 
     assert "project_intake" not in route_text
-    assert "PROJECT_ROUTER_APP_ID" not in route_text
     assert "project_intake" not in execute_text
-    assert "PROJECT_ROUTER_APP_ID" not in execute_text
