@@ -106,7 +106,7 @@ class GraphQLClient:
         except (HTTPError, URLError, TimeoutError) as error:
             raise IntakeError(
                 f"GitHub GraphQL request failed ({type(error).__name__}); "
-                "check GitHub App installation and permissions"
+                "check SLUGGER_GITHUB_TOKEN access and permissions"
             ) from error
         errors = result.get("errors", [])
         if errors:
@@ -121,7 +121,7 @@ class GraphQLClient:
 def discover_project(data: dict[str, Any]) -> tuple[str, dict[str, SelectField]]:
     organization = data.get("organization")
     if not organization:
-        raise IntakeError(f"Organization {ORGANIZATION!r} is unavailable to the GitHub App")
+        raise IntakeError(f"Organization {ORGANIZATION!r} is unavailable to the routing token")
     projects = organization.get("projectsV2", {}).get("nodes", [])
     project = next((node for node in projects if node.get("title") == PROJECT_TITLE), None)
     if project is None:
@@ -201,10 +201,10 @@ def route_issue(event: dict[str, Any], client: GraphQLClient) -> str:
 
 def main() -> int:
     try:
-        token = os.environ.get("PROJECT_ROUTER_TOKEN", "")
+        token = os.environ.get("GH_TOKEN", "")
         event_path = os.environ.get("GITHUB_EVENT_PATH", "")
         if not token:
-            raise IntakeError("PROJECT_ROUTER_TOKEN is missing; verify GitHub App credentials")
+            raise IntakeError("GH_TOKEN is missing; verify the SLUGGER_GITHUB_TOKEN secret")
         if not event_path:
             raise IntakeError("GITHUB_EVENT_PATH is missing")
         with open(event_path, encoding="utf-8") as stream:
