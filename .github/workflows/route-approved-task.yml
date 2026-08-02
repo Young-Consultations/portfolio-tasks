@@ -2,7 +2,7 @@ name: Route approved task to Codex
 
 on:
   issues:
-    types: [labeled, edited, reopened]
+    types: [labeled, edited]
 
 permissions:
   contents: read

@@ -135,11 +135,12 @@ def _route_event_gate(event: dict[str, Any]) -> tuple[bool, str]:
     action = str(event.get("action") or "")
     if action == "edited":
         return False, "edited-approval-invalidated"
-    if action == "labeled":
-        label = event.get("label")
-        label_name = str(label.get("name") if isinstance(label, dict) else "")
-        if label_name != APPROVAL_LABEL:
-            return False, "non-approval-label"
+    if action != "labeled":
+        return False, "non-approval-event"
+    label = event.get("label")
+    label_name = str(label.get("name") if isinstance(label, dict) else "")
+    if label_name != APPROVAL_LABEL:
+        return False, "non-approval-label"
     return True, ""
 
 
@@ -149,7 +150,7 @@ def _route_issue_snapshot(issue: Issue) -> tuple[Issue | None, str]:
     if issue.number <= 0:
         return None, "invalid-issue"
     if not repository or not token:
-        return issue, ""
+        return None, "live-issue-fetch-not-configured"
     try:
         current = _api().request("GET", f"repos/{repository}/issues/{issue.number}")
     except GitHubApiError:

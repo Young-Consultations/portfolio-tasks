@@ -234,6 +234,8 @@ When ChatGPT prepares a portfolio task, it should:
 
 - `chatgpt-task` marks an issue as a structured ChatGPT task intake record. In this repository, that label also makes the issue eligible for the existing Slugger synchronization workflow when the workflow conditions are met.
 - `executor:codex` plus `status:approved` is the canonical manual approval signal for Codex dispatch. The ChatGPT task form must not apply legacy `codex-ready` automatically, and maintainers should approve only after reviewing authorization, scope, safety, dependencies, and readiness for execution.
+- Routing is exactly-once at the source gate: only the `issues.labeled` event for `status:approved` is eligible to dispatch. Other label events do not dispatch, and issue edits invalidate approval without dispatching.
+- After the router accepts a task, execution labels `status:queued`, `status:running`, `status:draft-pr`, and `status:done` are treated as terminal dispatch markers and block rerouting of duplicate deliveries.
 
 ### Required field descriptions
 

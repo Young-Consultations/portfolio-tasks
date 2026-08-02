@@ -221,11 +221,41 @@ def test_route_check_non_approval_label_does_not_route(
     assert "reason=non-approval-label" in output
 
 
-def test_route_check_queued_issue_does_not_route(
+def test_route_check_non_approval_event_does_not_route(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     event = {
         "action": "reopened",
+        "issue": {
+            "number": 42,
+            "title": "Approved work",
+            "body": "### Target repository\n\nYoung-Consultations/portfolio-tasks",
+            "state": "open",
+            "labels": [
+                {"name": "chatgpt-task"},
+                {"name": "executor:codex"},
+                {"name": "status:approved"},
+            ],
+        },
+    }
+    event_file = tmp_path / "event.json"
+    event_file.write_text(json.dumps(event), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "Young-Consultations/portfolio-tasks")
+    monkeypatch.setenv("GH_TOKEN", "test-token")
+    monkeypatch.setattr(cli, "_api", lambda dry_run=False: UnexpectedApi())
+
+    assert cli.main(["route-check", str(event_file)]) == 0
+    output = capsys.readouterr().out
+    assert "route=false" in output
+    assert "reason=non-approval-event" in output
+
+
+def test_route_check_queued_issue_does_not_route(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    event = {
+        "action": "labeled",
+        "label": {"name": "status:approved"},
         "issue": {
             "number": 42,
             "title": "Approved work",
@@ -260,6 +290,36 @@ def test_route_check_queued_issue_does_not_route(
     output = capsys.readouterr().out
     assert "route=false" in output
     assert "reason=already-dispatched" in output
+
+
+def test_route_check_requires_live_issue_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    event = {
+        "action": "labeled",
+        "label": {"name": "status:approved"},
+        "issue": {
+            "number": 42,
+            "title": "Approved work",
+            "body": "### Target repository\n\nYoung-Consultations/portfolio-tasks",
+            "state": "open",
+            "labels": [
+                {"name": "chatgpt-task"},
+                {"name": "executor:codex"},
+                {"name": "status:approved"},
+            ],
+        },
+    }
+    event_file = tmp_path / "event.json"
+    event_file.write_text(json.dumps(event), encoding="utf-8")
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.setattr(cli, "_api", lambda dry_run=False: UnexpectedApi())
+
+    assert cli.main(["route-check", str(event_file)]) == 0
+    output = capsys.readouterr().out
+    assert "route=false" in output
+    assert "reason=live-issue-fetch-not-configured" in output
 
 
 def test_route_check_edited_issue_invalidates_approval_without_routing(
