@@ -1,59 +1,39 @@
-name: Sync Portfolio Tasks to GitHub Projects Phase 2
+name: Route ChatGPT Tasks to Phase 1 Project
 
 on:
   issues:
-    types:
-      - opened
-      - edited
-      - labeled
-      - unlabeled
-      - reopened
-      - closed
-  workflow_dispatch:
-    inputs:
-      source_issue_number:
-        description: "Optional portfolio-tasks issue number to synchronize"
-        required: false
-        type: string
-      dry_run:
-        description: "Preview project synchronization without modifying project fields"
-        required: false
-        default: true
-        type: boolean
+    types: [labeled]
 
 permissions:
   contents: read
-  issues: read
 
 concurrency:
-  group: sync-projects-phase2-${{ github.event.issue.number || inputs.source_issue_number }}
+  group: phase1-project-intake-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
-  sync-projects-phase2:
-    name: Synchronize GitHub Projects fields
+  route:
+    if: github.event.label.name == 'chatgpt-task'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      PROJECTS_PHASE2_SYNC_ENABLED: ${{ vars.PROJECTS_PHASE2_SYNC_ENABLED || 'false' }}
-      PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE: ${{ vars.PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE || 'false' }}
-      PROJECTS_PHASE2_PROJECT_ID: ${{ vars.PROJECTS_PHASE2_PROJECT_ID || '' }}
-      PROJECTS_PHASE2_TOKEN: ${{ secrets.PROJECTS_PHASE2_TOKEN }}
-      GITHUB_EVENT_ACTION: ${{ github.event.action }}
-      SOURCE_ISSUE_NUMBER: ${{ github.event.issue.number || inputs.source_issue_number }}
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+    timeout-minutes: 5
     steps:
-      - name: Check out portfolio-tasks
+      - name: Check out trusted router
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
 
-      - name: Validate manual dispatch inputs
-        if: github.event_name == 'workflow_dispatch' && inputs.source_issue_number == ''
-        run: |
-          set -euo pipefail
-          echo "Manual runs require source_issue_number." >> "$GITHUB_STEP_SUMMARY"
-          exit 1
+      - name: Create least-privilege GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@a8d616148505b5069dccd32f177bb87d7f39123b # v2.1.1
+        with:
+          app-id: ${{ secrets.PROJECT_ROUTER_APP_ID }}
+          private-key: ${{ secrets.PROJECT_ROUTER_APP_PRIVATE_KEY }}
+          owner: Young-Consultations
+          repositories: portfolio-tasks
+          permission-issues: read
+          permission-organization-projects: write
 
-      - name: Synchronize issue into GitHub Projects
-        run: python -m portfolio_tasks.cli sync-projects-phase2
+      - name: Add issue and initialize project fields
+        env:
+          PROJECT_ROUTER_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python -m portfolio_tasks.project_intake

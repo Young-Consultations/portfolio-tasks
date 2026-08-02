@@ -18,49 +18,40 @@ def _triggers(workflow: dict[object, object]) -> dict[object, object]:
     return value
 
 
-def test_phase2_documentation_covers_prerequisite_and_operations() -> None:
+def test_intake_documentation_covers_credentials_and_permissions() -> None:
     text = DOC_PATH.read_text(encoding="utf-8")
-    assert "Phase 1 issue `#17` must be complete and merged" in text
-    assert "PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE=true" in text
-    assert "PROJECTS_PHASE2_SYNC_ENABLED=true" in text
-    assert "PROJECTS_PHASE2_PROJECT_ID" in text
-    assert "PROJECTS_PHASE2_TOKEN" in text
-    assert "Least-privilege boundary" in text
-    for section in ("Enable:", "Disable:", "Rollback:", "Operation:", "Troubleshooting:"):
-        assert section in text
+    for required in (
+        "PROJECT_ROUTER_APP_ID",
+        "PROJECT_ROUTER_APP_PRIVATE_KEY",
+        "Issues: Read-only",
+        "Projects: Read and write",
+        "Portfolio Tasks - Phase 1",
+        "already in the project",
+    ):
+        assert required in text
 
 
-def test_phase2_workflow_is_optional_and_least_privilege() -> None:
+def test_intake_workflow_uses_exact_label_trigger_and_least_privilege() -> None:
     workflow = _workflow()
     triggers = _triggers(workflow)
-    assert set(triggers) == {"issues", "workflow_dispatch"}
-    assert workflow["permissions"] == {"contents": "read", "issues": "read"}
+    assert set(triggers) == {"issues"}
+    assert triggers["issues"] == {"types": ["labeled"]}
+    assert workflow["permissions"] == {"contents": "read"}
 
-    jobs = workflow["jobs"]
-    assert isinstance(jobs, dict)
-    sync = jobs["sync-projects-phase2"]
-    assert isinstance(sync, dict)
-    env = sync["env"]
-    assert isinstance(env, dict)
-    assert env["PROJECTS_PHASE2_SYNC_ENABLED"] == "${{ vars.PROJECTS_PHASE2_SYNC_ENABLED || 'false' }}"
-    assert (
-        env["PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE"]
-        == "${{ vars.PROJECTS_PHASE2_PHASE1_ISSUE_17_COMPLETE || 'false' }}"
-    )
-    assert env["PROJECTS_PHASE2_PROJECT_ID"] == "${{ vars.PROJECTS_PHASE2_PROJECT_ID || '' }}"
-    assert env["PROJECTS_PHASE2_TOKEN"] == "${{ secrets.PROJECTS_PHASE2_TOKEN }}"
-
-    steps = sync["steps"]
-    assert isinstance(steps, list)
-    run_commands = [step["run"] for step in steps if isinstance(step, dict) and "run" in step]
-    assert "python -m portfolio_tasks.cli sync-projects-phase2" in run_commands
+    route = workflow["jobs"]["route"]
+    assert route["if"] == "github.event.label.name == 'chatgpt-task'"
+    token_step = next(step for step in route["steps"] if step.get("id") == "app-token")
+    assert token_step["with"]["permission-issues"] == "read"
+    assert token_step["with"]["permission-organization-projects"] == "write"
+    assert token_step["with"]["repositories"] == "portfolio-tasks"
+    assert route["steps"][-1]["run"] == "python -m portfolio_tasks.project_intake"
 
 
-def test_phase2_sync_does_not_modify_execution_or_router_workflows() -> None:
+def test_project_router_does_not_modify_execution_or_router_workflows() -> None:
     route_text = Path(".github/workflows/route-approved-task.yml").read_text(encoding="utf-8")
     execute_text = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
 
-    assert "sync-projects-phase2" not in route_text
-    assert "PROJECTS_PHASE2_SYNC_ENABLED" not in route_text
-    assert "sync-projects-phase2" not in execute_text
-    assert "PROJECTS_PHASE2_SYNC_ENABLED" not in execute_text
+    assert "project_intake" not in route_text
+    assert "PROJECT_ROUTER_APP_ID" not in route_text
+    assert "project_intake" not in execute_text
+    assert "PROJECT_ROUTER_APP_ID" not in execute_text
