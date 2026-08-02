@@ -42,7 +42,7 @@ def test_intake_workflow_uses_exact_label_trigger_and_router_token() -> None:
     assert route["if"] == "github.event.label.name == 'chatgpt-task'"
     intake_step = route["steps"][-1]
     assert intake_step["env"] == {
-        "PROJECT_ROUTER_TOKEN": "${{ secrets.SLUGGER_GITHUB_TOKEN }}"
+        "PROJECT_ROUTER_TOKEN": "${{ steps.app-token.outputs.token }}"
     }
     assert intake_step["run"] == "python -m portfolio_tasks.project_intake"
 
