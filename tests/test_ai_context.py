@@ -8,24 +8,26 @@ def _ai_context_text() -> str:
     return AI_CONTEXT_PATH.read_text(encoding="utf-8")
 
 
-def test_ai_context_has_required_sections_in_order() -> None:
+def test_ai_context_has_required_sections_exactly_once_in_order() -> None:
     text = _ai_context_text()
     sections = [
-        "## 1. Repository mission",
-        "## 2. Backlog and approval source of truth",
-        "## 3. Execution gate and routing boundaries",
-        "## 4. Canonical contract documents",
-        "## 5. Repository map for contributors",
-        "## 6. Validation and documentation checks",
-        "## 7. Safety and change constraints",
-        "## 8. Documented gaps",
+        "## Vision",
+        "## Current project state",
+        "## Architecture",
+        "## Coding standards",
+        "## ADRs",
+        "## Development workflow",
+        "## Prompt rules",
+        "## Open issues",
     ]
 
-    cursor = 0
+    positions = []
     for section in sections:
-        index = text.find(section, cursor)
-        assert index != -1, f"Missing required section: {section}"
-        cursor = index + len(section)
+        matches = list(re.finditer(rf"^{re.escape(section)}$", text, re.MULTILINE))
+        assert len(matches) == 1, f"Expected exactly one section: {section}"
+        positions.append(matches[0].start())
+
+    assert positions == sorted(positions), "Required sections are out of order"
 
 
 def test_ai_context_states_portfolio_tasks_as_backlog_and_approval_source() -> None:
