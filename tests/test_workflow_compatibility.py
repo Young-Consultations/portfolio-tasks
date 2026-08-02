@@ -234,6 +234,22 @@ def test_approved_task_router_uses_shared_workflow_contract() -> None:
     assert "router_token:" not in route_job
 
 
+def test_approved_task_router_triggers_only_on_labeled_and_edited_events() -> None:
+    text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
+    trigger = text[text.index("on:\n") : text.index("\npermissions:\n")]
+
+    assert "types: [labeled, edited]" in trigger
+    assert "reopened" not in trigger
+
+
+def test_approved_task_router_serializes_runs_by_issue_number() -> None:
+    text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
+    concurrency = text[text.index("concurrency:\n") : text.index("\njobs:\n")]
+
+    assert "group: route-approved-${{ github.event.issue.number }}" in concurrency
+    assert "cancel-in-progress: false" in concurrency
+
+
 def test_approved_task_router_uses_canonical_contract_cli_commands() -> None:
     text = ROUTING_WORKFLOW.read_text(encoding="utf-8")
     contract_step = text[text.index("- name: Build and validate canonical task contract") :]
