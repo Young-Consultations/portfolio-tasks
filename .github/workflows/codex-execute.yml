@@ -118,6 +118,7 @@ jobs:
 
       - name: Prepare deterministic task branch
         if: ${{ steps.input.outputs.execution_mode == 'implement' }}
+        id: prepare
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
           BRANCH: ${{ steps.input.outputs.branch }}
@@ -237,8 +238,14 @@ jobs:
              [[ "$(jq -r '.repairable // false' "$RUNNER_TEMP/validation-summary.json")" == true ]]; then
             mapfile -t python_files < <(git -C "$TARGET_WORKTREE" diff --name-only --diff-filter=ACMR HEAD -- '*.py')
             if (( ${#python_files[@]} )); then
+              formatted_files=()
+              for file in "${python_files[@]}"; do
+                [[ "$file" != /* && "$file" != ../* && "$file" != */../* ]]
+                formatted_files+=("$TARGET_WORKTREE/$file")
+              done
               set +e
-              (cd "$TARGET_WORKTREE" && ruff format -- "${python_files[@]}")
+              cd "$GITHUB_WORKSPACE"
+              ruff format --config "$GITHUB_WORKSPACE/pyproject.toml" -- "${formatted_files[@]}"
               repair_status=$?
               set -e
               printf '%s\n' attempted > "$RUNNER_TEMP/format-repair"
@@ -261,7 +268,14 @@ jobs:
           printf 'result=%s\n' "$result" >> "$GITHUB_OUTPUT"
 
       - name: Create task branch and draft PR
-        if: always() && steps.input.outputs.execution_mode == 'implement' && steps.codex.outputs.outcome == 'changed'
+        if: >-
+          always() &&
+          steps.input.outputs.execution_mode == 'implement' &&
+          steps.authorization.outcome == 'success' &&
+          steps.prepare.outcome == 'success' &&
+          steps.codex.outcome == 'success' &&
+          steps.codex.outputs.outcome == 'changed' &&
+          (steps.validation.outcome == 'success' || steps.validation.outcome == 'failure')
         id: publish
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
@@ -276,7 +290,10 @@ jobs:
           GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git show \
             "$GITHUB_SHA:scripts/publish-draft-pr" > "$trusted_publish"
           chmod 500 "$trusted_publish"
+          prior_failure_category=$(cat "$RUNNER_TEMP/failure-category")
+          printf '%s\n' publication_failed > "$RUNNER_TEMP/failure-category"
           /usr/bin/bash "$trusted_publish"
+          printf '%s\n' "$prior_failure_category" > "$RUNNER_TEMP/failure-category"
           {
             echo '### Workflow postconditions'
             echo '- completed: controlled branch committed and pushed'

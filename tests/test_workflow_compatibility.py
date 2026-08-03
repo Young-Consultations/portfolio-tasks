@@ -3,6 +3,8 @@
 import re
 from pathlib import Path
 
+import yaml
+
 WORKFLOW = Path(".github/workflows/codex-execute.yml")
 ROUTING_WORKFLOW = Path(".github/workflows/route-approved-task.yml")
 WORKFLOWS = tuple(Path(".github/workflows").glob("*.y*ml"))
@@ -21,6 +23,11 @@ CONTRACT_FIELDS = {
     "executor",
     "instructions",
 }
+
+
+def execution_steps() -> dict[str, dict[str, object]]:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    return {step["name"]: step for step in workflow["jobs"]["execute"]["steps"]}
 
 
 def test_canonical_workflow_dispatch_interface() -> None:
@@ -77,11 +84,16 @@ def test_checkout_never_persists_github_credentials() -> None:
 
 def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
-    implement_guard = "if: steps.input.outputs.execution_mode == 'implement'"
+    steps = execution_steps()
+    codex = steps["Install and execute Codex"]
+    validation = steps["Validate target repository"]
+    publication = steps["Create task branch and draft PR"]
 
-    assert text.count(implement_guard) == 2
-    assert text.index(implement_guard) < text.index("python -m portfolio_tasks.run_codex")
-    assert text.index(implement_guard, text.index("Create task branch"))
+    assert codex["if"] == "steps.input.outputs.execution_mode == 'implement'"
+    assert "steps.input.outputs.execution_mode == 'verify'" in validation["if"]
+    assert "steps.codex.outcome == 'success'" in validation["if"]
+    assert "steps.input.outputs.execution_mode == 'implement'" in publication["if"]
+    assert "always()" in publication["if"]
     assert "codex_status=$?" in text
     assert "codex_status != 0" in text
     assert 'codex_outcome=$(jq -r .status "$TASK_WORKTREE/codex-result.json")' in text
@@ -108,13 +120,52 @@ def test_already_satisfied_implementation_is_validated_without_publication() -> 
     assert "if: always()" in text[upload:]
 
 
-def test_publication_requires_validated_implementation_and_records_postcondition() -> None:
-    text = WORKFLOW.read_text(encoding="utf-8")
-    publication = text[text.index("- name: Create task branch and draft PR") :]
-    publication = publication.split("- name: Emit canonical execution result", 1)[0]
-    assert "steps.validation.outcome == 'success'" in publication
-    assert "one draft pull request opened" in publication
-    assert "GITHUB_STEP_SUMMARY" in publication
+def test_publication_preserves_changed_implementation_after_validation() -> None:
+    publication = execution_steps()["Create task branch and draft PR"]
+    guard = publication["if"]
+    run = publication["run"]
+
+    for condition in (
+        "always()",
+        "steps.input.outputs.execution_mode == 'implement'",
+        "steps.authorization.outcome == 'success'",
+        "steps.prepare.outcome == 'success'",
+        "steps.codex.outcome == 'success'",
+        "steps.codex.outputs.outcome == 'changed'",
+    ):
+        assert condition in guard
+    assert "steps.validation.outcome == 'failure'" in guard
+    assert "steps.validation.outcome == 'success'" in guard
+    assert "steps.validation.outcome == 'success' &&" not in guard
+    assert "exactly one draft pull request created or updated" in run
+    assert "GITHUB_STEP_SUMMARY" in run
+    assert 'prior_failure_category=$(cat "$RUNNER_TEMP/failure-category")' in run
+    assert '"$prior_failure_category" > "$RUNNER_TEMP/failure-category"' in run
+
+
+def test_failed_validation_is_published_before_the_workflow_fails() -> None:
+    steps = execution_steps()
+    names = list(steps)
+    publication = steps["Create task branch and draft PR"]
+    conclusion = steps["Conclude execution"]
+
+    assert (
+        names.index("Validate target repository")
+        < names.index("Create task branch and draft PR")
+        < names.index("Conclude execution")
+    )
+    assert "steps.validation.outcome == 'failure'" in publication["if"]
+    assert '[[ "$VALIDATION_RESULT" != failed ]]' in conclusion["run"]
+
+
+def test_verify_mode_cannot_mutate_git_or_publish() -> None:
+    steps = execution_steps()
+    mutating = (
+        steps["Prepare deterministic task branch"],
+        steps["Install and execute Codex"],
+        steps["Create task branch and draft PR"],
+    )
+    assert all("execution_mode == 'implement'" in step["if"] for step in mutating)
 
 
 def test_publication_uses_helper_from_trusted_commit() -> None:
@@ -148,6 +199,8 @@ def test_trusted_runtime_and_mutable_task_worktree_are_isolated() -> None:
     assert 'export PYTHONPATH="$GITHUB_WORKSPACE"' in validation
     assert '--working-directory "$TARGET_WORKTREE"' in validation
     assert 'cd "$TARGET_WORKTREE"' not in validation
+    assert 'ruff format --config "$GITHUB_WORKSPACE/pyproject.toml"' in validation
+    assert '"$TARGET_WORKTREE/$file"' in validation
 
 
 def test_publication_git_operations_are_scoped_to_task_worktree() -> None:

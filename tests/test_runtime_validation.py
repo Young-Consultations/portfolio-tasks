@@ -93,6 +93,32 @@ def test_changed_file_formatting_failure_is_task_scoped_and_fails(tmp_path: Path
     assert json.loads(summary.read_text())["repairable"] is True
 
 
+def test_format_failure_with_allowed_pre_existing_debt_is_repairable(tmp_path: Path) -> None:
+    base = tmp_path / "baseline.json"
+    values = [outcome(c) for c in runtime_validation.COMMANDS]
+    values[0] = outcome(runtime_validation.COMMANDS[0], "failed", "existing")
+    baseline(base, values)
+    post = list(values)
+    formatting = outcome(runtime_validation.COMMANDS[0], "failed", "formatting") | {
+        "command": "ruff format changed Python files"
+    }
+    summary = tmp_path / "summary.json"
+    with (
+        mock.patch.object(runtime_validation, "_outcome", side_effect=[*post, formatting]),
+        mock.patch.object(runtime_validation, "_changed_python_files", return_value=["changed.py"]),
+    ):
+        assert (
+            runtime_validation.run_validations(
+                tmp_path / "log",
+                working_directory=tmp_path,
+                baseline_path=base,
+                summary_path=summary,
+            )
+            == 1
+        )
+    assert json.loads(summary.read_text())["repairable"] is True
+
+
 def test_infrastructure_is_not_pre_existing_debt(tmp_path: Path) -> None:
     base = tmp_path / "baseline.json"
     values = [outcome(c) for c in runtime_validation.COMMANDS]

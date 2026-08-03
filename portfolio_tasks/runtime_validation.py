@@ -188,7 +188,8 @@ def run_validations(
                     "repairable": failed
                     and bool(classifications)
                     and all(
-                        item["classification"] == "passed"
+                        item["classification"]
+                        in {"passed", "pre_existing_unchanged", "pre_existing_improved"}
                         or item["command"] == "ruff format changed Python files"
                         for item in classifications
                     ),

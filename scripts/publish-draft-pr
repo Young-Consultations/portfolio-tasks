@@ -14,7 +14,6 @@ set +x
 : "${VALIDATION_SUMMARY:?VALIDATION_SUMMARY must be set}"
 [[ "$VALIDATION_RESULT" == passed || "$VALIDATION_RESULT" == failed ]]
 
-printf '%s\n' publication_failed > "$RUNNER_TEMP/failure-category"
 auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json')
 owner=${REPOSITORY%%/*}
 remote="https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
