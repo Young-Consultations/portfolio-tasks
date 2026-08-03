@@ -24,7 +24,10 @@ trusted command classifications in its body, and applies either `codex:validatio
 `codex:validation-failed`; it never marks the pull request ready or merges it. A failure still
 fails the Actions run after preservation. The only automatic repair is one `ruff format` pass over
 changed Python files when formatting is the sole failure, followed by the complete validation
-suite. Replays reuse the deterministic branch and open draft pull request.
+suite. Executor publication preflight checks the deterministic publication identity before Codex
+runs: replays reuse an existing open draft pull request without rerunning Codex, while an existing
+branch without a pull request and any closed or merged pull request for that identity fail closed
+for explicit manual intervention.
 
 `portfolio_tasks.execution` is deliberately a small policy adapter. It invokes
 `python -m ai_sdlc_contracts` for schema validation and exposes only validated workflow outputs;

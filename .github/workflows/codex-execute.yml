@@ -116,8 +116,26 @@ jobs:
           jq -e '.state == "open" and (has("pull_request") | not)' "$RUNNER_TEMP/source-issue.json" >/dev/null
           jq -e '[.labels[].name] | index("executor:codex") != null and (index("status:approved") != null or index("status:queued") != null) and index("sensitive") == null' "$RUNNER_TEMP/source-issue.json" >/dev/null
 
+      - name: Executor publication preflight
+        if: steps.input.outputs.execution_mode == 'implement'
+        id: preflight
+        env:
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          BRANCH: ${{ steps.input.outputs.branch }}
+        run: |
+          set -euo pipefail; set +x
+          printf '%s\n' publication_failed > "$RUNNER_TEMP/failure-category"
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          python -m portfolio_tasks.execution publication-preflight \
+            --repository "$REPOSITORY" \
+            --branch "$BRANCH" \
+            --api-root "$API_ROOT" >> "$GITHUB_OUTPUT"
+
       - name: Prepare deterministic task branch
-        if: ${{ steps.input.outputs.execution_mode == 'implement' }}
+        if: >-
+          steps.input.outputs.execution_mode == 'implement' &&
+          steps.preflight.outputs.should_run_codex == 'true'
         id: prepare
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
@@ -154,7 +172,9 @@ jobs:
             --baseline "$RUNNER_TEMP/validation-baseline.json"
 
       - name: Install and execute Codex
-        if: steps.input.outputs.execution_mode == 'implement'
+        if: >-
+          steps.input.outputs.execution_mode == 'implement' &&
+          steps.preflight.outputs.should_run_codex == 'true'
         id: codex
         env:
           CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -214,7 +234,10 @@ jobs:
           fi
 
       - name: Validate target repository
-        if: steps.input.outputs.execution_mode == 'verify' || steps.codex.outcome == 'success'
+        if: >-
+          steps.input.outputs.execution_mode == 'verify' ||
+          steps.codex.outcome == 'success' ||
+          steps.preflight.outputs.reuse_open_draft == 'true'
         id: validation
         run: |
           set -euo pipefail; set +x
@@ -308,6 +331,9 @@ jobs:
           VALIDATION_RESULT: ${{ steps.validation.outputs.result }}
           PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
           PR_URL: ${{ steps.publish.outputs.url }}
+          PREFLIGHT_REUSE_OPEN_DRAFT: ${{ steps.preflight.outputs.reuse_open_draft }}
+          PREFLIGHT_PUBLISH_OK: ${{ steps.preflight.outputs.publish_ok }}
+          PREFLIGHT_PR_URL: ${{ steps.preflight.outputs.pr_url }}
           NO_CHANGES: ${{ steps.codex.outputs.no_changes }}
         run: |
           set -euo pipefail
@@ -316,10 +342,20 @@ jobs:
           branch=null; pr=null
           category=$(jq -Rn --arg v "$(cat "$RUNNER_TEMP/failure-category")" '$v')
           status_args=(--mode "$MODE")
+          effective_publish_ok=false
+          effective_pr_url="$PR_URL"
+          if [[ "$PUBLISH_OUTCOME" == success ]]; then
+            effective_publish_ok=true
+          fi
+          if [[ "$PREFLIGHT_REUSE_OPEN_DRAFT" == true ]]; then
+            [[ "$PREFLIGHT_PUBLISH_OK" == true ]]
+            effective_publish_ok=true
+            effective_pr_url="$PREFLIGHT_PR_URL"
+          fi
           [[ "$AUTHORIZATION_OUTCOME" != success ]] || status_args+=(--authorization-ok)
           [[ "$VALIDATION_RESULT" != passed ]] || status_args+=(--validation-ok)
-          [[ "$PUBLISH_OUTCOME" != success ]] || status_args+=(--publish-ok)
-          [[ -z "$PR_URL" ]] || status_args+=(--pr-url "$PR_URL")
+          [[ "$effective_publish_ok" != true ]] || status_args+=(--publish-ok)
+          [[ -z "$effective_pr_url" ]] || status_args+=(--pr-url "$effective_pr_url")
           [[ "$NO_CHANGES" != true ]] || status_args+=(--no-changes)
           status=$(python -m portfolio_tasks.execution execution-status "${status_args[@]}")
           if [[ "$status" != failed && "$status" != blocked ]]; then
@@ -328,7 +364,7 @@ jobs:
           validation=$(cat "$RUNNER_TEMP/validation-result")
           tests=$(cat "$RUNNER_TEMP/test-result")
           [[ "$MODE" == verify || "$NO_CHANGES" == true ]] || branch=$(jq -Rn --arg v '${{ steps.input.outputs.branch }}' '$v')
-          [[ -z "$PR_URL" ]] || pr=$(jq -Rn --arg v "$PR_URL" '$v')
+          [[ -z "$effective_pr_url" ]] || pr=$(jq -Rn --arg v "$effective_pr_url" '$v')
           jq -n --arg version "$(jq -r .contract_version "$RUNNER_TEMP/execution-input.json")" \
             --arg correlation '${{ steps.input.outputs.correlation }}' --arg status "$status" \
             --arg validation "$validation" --arg tests "$tests" \

@@ -80,6 +80,8 @@ def test_trusted_execution_workflow_contract() -> None:
     workflow = load(EXECUTION_WORKFLOW)
     assert set(triggers(workflow)) == {"workflow_dispatch"}
     assert "Verify router authorization" in text
+    assert "Executor publication preflight" in text
+    assert "python -m portfolio_tasks.execution publication-preflight" in text
     assert 'index("status:approved")' in text
     assert "continue-on-error" not in text
     assert "- name: Prepare full execution diagnostics\n        if: always()" in text
