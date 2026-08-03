@@ -59,6 +59,7 @@ if sys.argv[1] == 'validate-input':
 elif sys.argv[1] == 'validate-result':
     valid = valid and set(value) == {RESULT_FIELDS!r}
     valid = valid and value.get('execution_status') in {{'verified', 'draft-pr-created', 'no-changes', 'blocked', 'failed'}}
+    valid = valid and value.get('validation_result') in {{'passed', 'failed', 'skipped', 'not_run'}}
 else:
     valid = False
 raise SystemExit(0 if valid else 1)
@@ -117,6 +118,15 @@ def test_successful_verify_smoke_result_is_canonical(
 
 def test_failure_result_remains_canonical(tmp_path: Path, shared_contracts: None) -> None:
     validate_result(write_result(tmp_path, result_payload(status="failed")))
+
+
+@pytest.mark.parametrize("validation_result", ["passed", "failed", "skipped", "not_run"])
+def test_every_validation_result_is_schema_valid(
+    tmp_path: Path, shared_contracts: None, validation_result: str
+) -> None:
+    result = result_payload(status="failed")
+    result["validation_result"] = validation_result
+    validate_result(write_result(tmp_path, result))
 
 
 @pytest.mark.parametrize("mode", ["verify", "implement"])
@@ -180,7 +190,7 @@ def test_workflow_validates_codex_changes_and_reports_real_outcomes() -> None:
 
     assert codex < validation < publication
     assert '"$AUTHORIZATION_OUTCOME" != success' in text
-    assert '"$VALIDATION_OUTCOME" != success' in text
+    assert '"$VALIDATION_RESULT" != passed' in text
     assert "validation_result:$validation,test_result:$tests" in text
     assert 'validation_result:"passed",test_result:"passed"' not in text
 
@@ -215,8 +225,7 @@ def test_repository_has_no_local_contract_or_schema_copy() -> None:
             "failed",
         ),
         (
-            {"mode": "verify", "authorization_ok": True, "validation_ok": True,
-             "no_changes": True},
+            {"mode": "verify", "authorization_ok": True, "validation_ok": True, "no_changes": True},
             "verified",
         ),
         ({"mode": "verify", "authorization_ok": True, "validation_ok": False}, "failed"),

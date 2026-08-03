@@ -18,6 +18,14 @@ tests without running Codex or creating a branch or PR. `execution_mode: impleme
 through Codex and controlled draft-PR publication. Both modes emit a shared-contract-validated
 `execution-result.json` artifact.
 
+Implementation changes are committed and safely pushed before the workflow reports validation
+failure. Publication creates or updates one deterministic **draft** pull request, records the
+trusted command classifications in its body, and applies either `codex:validation-passed` or
+`codex:validation-failed`; it never marks the pull request ready or merges it. A failure still
+fails the Actions run after preservation. The only automatic repair is one `ruff format` pass over
+changed Python files when formatting is the sole failure, followed by the complete validation
+suite. Replays reuse the deterministic branch and open draft pull request.
+
 `portfolio_tasks.execution` is deliberately a small policy adapter. It invokes
 `python -m ai_sdlc_contracts` for schema validation and exposes only validated workflow outputs;
 it does not load or interpret shared schemas itself.
