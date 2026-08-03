@@ -27,6 +27,10 @@ if [[ " $* " == *" -X POST "* ]]; then cat "$POST_RESPONSE"; else cat "$PULLS_RE
 printf 'git %s\\n' "$*" >> "$CALL_LOG"
 case " $* " in
   *" ls-remote --exit-code "*) exit "${LS_REMOTE_STATUS:-2}" ;;
+  *" rev-parse --verify refs/remotes/origin/"*)
+    [[ -n "${REMOTE_BRANCH_OID:-}" ]] || exit 1
+    printf '%s\n' "$REMOTE_BRANCH_OID"
+    ;;
   *" status --porcelain=v1 "*) [[ "${HAS_CHANGES:-true}" == true ]] && printf ' M fixture\\n' ;;
   *" diff --cached "*) [[ "${HAS_CHANGES:-true}" == true ]] && exit 1 || exit 0 ;;
 esac
@@ -66,6 +70,7 @@ def environment(
         "PULLS_RESPONSE": str(pulls_response),
         "POST_RESPONSE": str(post_response),
         "LS_REMOTE_STATUS": "0" if remote_exists else "2",
+        "REMOTE_BRANCH_OID": "existing-branch-oid" if remote_exists else "",
         "HAS_CHANGES": str(has_changes).lower(),
         "GH_TOKEN": "test-token",
         "API_ROOT": "https://api.github.test",
@@ -116,8 +121,16 @@ def test_existing_branch_is_fetched_and_checked_out_before_codex(tmp_path: Path)
     )
 
 
-def run_publish(tmp_path: Path, pulls: list[dict[str, object]], *, has_changes: bool = True):
-    env, log, output = environment(tmp_path, pulls, has_changes=has_changes)
+def run_publish(
+    tmp_path: Path,
+    pulls: list[dict[str, object]],
+    *,
+    has_changes: bool = True,
+    remote_exists: bool = False,
+):
+    env, log, output = environment(
+        tmp_path, pulls, has_changes=has_changes, remote_exists=remote_exists
+    )
     result, calls = run_script(PUBLISH, env, log)
     return result, calls, output.read_text(encoding="utf-8") if output.exists() else ""
 
@@ -128,6 +141,11 @@ def test_first_publication_commits_pushes_and_creates_one_draft_pr(tmp_path: Pat
     assert output == f"url={PR_URL}\n"
     assert sum(" commit " in f" {call} " for call in calls) == 1
     assert sum(" push " in f" {call} " for call in calls) == 1
+    assert any(
+        "--force-with-lease=refs/heads/codex/fixture-task-42:" in call
+        for call in calls
+        if " push " in f" {call} "
+    )
     assert all(
         " -C " in f" {call} "
         for call in calls
@@ -141,7 +159,7 @@ def test_first_publication_commits_pushes_and_creates_one_draft_pr(tmp_path: Pat
 
 def test_repeated_publication_pushes_commit_and_reuses_open_draft_pr(tmp_path: Path) -> None:
     existing = [{"state": "open", "draft": True, "html_url": PR_URL}]
-    result, calls, output = run_publish(tmp_path, existing)
+    result, calls, output = run_publish(tmp_path, existing, remote_exists=True)
     assert result.returncode == 0
     assert output == f"url={PR_URL}\n"
     commit = next(call for call in calls if " commit " in f" {call} ")
@@ -149,6 +167,9 @@ def test_repeated_publication_pushes_commit_and_reuses_open_draft_pr(tmp_path: P
     query = next(call for call in calls if call.startswith("curl "))
     assert calls.index(commit) < calls.index(push) < calls.index(query)
     assert "HEAD:refs/heads/codex/fixture-task-42" in push
+    assert (
+        "--force-with-lease=refs/heads/codex/fixture-task-42:existing-branch-oid" in push
+    )
     assert not any("/pulls -d" in call and " -X POST " in f" {call} " for call in calls)
 
 

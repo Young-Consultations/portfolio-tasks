@@ -27,7 +27,11 @@ if [[ -n "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)
     printf 'No publishable changes for task branch %s.\n' "$BRANCH"
   else
     git -C "$TASK_WORKTREE" commit -m "Implement approved portfolio task #$ISSUE_NUMBER"
-    git -C "$TASK_WORKTREE" push --force-with-lease "$remote" "HEAD:refs/heads/$BRANCH"
+    remote_ref="refs/remotes/origin/$BRANCH"
+    expected=$(git -C "$TASK_WORKTREE" rev-parse --verify "$remote_ref" 2>/dev/null || true)
+    git -C "$TASK_WORKTREE" push \
+      "--force-with-lease=refs/heads/$BRANCH:$expected" \
+      "$remote" "HEAD:refs/heads/$BRANCH"
     changed=true
   fi
 else
