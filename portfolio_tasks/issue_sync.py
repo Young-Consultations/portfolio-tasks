@@ -22,11 +22,17 @@ MARKER = "<!-- portfolio-task-source: {repository}#{number} -->"
 class MirrorLocator:
     @staticmethod
     def locate(issues: Iterable[Issue], source_number: int) -> Issue | None:
-        markers = tuple(MARKER.format(repository=repo, number=source_number)
-                        for repo in (SOURCE_REPO, LEGACY_SOURCE_REPO))
-        matches = [issue for issue in issues if not issue.is_pull_request
-                   and issue.body.endswith(markers)
-                   and "\n## Portfolio Task Metadata\n" in issue.body]
+        markers = tuple(
+            MARKER.format(repository=repo, number=source_number)
+            for repo in (SOURCE_REPO, LEGACY_SOURCE_REPO)
+        )
+        matches = [
+            issue
+            for issue in issues
+            if not issue.is_pull_request
+            and issue.body.endswith(markers)
+            and "\n## Portfolio Task Metadata\n" in issue.body
+        ]
         return min(matches, key=lambda issue: issue.number, default=None)
 
 
@@ -46,26 +52,41 @@ class SyncPlanner:
 
     @staticmethod
     def body(source: Issue, managed: str = "Yes") -> str:
-        body = re.sub(r"<!-- portfolio-task-source: [^>]*-->",
-                      "[removed portfolio-task-source marker]", source.body)
-        return (f"{body}\n\n---\n## Portfolio Task Metadata\n"
-                f"- Source repository: `{SOURCE_REPO}`\n- Source issue: `#{source.number}`\n"
-                f"- Source URL: `{source.html_url}`\n- Source state: `{source.state}`\n"
-                f"- Managed automatically: {managed}\n"
-                f"{MARKER.format(repository=SOURCE_REPO, number=source.number)}")
+        body = re.sub(
+            r"<!-- portfolio-task-source: [^>]*-->",
+            "[removed portfolio-task-source marker]",
+            source.body,
+        )
+        return (
+            f"{body}\n\n---\n## Portfolio Task Metadata\n"
+            f"- Source repository: `{SOURCE_REPO}`\n- Source issue: `#{source.number}`\n"
+            f"- Source URL: `{source.html_url}`\n- Source state: `{source.state}`\n"
+            f"- Managed automatically: {managed}\n"
+            f"{MARKER.format(repository=SOURCE_REPO, number=source.number)}"
+        )
 
     @classmethod
     def desired(cls, source: Issue, target: Issue | None, managed: str = "Yes") -> dict[str, Any]:
         labels = sorted(set(target.labels if target else ()) - {SOURCE_LABEL} | {MANAGED_LABEL})
         state = target.state if managed != "Yes" and target else source.state
-        return {"title": f"[PORTFOLIO-TASK #{source.number}] {source.title}",
-                "body": cls.body(source, managed), "state": state,
-                "labels": labels, "assignees": list(source.assignees)}
+        return {
+            "title": f"[PORTFOLIO-TASK #{source.number}] {source.title}",
+            "body": cls.body(source, managed),
+            "state": state,
+            "labels": labels,
+            "assignees": list(source.assignees),
+        }
 
     @classmethod
     def plan(cls, source: Issue, target: Issue | None, label_removed: bool = False) -> SyncPlan:
         if not cls.targets_slugger(source):
-            return SyncPlan(SyncAction.SKIPPED_TARGET_REPOSITORY, None, target)
+            if target is None:
+                return SyncPlan(SyncAction.SKIPPED_TARGET_REPOSITORY, None, None)
+            payload = cls.desired(source, target, "No - non-slugger target repository")
+            payload.pop("assignees")
+            payload["labels"] = sorted(set(payload["labels"]) - {MANAGED_LABEL})
+            payload["state"] = "closed"
+            return SyncPlan(SyncAction.DISABLE_SYNC, payload, target)
         if label_removed:
             if target is None:
                 return SyncPlan(SyncAction.NO_OP, None, None)
@@ -78,10 +99,18 @@ class SyncPlanner:
         desired = cls.desired(source, target)
         if target is None:
             return SyncPlan(SyncAction.CREATE, desired, None)
-        existing = {"title": target.title, "body": target.body, "state": target.state,
-                    "labels": sorted(target.labels), "assignees": sorted(target.assignees)}
-        comparable = {**desired, "labels": sorted(desired["labels"]),
-                      "assignees": sorted(desired["assignees"])}
+        existing = {
+            "title": target.title,
+            "body": target.body,
+            "state": target.state,
+            "labels": sorted(target.labels),
+            "assignees": sorted(target.assignees),
+        }
+        comparable = {
+            **desired,
+            "labels": sorted(desired["labels"]),
+            "assignees": sorted(desired["assignees"]),
+        }
         if comparable == existing:
             action = SyncAction.NO_OP
         elif source.state == "closed" and target.state == "open":
@@ -104,4 +133,6 @@ class SyncExecutor:
             self.api.request("POST", f"repos/{TARGET_REPO}/issues", plan.payload)
         else:
             assert plan.target is not None
-            self.api.request("PATCH", f"repos/{TARGET_REPO}/issues/{plan.target.number}", plan.payload)
+            self.api.request(
+                "PATCH", f"repos/{TARGET_REPO}/issues/{plan.target.number}", plan.payload
+            )

@@ -70,22 +70,17 @@ def sync() -> int:
             errors.append("Issue body exceeds safe synchronization length")
         if errors:
             raise ValueError
-        if SyncPlanner.targets_slugger(source):
-            try:
-                targets = api.request("GET", f"repos/{TARGET_REPO}/issues?state=all&per_page=100")
-            except GitHubApiError:
-                failures.append("Could not search target issues")
-                raise
-            target = MirrorLocator.locate(
-                (Issue.from_json(item) for item in targets), source.number
-            )
-            removed = (
-                os.getenv("GITHUB_EVENT_ACTION") == "unlabeled"
-                and event.get("label", {}).get("name") == SOURCE_LABEL
-            )
-            plan = SyncPlanner.plan(source, target, removed)
-        else:
-            plan = SyncPlanner.plan(source, None)
+        try:
+            targets = api.request("GET", f"repos/{TARGET_REPO}/issues?state=all&per_page=100")
+        except GitHubApiError:
+            failures.append("Could not search target issues")
+            raise
+        target = MirrorLocator.locate((Issue.from_json(item) for item in targets), source.number)
+        removed = (
+            os.getenv("GITHUB_EVENT_ACTION") == "unlabeled"
+            and event.get("label", {}).get("name") == SOURCE_LABEL
+        )
+        plan = SyncPlanner.plan(source, target, removed)
         action = plan.action.value
         SyncExecutor(api).execute(plan)
     except ValueError:
