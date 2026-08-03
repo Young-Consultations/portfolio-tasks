@@ -174,12 +174,21 @@ def test_workflow_is_a_thin_secure_execution_target() -> None:
     assert "Version(version('ai-sdlc-contracts')) >= Version('1.0.1')" in text
     assert "load_contract_version() == 'ai-sdlc-contract/v2'" in text
     assert "python -m portfolio_tasks.execution inspect-input" in text
+    assert "python -m portfolio_tasks.execution publication-preflight" in text
     assert "steps.input.outputs.execution_mode == 'implement'" in text
     publication = Path("scripts/publish-draft-pr").read_text(encoding="utf-8")
     assert "draft:true" in publication
     assert "persist-credentials: false" in text
     assert "pull_request_target:" not in text
     assert "schemas/" not in text
+
+
+def test_readme_documents_preflight_reuse_and_safe_fail_closed_behavior() -> None:
+    text = Path("README.md").read_text(encoding="utf-8")
+    assert "publication preflight" in text
+    assert "without rerunning Codex" in text
+    assert "branch without a pull request" in text
+    assert "closed or merged pull request" in text
 
 
 def test_workflow_validates_codex_changes_and_reports_real_outcomes() -> None:

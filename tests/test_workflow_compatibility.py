@@ -85,13 +85,17 @@ def test_checkout_never_persists_github_credentials() -> None:
 def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     steps = execution_steps()
+    preflight = steps["Executor publication preflight"]
     codex = steps["Install and execute Codex"]
     validation = steps["Validate target repository"]
     publication = steps["Create task branch and draft PR"]
 
-    assert codex["if"] == "steps.input.outputs.execution_mode == 'implement'"
+    assert preflight["if"] == "steps.input.outputs.execution_mode == 'implement'"
+    assert "steps.input.outputs.execution_mode == 'implement'" in codex["if"]
+    assert "steps.preflight.outputs.should_run_codex == 'true'" in codex["if"]
     assert "steps.input.outputs.execution_mode == 'verify'" in validation["if"]
     assert "steps.codex.outcome == 'success'" in validation["if"]
+    assert "steps.preflight.outputs.reuse_open_draft == 'true'" in validation["if"]
     assert "steps.input.outputs.execution_mode == 'implement'" in publication["if"]
     assert "always()" in publication["if"]
     assert "codex_status=$?" in text
@@ -154,18 +158,51 @@ def test_failed_validation_is_published_before_the_workflow_fails() -> None:
         < names.index("Create task branch and draft PR")
         < names.index("Conclude execution")
     )
+    assert names.index("Executor publication preflight") < names.index(
+        "Prepare deterministic task branch"
+    )
+    assert names.index("Prepare deterministic task branch") < names.index(
+        "Install and execute Codex"
+    )
     assert "steps.validation.outcome == 'failure'" in publication["if"]
     assert '[[ "$VALIDATION_RESULT" != failed ]]' in conclusion["run"]
+
+
+def test_reused_draft_branch_is_prepared_before_validation() -> None:
+    steps = execution_steps()
+    prepare = steps["Prepare deterministic task branch"]
+    validation = steps["Validate target repository"]
+
+    assert "steps.preflight.outputs.reuse_open_draft == 'true'" in prepare["if"]
+    assert (
+        prepare["env"]["REQUIRE_EXISTING_BRANCH"]
+        == "${{ steps.preflight.outputs.reuse_open_draft }}"
+    )
+    assert 'printf \'TARGET_WORKTREE=%s\\n\' "$TASK_WORKTREE"' in prepare["run"]
+    assert '--working-directory "$TARGET_WORKTREE"' in validation["run"]
 
 
 def test_verify_mode_cannot_mutate_git_or_publish() -> None:
     steps = execution_steps()
     mutating = (
+        steps["Executor publication preflight"],
         steps["Prepare deterministic task branch"],
         steps["Install and execute Codex"],
         steps["Create task branch and draft PR"],
     )
     assert all("execution_mode == 'implement'" in step["if"] for step in mutating)
+
+
+def test_emit_result_reuses_preflight_pr_identity() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    emit = text[text.index("- name: Emit canonical execution result") :]
+
+    assert "effective_publish_ok=false" in emit
+    assert 'effective_pr_url="$PR_URL"' in emit
+    assert 'if [[ "$PREFLIGHT_REUSE_OPEN_DRAFT" == true ]]; then' in emit
+    assert 'effective_pr_url="$PREFLIGHT_PR_URL"' in emit
+    assert "status_args+=(--publish-ok)" in emit
+    assert 'status_args+=(--pr-url "$effective_pr_url")' in emit
 
 
 def test_publication_uses_helper_from_trusted_commit() -> None:
