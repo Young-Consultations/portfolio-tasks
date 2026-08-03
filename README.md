@@ -126,7 +126,7 @@ is:issue label:chatgpt-task
 
 `is:issue` is a GitHub search qualifier, not a label to create.
 
-Issues that omit **Target repository**, contain a malformed value, or name any other repository (including `Young-Consultations/portfolio-tasks` or `Young-Consultations/consulting-playbook`) are skipped before the workflow searches or writes Slugger issues. The job summary reports the action as `skipped-target-repository`.
+Issues that omit **Target repository**, contain a malformed value, or name any other repository (including `Young-Consultations/.github`, `Young-Consultations/portfolio-tasks`, `Young-Consultations/consulting-playbook`, sandbox repositories, or unknown targets) never create new Slugger mirrors. For these non-Slugger targets, the workflow still checks for an existing marker-matched legacy Slugger mirror and, when found, disables synchronization metadata and closes that mirror to retire duplicate state safely. When no mirror exists, the job summary reports `skipped-target-repository`.
 
 ### Mapping and idempotency
 
@@ -158,7 +158,7 @@ Source assignees are included in create or update payloads. If GitHub rejects an
 
 ### Dry-run mode
 
-Manual runs default to `dry_run=true`. A dry run reads the source issue, checks the structured target and `is:issue label:chatgpt-task` eligibility, searches Slugger for the metadata marker only for Slugger-targeted issues, determines the planned action (`create`, `update`, `close`, `reopen`, `disable-sync`, `no-op`, `skipped`, or `skipped-target-repository`), writes a safe job summary, and performs no writes.
+Manual runs default to `dry_run=true`. A dry run reads the source issue, checks the structured target and `is:issue label:chatgpt-task` eligibility, searches Slugger for the metadata marker to either synchronize eligible Slugger-targeted work or retire any existing mismatched mirror, determines the planned action (`create`, `update`, `close`, `reopen`, `disable-sync`, `no-op`, `skipped`, or `skipped-target-repository`), writes a safe job summary, and performs no writes.
 
 To perform a manual dry run:
 
