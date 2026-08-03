@@ -168,6 +168,20 @@ def test_failed_validation_is_published_before_the_workflow_fails() -> None:
     assert '[[ "$VALIDATION_RESULT" != failed ]]' in conclusion["run"]
 
 
+def test_reused_draft_branch_is_prepared_before_validation() -> None:
+    steps = execution_steps()
+    prepare = steps["Prepare deterministic task branch"]
+    validation = steps["Validate target repository"]
+
+    assert "steps.preflight.outputs.reuse_open_draft == 'true'" in prepare["if"]
+    assert (
+        prepare["env"]["REQUIRE_EXISTING_BRANCH"]
+        == "${{ steps.preflight.outputs.reuse_open_draft }}"
+    )
+    assert 'printf \'TARGET_WORKTREE=%s\\n\' "$TASK_WORKTREE"' in prepare["run"]
+    assert '--working-directory "$TARGET_WORKTREE"' in validation["run"]
+
+
 def test_verify_mode_cannot_mutate_git_or_publish() -> None:
     steps = execution_steps()
     mutating = (

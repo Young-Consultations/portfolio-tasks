@@ -135,12 +135,14 @@ jobs:
       - name: Prepare deterministic task branch
         if: >-
           steps.input.outputs.execution_mode == 'implement' &&
-          steps.preflight.outputs.should_run_codex == 'true'
+          (steps.preflight.outputs.should_run_codex == 'true' ||
+          steps.preflight.outputs.reuse_open_draft == 'true')
         id: prepare
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
           BRANCH: ${{ steps.input.outputs.branch }}
           BASE_REVISION: ${{ github.sha }}
+          REQUIRE_EXISTING_BRANCH: ${{ steps.preflight.outputs.reuse_open_draft }}
         run: |
           set -euo pipefail; set +x
           export PATH=/usr/bin:/bin
