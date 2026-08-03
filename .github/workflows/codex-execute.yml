@@ -220,21 +220,55 @@ jobs:
           printf '%s\n' validation_failed > "$RUNNER_TEMP/failure-category"
           cd "$GITHUB_WORKSPACE"
           export PYTHONPATH="$GITHUB_WORKSPACE"
+          set +e
           python -m portfolio_tasks.runtime_validation \
             --working-directory "$TARGET_WORKTREE" \
             --baseline "$RUNNER_TEMP/validation-baseline.json" \
             --log "$RUNNER_TEMP/validation.log" \
+            --summary "$RUNNER_TEMP/validation-summary.json" \
             --result "$RUNNER_TEMP/codex-result.json"
-          printf '%s\n' passed > "$RUNNER_TEMP/validation-result"
-          printf '%s\n' passed > "$RUNNER_TEMP/test-result"
+          validation_status=$?
+          set -e
+          if [[ ! -s "$RUNNER_TEMP/validation-summary.json" ]]; then
+            jq -n '{validation_result:"failed",repairable:false,commands:[{command:"trusted validation suite",classification:"infrastructure_failure"}]}' \
+              > "$RUNNER_TEMP/validation-summary.json"
+          fi
+          if (( validation_status != 0 )) && \
+             [[ "$(jq -r '.repairable // false' "$RUNNER_TEMP/validation-summary.json")" == true ]]; then
+            mapfile -t python_files < <(git -C "$TARGET_WORKTREE" diff --name-only --diff-filter=ACMR HEAD -- '*.py')
+            if (( ${#python_files[@]} )); then
+              set +e
+              (cd "$TARGET_WORKTREE" && ruff format -- "${python_files[@]}")
+              repair_status=$?
+              set -e
+              printf '%s\n' attempted > "$RUNNER_TEMP/format-repair"
+              set +e
+              python -m portfolio_tasks.runtime_validation \
+                --working-directory "$TARGET_WORKTREE" \
+                --baseline "$RUNNER_TEMP/validation-baseline.json" \
+                --log "$RUNNER_TEMP/validation.log" \
+                --summary "$RUNNER_TEMP/validation-summary.json" \
+                --result "$RUNNER_TEMP/codex-result.json"
+              validation_status=$?
+              set -e
+              (( repair_status == 0 )) || validation_status=$repair_status
+            fi
+          fi
+          result=failed
+          (( validation_status != 0 )) || result=passed
+          printf '%s\n' "$result" > "$RUNNER_TEMP/validation-result"
+          printf '%s\n' "$result" > "$RUNNER_TEMP/test-result"
+          printf 'result=%s\n' "$result" >> "$GITHUB_OUTPUT"
 
       - name: Create task branch and draft PR
-        if: steps.input.outputs.execution_mode == 'implement' && steps.codex.outputs.outcome == 'changed' && steps.validation.outcome == 'success'
+        if: always() && steps.input.outputs.execution_mode == 'implement' && steps.codex.outputs.outcome == 'changed'
         id: publish
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
           BRANCH: ${{ steps.input.outputs.branch }}
           ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
+          VALIDATION_RESULT: ${{ steps.validation.outputs.result || 'failed' }}
+          VALIDATION_SUMMARY: ${{ runner.temp }}/validation-summary.json
         run: |
           set -euo pipefail; set +x
           export PATH=/usr/bin:/bin
@@ -246,7 +280,7 @@ jobs:
           {
             echo '### Workflow postconditions'
             echo '- completed: controlled branch committed and pushed'
-            echo '- completed: one draft pull request opened'
+            echo '- completed: exactly one draft pull request created or updated'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Emit canonical execution result
@@ -254,7 +288,7 @@ jobs:
         env:
           MODE: ${{ steps.input.outputs.execution_mode }}
           AUTHORIZATION_OUTCOME: ${{ steps.authorization.outcome }}
-          VALIDATION_OUTCOME: ${{ steps.validation.outcome }}
+          VALIDATION_RESULT: ${{ steps.validation.outputs.result }}
           PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
           PR_URL: ${{ steps.publish.outputs.url }}
           NO_CHANGES: ${{ steps.codex.outputs.no_changes }}
@@ -266,7 +300,7 @@ jobs:
           category=$(jq -Rn --arg v "$(cat "$RUNNER_TEMP/failure-category")" '$v')
           status_args=(--mode "$MODE")
           [[ "$AUTHORIZATION_OUTCOME" != success ]] || status_args+=(--authorization-ok)
-          [[ "$VALIDATION_OUTCOME" != success ]] || status_args+=(--validation-ok)
+          [[ "$VALIDATION_RESULT" != passed ]] || status_args+=(--validation-ok)
           [[ "$PUBLISH_OUTCOME" != success ]] || status_args+=(--publish-ok)
           [[ -z "$PR_URL" ]] || status_args+=(--pr-url "$PR_URL")
           [[ "$NO_CHANGES" != true ]] || status_args+=(--no-changes)
@@ -316,3 +350,15 @@ jobs:
           path: ${{ runner.temp }}/execution-result.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Conclude execution
+        if: always()
+        env:
+          VALIDATION_RESULT: ${{ steps.validation.outputs.result }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+          CODEX_OUTCOME: ${{ steps.codex.outcome }}
+        run: |
+          set -euo pipefail
+          [[ "$CODEX_OUTCOME" != failure ]]
+          [[ "$PUBLISH_OUTCOME" != failure ]]
+          [[ "$VALIDATION_RESULT" != failed ]]

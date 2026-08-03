@@ -100,6 +100,7 @@ def run_validations(
     result_path: Path | None = None,
     working_directory: Path | None = None,
     baseline_path: Path | None = None,
+    summary_path: Path | None = None,
 ) -> int:
     """Compare required checks with a trusted baseline and check changed Python formatting."""
     cwd = working_directory or Path.cwd()
@@ -178,6 +179,25 @@ def run_validations(
                 f"({classification})",
             )
     _update_result(result_path, not failed, classifications)
+    if summary_path is not None:
+        summary_path.write_text(
+            json.dumps(
+                {
+                    "validation_result": "failed" if failed else "passed",
+                    "commands": classifications,
+                    "repairable": failed
+                    and bool(classifications)
+                    and all(
+                        item["classification"] == "passed"
+                        or item["command"] == "ruff format changed Python files"
+                        for item in classifications
+                    ),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     return 1 if failed else 0
 
 
@@ -187,13 +207,16 @@ def main() -> int:
     parser.add_argument("--result", type=Path)
     parser.add_argument("--working-directory", type=Path, required=True)
     parser.add_argument("--baseline", type=Path, required=True)
+    parser.add_argument("--summary", type=Path)
     parser.add_argument("--capture-baseline", action="store_true")
     args = parser.parse_args()
     if args.capture_baseline:
         return capture_baseline(args.baseline, args.working_directory)
     if args.log is None:
         parser.error("--log is required unless capturing a baseline")
-    return run_validations(args.log, args.result, args.working_directory, args.baseline)
+    return run_validations(
+        args.log, args.result, args.working_directory, args.baseline, args.summary
+    )
 
 
 if __name__ == "__main__":

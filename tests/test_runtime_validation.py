@@ -48,16 +48,21 @@ def test_new_failure_introduced_by_task_fails(tmp_path: Path) -> None:
     baseline(base, values)
     post = list(values)
     post[0] = outcome(runtime_validation.COMMANDS[0], "failed", "new")
+    summary = tmp_path / "summary.json"
     with (
         mock.patch.object(runtime_validation, "_outcome", side_effect=post),
         mock.patch.object(runtime_validation, "_changed_python_files", return_value=[]),
     ):
         assert (
             runtime_validation.run_validations(
-                tmp_path / "log", working_directory=tmp_path, baseline_path=base
+                tmp_path / "log",
+                working_directory=tmp_path,
+                baseline_path=base,
+                summary_path=summary,
             )
             == 1
         )
+    assert json.loads(summary.read_text())["repairable"] is False
 
 
 def test_changed_file_formatting_failure_is_task_scoped_and_fails(tmp_path: Path) -> None:
@@ -70,17 +75,22 @@ def test_changed_file_formatting_failure_is_task_scoped_and_fails(tmp_path: Path
         "detail": "bad",
         "digest": "x",
     }
+    summary = tmp_path / "summary.json"
     with (
         mock.patch.object(runtime_validation, "_outcome", side_effect=[*values, formatting]) as run,
         mock.patch.object(runtime_validation, "_changed_python_files", return_value=["changed.py"]),
     ):
         assert (
             runtime_validation.run_validations(
-                tmp_path / "log", working_directory=tmp_path, baseline_path=base
+                tmp_path / "log",
+                working_directory=tmp_path,
+                baseline_path=base,
+                summary_path=summary,
             )
             == 1
         )
     assert run.call_args_list[-1].args[0].argv == ("ruff", "format", "--check", "changed.py")
+    assert json.loads(summary.read_text())["repairable"] is True
 
 
 def test_infrastructure_is_not_pre_existing_debt(tmp_path: Path) -> None:

@@ -10,6 +10,9 @@ set +x
 : "${GITHUB_OUTPUT:?GITHUB_OUTPUT must be set}"
 : "${RUNNER_TEMP:?RUNNER_TEMP must be set}"
 : "${TASK_WORKTREE:?TASK_WORKTREE must be set}"
+: "${VALIDATION_RESULT:?VALIDATION_RESULT must be set}"
+: "${VALIDATION_SUMMARY:?VALIDATION_SUMMARY must be set}"
+[[ "$VALIDATION_RESULT" == passed || "$VALIDATION_RESULT" == failed ]]
 
 printf '%s\n' publication_failed > "$RUNNER_TEMP/failure-category"
 auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json')
@@ -24,7 +27,7 @@ if [[ -n "$(git -C "$TASK_WORKTREE" status --porcelain=v1 --untracked-files=all)
     printf 'No publishable changes for task branch %s.\n' "$BRANCH"
   else
     git -C "$TASK_WORKTREE" commit -m "Implement approved portfolio task #$ISSUE_NUMBER"
-    git -C "$TASK_WORKTREE" push "$remote" "HEAD:refs/heads/$BRANCH"
+    git -C "$TASK_WORKTREE" push --force-with-lease "$remote" "HEAD:refs/heads/$BRANCH"
     changed=true
   fi
 else
@@ -42,34 +45,50 @@ if (( open_count > 1 )); then
 fi
 if (( open_count == 1 )); then
   pull_request_url=$(jq -er '[.[] | select(.state == "open")][0].html_url' <<< "$existing")
+  pull_number=$(jq -r '[.[] | select(.state == "open")][0].number // ([.[] | select(.state == "open")][0].html_url | split("/")[-1] | tonumber)' <<< "$existing")
   draft=$(jq -r '[.[] | select(.state == "open")][0].draft' <<< "$existing")
   case "$draft" in
     true) printf 'Reusing existing draft pull request: %s\n' "$pull_request_url" ;;
-    false) printf 'Reusing existing non-draft pull request: %s\n' "$pull_request_url" ;;
+    false) printf 'Refusing to publish: existing pull request is not a draft.\n' >&2; exit 1 ;;
     *) printf 'Refusing to publish: existing open pull request has invalid draft state.\n' >&2; exit 1 ;;
   esac
-  printf 'url=%s\n' "$pull_request_url" >> "$GITHUB_OUTPUT"
-  [[ "$changed" == true ]] || printf 'no_changes=true\n' >> "$GITHUB_OUTPUT"
-  exit 0
-fi
-
-historical_count=$(jq 'length' <<< "$existing")
-if (( historical_count > 0 )); then
+elif (( $(jq 'length' <<< "$existing") > 0 )); then
   printf 'Refusing to publish: a closed or merged pull request already exists for %s.\n' \
     "$BRANCH" >&2
   exit 1
-fi
-if [[ "$changed" != true ]]; then
+elif [[ "$changed" != true ]]; then
   printf 'No changes to publish and no open pull request exists for %s.\n' "$BRANCH"
   printf 'no_changes=true\n' >> "$GITHUB_OUTPUT"
   exit 0
 fi
 
+# Report command names and classifications only. Raw command output remains in the
+# restricted diagnostics artifact and can contain repository or environment data.
+validation_lines=$(jq -r '.commands[]? | "- `\(.command)`: \(.classification)"' "$VALIDATION_SUMMARY")
+body=$(printf 'Automated implementation for #%s.\n\n## Validation: %s\n%s\n\nThis pull request intentionally remains a draft.\n' \
+  "$ISSUE_NUMBER" "$VALIDATION_RESULT" "$validation_lines")
 request=$(jq -n --arg title "Codex: implement portfolio task #$ISSUE_NUMBER" \
-  --arg head "$BRANCH" \
-  '{title:$title,head:$head,base:"main",body:"Automated implementation.",draft:true}')
-response=$(curl --fail --silent --show-error "${auth[@]}" -X POST \
-  "$API_ROOT/repos/$REPOSITORY/pulls" -d "$request")
-jq -e '.draft == true and .state == "open" and (.html_url | type == "string")' \
-  <<< "$response" >/dev/null
-printf 'url=%s\n' "$(jq -r .html_url <<< "$response")" >> "$GITHUB_OUTPUT"
+  --arg head "$BRANCH" --arg body "$body" \
+  '{title:$title,head:$head,base:"main",body:$body,draft:true}')
+if (( open_count == 1 )); then
+  curl --fail --silent --show-error "${auth[@]}" -X PATCH \
+    "$API_ROOT/repos/$REPOSITORY/pulls/$pull_number" \
+    -d "$(jq -n --arg body "$body" '{body:$body}')" >/dev/null
+else
+  response=$(curl --fail --silent --show-error "${auth[@]}" -X POST \
+    "$API_ROOT/repos/$REPOSITORY/pulls" -d "$request")
+  jq -e '.draft == true and .state == "open" and (.html_url | type == "string")' \
+    <<< "$response" >/dev/null
+  pull_request_url=$(jq -r .html_url <<< "$response")
+  pull_number=${pull_request_url##*/}
+fi
+desired="codex:validation-$VALIDATION_RESULT"
+opposite=codex:validation-failed
+[[ "$VALIDATION_RESULT" == passed ]] || opposite=codex:validation-passed
+curl --fail --silent --show-error "${auth[@]}" -X POST \
+  "$API_ROOT/repos/$REPOSITORY/issues/$pull_number/labels" \
+  -d "$(jq -n --arg label "$desired" '{labels:[$label]}')" >/dev/null
+curl --silent --show-error "${auth[@]}" -X DELETE \
+  "$API_ROOT/repos/$REPOSITORY/issues/$pull_number/labels/$opposite" >/dev/null || true
+printf 'url=%s\n' "$pull_request_url" >> "$GITHUB_OUTPUT"
+[[ "$changed" == true ]] || printf 'no_changes=true\n' >> "$GITHUB_OUTPUT"
