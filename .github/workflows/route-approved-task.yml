@@ -51,27 +51,22 @@ jobs:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
         run: python -m portfolio_tasks.cli route-check "$GITHUB_EVENT_PATH" >> "$GITHUB_OUTPUT"
 
+      - name: Check out organization control-plane files
+        if: steps.gate.outputs.route == 'true'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: Young-Consultations/.github
+          ref: ai-sdlc-v2.1.0
+          token: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          path: shared-platform
+          persist-credentials: false
+
       - name: Install pinned shared contracts
         if: steps.gate.outputs.route == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
-          CONTRACTS_COMMIT_SHA: ${{ vars.AI_SDLC_CONTRACTS_COMMIT_SHA }}
         run: |
           set -euo pipefail; set +x
-          [[ "$CONTRACTS_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
-          helper="$RUNNER_TEMP/contracts-credential"
-          trap 'rm -f "$helper"' EXIT
-          cat > "$helper" <<'EOF'
-          #!/usr/bin/env bash
-          [[ "${1:-get}" == get ]] || exit 0
-          printf '%s\n' username=x-access-token "password=${GH_TOKEN}"
-          EOF
-          chmod 700 "$helper"
-          git -c credential.helper="$helper" -c credential.useHttpPath=true clone --quiet \
-            https://github.com/Young-Consultations/.github.git "$RUNNER_TEMP/shared-platform"
-          git -C "$RUNNER_TEMP/shared-platform" checkout --quiet "$CONTRACTS_COMMIT_SHA"
           python -m pip install --disable-pip-version-check --no-cache-dir \
-            "$RUNNER_TEMP/shared-platform"
+            "$GITHUB_WORKSPACE/shared-platform"
 
       - name: Build and validate canonical task contract
         if: steps.gate.outputs.route == 'true'

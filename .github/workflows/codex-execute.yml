@@ -61,26 +61,20 @@ jobs:
           github-token: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
           path: ${{ runner.temp }}/execution-input-artifact
 
+      - name: Check out organization control-plane files
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: Young-Consultations/.github
+          ref: ai-sdlc-v2.1.0
+          token: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          path: shared-platform
+          persist-credentials: false
+
       - name: Install target and pinned shared contracts
-        env:
-          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
-          CONTRACTS_COMMIT_SHA: ${{ vars.AI_SDLC_CONTRACTS_COMMIT_SHA }}
         run: |
           set -euo pipefail; set +x
-          [[ "$CONTRACTS_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
-          helper="$RUNNER_TEMP/contracts-credential"
-          trap 'rm -f "$helper"' EXIT
-          cat > "$helper" <<'EOF'
-          #!/usr/bin/env bash
-          [[ "${1:-get}" == get ]] || exit 0
-          printf '%s\n' username=x-access-token "password=${GH_TOKEN}"
-          EOF
-          chmod 700 "$helper"
-          git -c credential.helper="$helper" -c credential.useHttpPath=true clone --quiet \
-            "https://github.com/Young-Consultations/.github.git" "$RUNNER_TEMP/shared-platform"
-          git -C "$RUNNER_TEMP/shared-platform" checkout --quiet "$CONTRACTS_COMMIT_SHA"
           python -m pip install --disable-pip-version-check --no-cache-dir \
-            "$RUNNER_TEMP/shared-platform" '.[dev]'
+            "$GITHUB_WORKSPACE/shared-platform" '.[dev]'
           python -c "from importlib.metadata import version; from packaging.version import Version; assert Version(version('ai-sdlc-contracts')) >= Version('1.0.1')"
           python -c "from ai_sdlc_contracts import load_contract_version; assert load_contract_version() == 'ai-sdlc-contract/v2'"
 
