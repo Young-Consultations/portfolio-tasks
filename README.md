@@ -33,6 +33,15 @@ for explicit manual intervention.
 `python -m ai_sdlc_contracts` for schema validation and exposes only validated workflow outputs;
 it does not load or interpret shared schemas itself.
 
+### Shared router release
+
+The approval workflow consumes the organization router at the immutable
+`ai-sdlc-v2.1.0` release tag. Upgrading that pin requires a separate, reviewed consumer pull
+request. If a rollback is necessary, pin the tag named by the release manifest's
+`previous_known_good` value; published release tags must never be moved or replaced. See the
+[authoritative AI-SDLC release documentation](https://github.com/Young-Consultations/.github/pull/17)
+for the organization release policy and manifest.
+
 ## Python architecture and developer workflow
 
 Synchronization and Codex process-boundary rules are implemented in the Python 3.12+

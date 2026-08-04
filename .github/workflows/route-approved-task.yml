@@ -97,7 +97,7 @@ jobs:
   route:
     needs: prepare
     if: needs.prepare.outputs.route == 'true'
-    uses: Young-Consultations/.github/.github/workflows/codex-router.yml@main
+    uses: Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.1.0
     with:
       task_payload: ${{ needs.prepare.outputs.task_contract_json }}
       execution_mode: implement
