@@ -103,11 +103,19 @@ def test_control_plane_checkouts_use_exact_release_without_caller_sha() -> None:
     assert checkouts
     assert all(checkout.get("ref") == ROUTER_RELEASE for checkout in checkouts)
     assert all(checkout.get("persist-credentials") is False for checkout in checkouts)
+    assert all(checkout.get("path") == "shared-platform" for checkout in checkouts)
     assert all(
         "github.sha" not in str(checkout.get("ref"))
         and "github.workflow_sha" not in str(checkout.get("ref"))
         for checkout in checkouts
     )
+
+
+def test_control_plane_install_paths_match_workspace_checkout() -> None:
+    for workflow in (WORKFLOW, ROUTING_WORKFLOW):
+        text = workflow.read_text(encoding="utf-8")
+        assert '"$GITHUB_WORKSPACE/shared-platform"' in text
+        assert '"$RUNNER_TEMP/shared-platform"' not in text
 
 
 def test_execution_modes_remain_isolated_and_emit_canonical_results() -> None:

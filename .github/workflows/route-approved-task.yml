@@ -58,7 +58,7 @@ jobs:
           repository: Young-Consultations/.github
           ref: ai-sdlc-v2.1.0
           token: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
-          path: ${{ runner.temp }}/shared-platform
+          path: shared-platform
           persist-credentials: false
 
       - name: Install pinned shared contracts
@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail; set +x
           python -m pip install --disable-pip-version-check --no-cache-dir \
-            "$RUNNER_TEMP/shared-platform"
+            "$GITHUB_WORKSPACE/shared-platform"
 
       - name: Build and validate canonical task contract
         if: steps.gate.outputs.route == 'true'

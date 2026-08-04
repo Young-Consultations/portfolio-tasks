@@ -67,14 +67,14 @@ jobs:
           repository: Young-Consultations/.github
           ref: ai-sdlc-v2.1.0
           token: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
-          path: ${{ runner.temp }}/shared-platform
+          path: shared-platform
           persist-credentials: false
 
       - name: Install target and pinned shared contracts
         run: |
           set -euo pipefail; set +x
           python -m pip install --disable-pip-version-check --no-cache-dir \
-            "$RUNNER_TEMP/shared-platform" '.[dev]'
+            "$GITHUB_WORKSPACE/shared-platform" '.[dev]'
           python -c "from importlib.metadata import version; from packaging.version import Version; assert Version(version('ai-sdlc-contracts')) >= Version('1.0.1')"
           python -c "from ai_sdlc_contracts import load_contract_version; assert load_contract_version() == 'ai-sdlc-contract/v2'"
 
