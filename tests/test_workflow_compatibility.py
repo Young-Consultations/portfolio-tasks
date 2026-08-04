@@ -8,6 +8,9 @@ import yaml
 WORKFLOW = Path(".github/workflows/codex-execute.yml")
 ROUTING_WORKFLOW = Path(".github/workflows/route-approved-task.yml")
 WORKFLOWS = tuple(Path(".github/workflows").glob("*.y*ml"))
+ROUTER_WORKFLOW = "Young-Consultations/.github/.github/workflows/codex-router.yml"
+ROUTER_RELEASE = "ai-sdlc-v2.1.0"
+ROUTER_REFERENCE = f"{ROUTER_WORKFLOW}@{ROUTER_RELEASE}"
 CANONICAL_INPUTS = {
     "execution_input_json",
     "execution_input_artifact",
@@ -23,6 +26,11 @@ CONTRACT_FIELDS = {
     "executor",
     "instructions",
 }
+
+
+def is_supported_router_reference(reference: str) -> bool:
+    """Accept only the reviewed shared control-plane release."""
+    return reference == ROUTER_REFERENCE
 
 
 def execution_steps() -> dict[str, dict[str, object]]:
@@ -58,8 +66,8 @@ def test_every_third_party_action_is_pinned_to_a_commit() -> None:
             reference = match.group(1)
             if reference.startswith("./"):
                 continue
-            if reference == ("Young-Consultations/.github/.github/workflows/codex-router.yml@main"):
-                # The central router is deliberately consumed from its policy branch.
+            if is_supported_router_reference(reference):
+                # Reusable organization workflows use a reviewed, immutable release tag.
                 continue
             if not re.fullmatch(r"[^@]+@[0-9a-fA-F]{40}", reference):
                 unpinned.append(f"{workflow}: {reference}")
@@ -316,12 +324,36 @@ def test_approved_task_router_uses_shared_workflow_contract() -> None:
 
     assert "needs: prepare" in route_job
     assert "if: needs.prepare.outputs.route == 'true'" in route_job
-    assert "uses: Young-Consultations/.github/.github/workflows/codex-router.yml@main" in route_job
+    assert f"uses: {ROUTER_REFERENCE}" in route_job
     assert "task_payload: ${{ needs.prepare.outputs.task_contract_json }}" in route_job
     assert "execution_mode: implement" in route_job
     assert "CODEX_ROUTER_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}" in route_job
     assert "task_contract_json:" not in route_job
     assert "router_token:" not in route_job
+
+
+def test_organization_router_uses_exact_immutable_release() -> None:
+    references = []
+    for workflow in WORKFLOWS:
+        references.extend(
+            match.group(1)
+            for match in re.finditer(
+                rf"^\s*uses:\s*({re.escape(ROUTER_WORKFLOW)}@\S+)",
+                workflow.read_text(encoding="utf-8"),
+                re.MULTILINE,
+            )
+        )
+
+    assert references == [ROUTER_REFERENCE]
+    assert all(not reference.endswith("@main") for reference in references)
+
+
+def test_shared_control_plane_workflow_branch_refs_are_rejected() -> None:
+    branch_names = ("main", "master", "develop", "development", "feature/router-update")
+
+    for branch in branch_names:
+        candidate = f"{ROUTER_WORKFLOW}@{branch}"
+        assert not is_supported_router_reference(candidate)
 
 
 def test_approved_task_router_triggers_only_on_labeled_and_edited_events() -> None:
