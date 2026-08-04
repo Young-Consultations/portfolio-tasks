@@ -77,16 +77,36 @@ def test_every_third_party_action_is_pinned_to_a_commit() -> None:
 def test_checkout_never_persists_github_credentials() -> None:
     unsafe_checkouts: list[str] = []
     for workflow in WORKFLOWS:
-        lines = workflow.read_text(encoding="utf-8").splitlines()
-        for index, line in enumerate(lines):
-            if not re.match(r"\s*uses:\s*actions/checkout@", line):
-                continue
-            step = "\n".join(lines[index + 1 : index + 4])
-            if "persist-credentials: false" not in step:
-                unsafe_checkouts.append(str(workflow))
+        document = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+        for job in document.get("jobs", {}).values():
+            for step in job.get("steps", []):
+                if not str(step.get("uses", "")).startswith("actions/checkout@"):
+                    continue
+                if step.get("with", {}).get("persist-credentials") is not False:
+                    unsafe_checkouts.append(str(workflow))
 
     assert not unsafe_checkouts, "checkout persists the workflow token: " + ", ".join(
         unsafe_checkouts
+    )
+
+
+def test_control_plane_checkouts_use_exact_release_without_caller_sha() -> None:
+    checkouts: list[dict[str, object]] = []
+    for workflow in WORKFLOWS:
+        document = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+        for job in document.get("jobs", {}).values():
+            for step in job.get("steps", []):
+                checkout = step.get("with", {})
+                if checkout.get("repository") == "Young-Consultations/.github":
+                    checkouts.append(checkout)
+
+    assert checkouts
+    assert all(checkout.get("ref") == ROUTER_RELEASE for checkout in checkouts)
+    assert all(checkout.get("persist-credentials") is False for checkout in checkouts)
+    assert all(
+        "github.sha" not in str(checkout.get("ref"))
+        and "github.workflow_sha" not in str(checkout.get("ref"))
+        for checkout in checkouts
     )
 
 

@@ -42,6 +42,10 @@ request. If a rollback is necessary, pin the tag named by the release manifest's
 [authoritative AI-SDLC release documentation](https://github.com/Young-Consultations/.github/pull/17)
 for the organization release policy and manifest.
 
+Workflow checkouts of the organization control plane use the same `ai-sdlc-v2.1.0` release tag,
+rather than a commit SHA from the calling `portfolio-tasks` workflow. Checkout credentials are
+not persisted.
+
 ## Python architecture and developer workflow
 
 Synchronization and Codex process-boundary rules are implemented in the Python 3.12+
