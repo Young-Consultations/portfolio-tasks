@@ -12,6 +12,7 @@ set +x
 : "${TASK_WORKTREE:?TASK_WORKTREE must be set}"
 : "${VALIDATION_RESULT:?VALIDATION_RESULT must be set}"
 : "${VALIDATION_SUMMARY:?VALIDATION_SUMMARY must be set}"
+: "${EXECUTION_INPUT:?EXECUTION_INPUT must be set}"
 [[ "$VALIDATION_RESULT" == passed || "$VALIDATION_RESULT" == failed ]]
 
 auth=(-H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json')
@@ -68,8 +69,16 @@ fi
 # Report command names and classifications only. Raw command output remains in the
 # restricted diagnostics artifact and can contain repository or environment data.
 validation_lines=$(jq -r '.commands[]? | "- `\(.command)`: \(.classification)"' "$VALIDATION_SUMMARY")
-body=$(printf 'Automated implementation for #%s.\n\n## Validation: %s\n%s\n\nThis pull request intentionally remains a draft.\n' \
-  "$ISSUE_NUMBER" "$VALIDATION_RESULT" "$validation_lines")
+marker=$(PYTHONPATH="${PYTHONPATH:-.}" python - <<'PY'
+import json, os
+from pathlib import Path
+from portfolio_tasks.idempotency import publication_marker, validate_delivery_identity
+identity = validate_delivery_identity(json.loads(Path(os.environ['EXECUTION_INPUT']).read_text()))
+print(publication_marker(identity, 'completed'))
+PY
+)
+body=$(printf 'Automated implementation for #%s.\n\n## Validation: %s\n%s\n\nThis pull request intentionally remains a draft.\n\n%s\n' \
+  "$ISSUE_NUMBER" "$VALIDATION_RESULT" "$validation_lines" "$marker")
 request=$(jq -n --arg title "Codex: implement portfolio task #$ISSUE_NUMBER" \
   --arg head "$BRANCH" --arg body "$body" \
   '{title:$title,head:$head,base:"main",body:$body,draft:true}')

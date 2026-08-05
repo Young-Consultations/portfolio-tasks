@@ -22,6 +22,15 @@ from .issue_sync import (
 )
 from .models import Issue
 from .projects_sync import sync_projects_phase2
+from .idempotency import (
+    CONTRACT_VERSION,
+    DeliveryIdentity,
+    deterministic_branch,
+    dispatch_marker,
+    fallback_delivery_id,
+    parse_dispatch_markers,
+    stable_task_id,
+)
 from .routing import route_decision
 from .validation import validate_dispatch
 
@@ -153,6 +162,38 @@ def _route_issue_snapshot(issue: Issue) -> tuple[Issue | None, str]:
     return Issue.from_json(current), ""
 
 
+def prepare_dispatch(args: argparse.Namespace) -> int:
+    """Persist/reuse a durable dispatch marker for an approved issue."""
+    event = json.loads(args.event_json.read_text(encoding="utf-8"))
+    issue = Issue.from_json(event.get("issue", {}))
+    repo = os.getenv("GITHUB_REPOSITORY", SOURCE_REPO)
+    source_issue = f"{repo}#{issue.number}"
+    task_id = stable_task_id(
+        source_issue=source_issue, issue_title=issue.title, issue_body=issue.body
+    )
+    delivery_id = fallback_delivery_id(task_id)
+    identity = DeliveryIdentity(
+        contract_version=CONTRACT_VERSION,
+        source_issue=source_issue,
+        task_id=task_id,
+        delivery_id=delivery_id,
+        target_repository=repo,
+        requested_branch=deterministic_branch(delivery_id),
+    )
+    existing = [
+        m for m in parse_dispatch_markers(issue.body) if m.get("source_issue") == source_issue
+    ]
+    if existing and any(str(m.get("delivery_id")) != delivery_id for m in existing):
+        raise SystemExit("conflicting dispatch marker for source issue")
+    print(f"task_id={task_id}")
+    print(f"delivery_id={delivery_id}")
+    print(f"requested_branch={identity.requested_branch}")
+    marker_path = Path(os.getenv("RUNNER_TEMP", ".")) / "dispatch-marker.md"
+    marker_path.write_text(dispatch_marker(identity, "dispatching") + "\n", encoding="utf-8")
+    print(f"marker_path={marker_path}")
+    return 0
+
+
 def route_check(args: argparse.Namespace) -> int:
     """Emit only non-sensitive routing outputs for a GitHub issue event."""
     event = json.loads(args.event_json.read_text(encoding="utf-8"))
@@ -188,6 +229,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     validate.add_argument("--mock-open-issues", type=Path)
     route = commands.add_parser("route-check")
     route.add_argument("event_json", type=Path)
+    prepare_route = commands.add_parser("prepare-dispatch")
+    prepare_route.add_argument("event_json", type=Path)
     args = parser.parse_args(argv)
     if args.command == "sync":
         return sync()
@@ -195,6 +238,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return sync_projects_phase2()
     if args.command == "route-check":
         return route_check(args)
+    if args.command == "prepare-dispatch":
+        return prepare_dispatch(args)
     return dispatch(args)
 
 

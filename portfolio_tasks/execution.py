@@ -20,6 +20,12 @@ from urllib import parse as url_parse
 from urllib import request as url_request
 
 from .codex_subprocess import run_checked
+from .idempotency import (
+    deterministic_branch,
+    marker_matches,
+    parse_publication_markers,
+    validate_delivery_identity,
+)
 
 TARGET_REPOSITORY = "Young-Consultations/portfolio-tasks"
 SOURCE_ISSUE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([1-9][0-9]*)$")
@@ -34,11 +40,24 @@ def publication_identity(repository: str, branch: str) -> str:
     return f"{repository}:{branch}"
 
 
+def pull_marker_state(pull: dict[str, Any], identity: Any) -> str | None:
+    """Return a validated managed publication state from a pull body."""
+    markers = parse_publication_markers(str(pull.get("body") or ""))
+    if len(markers) != 1:
+        return None
+    marker = markers[0]
+    if not marker_matches(marker, identity):
+        return None
+    state = marker.get("publication_state")
+    return str(state) if state in {"completed", "incomplete"} else None
+
+
 def publication_preflight_decision(
     *,
     publication_key: str,
     pulls: Sequence[dict[str, Any]],
     branch_exists: bool,
+    identity: Any | None = None,
 ) -> dict[str, str]:
     """Decide whether executor publication may continue before running Codex."""
     open_pulls = [pull for pull in pulls if pull.get("state") == "open"]
@@ -66,10 +85,17 @@ def publication_preflight_decision(
                 "Refusing to execute Codex: existing draft pull request for "
                 f"publication identity {publication_key} is missing html_url."
             )
+        marker_state = pull_marker_state(pull, identity) if identity is not None else "completed"
+        if identity is not None and marker_state is None:
+            raise ValueError("Refusing to execute Codex: publication ownership marker mismatch.")
+        completed = marker_state == "completed"
         return {
-            "should_run_codex": "false",
+            "preflight_outcome": "reuse-completed-delivery"
+            if completed
+            else "resume-incomplete-delivery",
+            "should_run_codex": "false" if completed else "true",
             "reuse_open_draft": "true",
-            "publish_ok": "true",
+            "publish_ok": "true" if completed else "false",
             "pr_url": pr_url,
         }
     if pulls:
@@ -83,6 +109,7 @@ def publication_preflight_decision(
             f"request for publication identity {publication_key}."
         )
     return {
+        "preflight_outcome": "new-delivery",
         "should_run_codex": "true",
         "reuse_open_draft": "false",
         "publish_ok": "false",
@@ -150,7 +177,9 @@ def _publication_branch_exists(*, repository: str, branch: str, api_root: str, t
     return True
 
 
-def publication_preflight_outputs(*, repository: str, branch: str, api_root: str) -> dict[str, str]:
+def publication_preflight_outputs(
+    *, repository: str, branch: str, api_root: str, input_path: Path | None = None
+) -> dict[str, str]:
     """Return deterministic executor preflight outputs for GitHub Actions."""
     if PREFLIGHT_REPO.fullmatch(repository) is None:
         raise ValueError("repository must be owner/repository")
@@ -159,6 +188,11 @@ def publication_preflight_outputs(*, repository: str, branch: str, api_root: str
     token = os.environ.get("GH_TOKEN", "")
     if not token:
         raise ValueError("GH_TOKEN must be set")
+    identity = None
+    if input_path is not None:
+        identity = validate_delivery_identity(json.loads(input_path.read_text(encoding="utf-8")))
+        if branch != deterministic_branch(identity.delivery_id):
+            raise ValueError("requested_branch does not match delivery identity")
     key = publication_identity(repository, branch)
     pulls = _list_publication_pulls(
         repository=repository,
@@ -178,6 +212,7 @@ def publication_preflight_outputs(*, repository: str, branch: str, api_root: str
             publication_key=key,
             pulls=pulls,
             branch_exists=branch_exists,
+            identity=identity,
         ),
     }
 
@@ -240,6 +275,8 @@ def workflow_outputs(value: dict[str, Any]) -> dict[str, str]:
         "correlation": str(value["correlation_id"]),
         "execution_mode": str(value["execution_mode"]),
         "branch": str(value["requested_branch"]),
+        "contract_version": str(value["contract_version"]),
+        "delivery_id": str(value.get("delivery_id") or value.get("idempotency_key") or ""),
     }
 
 
@@ -258,6 +295,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     preflight_parser.add_argument("--repository", required=True)
     preflight_parser.add_argument("--branch", required=True)
     preflight_parser.add_argument("--api-root", required=True)
+    preflight_parser.add_argument("--input")
     for command in ("inspect-input", "validate-result"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("path", type=Path)
@@ -286,6 +324,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             repository=args.repository,
             branch=args.branch,
             api_root=args.api_root,
+            input_path=Path(args.input) if args.input else None,
         ).items():
             print(f"{key}={value}")
         return 0

@@ -40,6 +40,7 @@ jobs:
       route: ${{ steps.gate.outputs.route }}
       issue_number: ${{ steps.gate.outputs.issue_number }}
       task_contract_json: ${{ steps.contract.outputs.task_contract_json }}
+      delivery_id: ${{ steps.dispatch.outputs.delivery_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -50,6 +51,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
         run: python -m portfolio_tasks.cli route-check "$GITHUB_EVENT_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Persist durable dispatch marker
+        if: steps.gate.outputs.route == 'true'
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail; set +x
+          python -m portfolio_tasks.cli prepare-dispatch "$GITHUB_EVENT_PATH" >> "$GITHUB_OUTPUT"
+          delivery_id=$(awk -F= '$1 == "delivery_id" {print $2; exit}' "$GITHUB_OUTPUT")
+          marker_path=$(awk -F= '$1 == "marker_path" {print $2; exit}' "$GITHUB_OUTPUT")
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/issues/${{ steps.gate.outputs.issue_number }}/labels" \
+            -f 'labels[]=status:dispatching' >/dev/null
+          marker=$(cat "$marker_path")
+          comments=$(gh api "repos/$GITHUB_REPOSITORY/issues/${{ steps.gate.outputs.issue_number }}/comments?per_page=100")
+          if ! jq -e --arg delivery "$delivery_id" \
+            'any(.[]; (.body // "") | contains($delivery))' <<< "$comments" >/dev/null; then
+            gh api --method POST \
+              "repos/$GITHUB_REPOSITORY/issues/${{ steps.gate.outputs.issue_number }}/comments" \
+              -f body="$marker" >/dev/null
+          fi
+          echo "Dispatch marker persisted for delivery $delivery_id." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check out organization control-plane files
         if: steps.gate.outputs.route == 'true'
@@ -82,6 +106,11 @@ jobs:
             --execution-mode implement \
             --output "$RUNNER_TEMP/task-contract.json"
           python -m ai_sdlc_contracts validate-task "$RUNNER_TEMP/task-contract.json"
+          jq --arg delivery_id "${{ steps.dispatch.outputs.delivery_id }}" \
+             --arg requested_branch "${{ steps.dispatch.outputs.requested_branch }}" \
+             '. + {delivery_id:$delivery_id, requested_branch:$requested_branch}' \
+             "$RUNNER_TEMP/task-contract.json" > "$RUNNER_TEMP/task-contract.enriched.json"
+          mv "$RUNNER_TEMP/task-contract.enriched.json" "$RUNNER_TEMP/task-contract.json"
           delimiter="contract_$(openssl rand -hex 16)"
           {
             printf 'task_contract_json<<%s\n' "$delimiter"
@@ -101,7 +130,7 @@ jobs:
 
   mark-queued:
     needs: [prepare, route]
-    if: needs.route.result == 'success'
+    if: always() && needs.prepare.outputs.route == 'true' && needs.route.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Replace approval status after router acceptance
@@ -117,4 +146,7 @@ jobs:
             "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels" \
             -f 'labels[]=status:queued' >/dev/null
           gh api --method DELETE \
-            "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels/status%3Aapproved"
+            "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels/status%3Aapproved" --silent || true
+          gh api --method DELETE \
+            "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels/status%3Adispatching" --silent || true
+          echo "Queued canonical delivery ${{ needs.prepare.outputs.delivery_id }}." >> "$GITHUB_STEP_SUMMARY"
