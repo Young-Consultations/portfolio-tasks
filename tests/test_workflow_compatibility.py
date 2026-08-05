@@ -214,7 +214,7 @@ def test_reused_draft_branch_is_prepared_before_validation() -> None:
         prepare["env"]["REQUIRE_EXISTING_BRANCH"]
         == "${{ steps.preflight.outputs.reuse_open_draft }}"
     )
-    assert 'printf \'TARGET_WORKTREE=%s\\n\' "$TASK_WORKTREE"' in prepare["run"]
+    assert "printf 'TARGET_WORKTREE=%s\\n' \"$TASK_WORKTREE\"" in prepare["run"]
     assert '--working-directory "$TARGET_WORKTREE"' in validation["run"]
 
 
@@ -344,6 +344,20 @@ def test_execution_authorization_accepts_router_queued_status() -> None:
     authorization = text[text.index("- name: Verify router authorization") :]
 
     assert 'index("status:approved") != null or index("status:queued") != null' in authorization
+
+
+def test_terminal_source_marker_uses_canonical_execution_result() -> None:
+    step = execution_steps()["Update source issue terminal marker"]
+    run = step["run"]
+
+    assert step["env"]["EXECUTION_RESULT"] == "${{ runner.temp }}/execution-result.json"
+    assert "execution_status=$(jq -r" in run
+    assert "verified|draft-pr-created) state=completed" in run
+    assert "blocked) state=blocked" in run
+    assert "failed)" in run
+    assert 'failure_category" == ambiguous' in run
+    assert '"$CODEX_OUTCOME" == failure' in run
+    assert '"$PUBLISH_OUTCOME" == failure' in run
 
 
 def test_approved_task_router_uses_shared_workflow_contract() -> None:

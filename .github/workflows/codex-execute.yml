@@ -124,13 +124,14 @@ jobs:
           python -m portfolio_tasks.execution publication-preflight \
             --repository "$REPOSITORY" \
             --branch "$BRANCH" \
-            --api-root "$API_ROOT" >> "$GITHUB_OUTPUT"
+            --api-root "$API_ROOT" \
+            --input "$RUNNER_TEMP/execution-input.json" >> "$GITHUB_OUTPUT"
 
       - name: Prepare deterministic task branch
         if: >-
           steps.input.outputs.execution_mode == 'implement' &&
           (steps.preflight.outputs.should_run_codex == 'true' ||
-          steps.preflight.outputs.reuse_open_draft == 'true')
+          steps.preflight.outputs.preflight_outcome == 'resume-incomplete-delivery')
         id: prepare
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
@@ -302,6 +303,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
           VALIDATION_RESULT: ${{ steps.validation.outputs.result || 'failed' }}
           VALIDATION_SUMMARY: ${{ runner.temp }}/validation-summary.json
+          EXECUTION_INPUT: ${{ runner.temp }}/execution-input.json
         run: |
           set -euo pipefail; set +x
           export PATH=/usr/bin:/bin
@@ -330,6 +332,8 @@ jobs:
           PREFLIGHT_REUSE_OPEN_DRAFT: ${{ steps.preflight.outputs.reuse_open_draft }}
           PREFLIGHT_PUBLISH_OK: ${{ steps.preflight.outputs.publish_ok }}
           PREFLIGHT_PR_URL: ${{ steps.preflight.outputs.pr_url }}
+          DELIVERY_ID: ${{ steps.input.outputs.delivery_id }}
+          CONTRACT_VERSION: ${{ steps.input.outputs.contract_version }}
           NO_CHANGES: ${{ steps.codex.outputs.no_changes }}
         run: |
           set -euo pipefail
@@ -366,9 +370,62 @@ jobs:
             --arg validation "$validation" --arg tests "$tests" \
             --argjson branch "$branch" --argjson pr "$pr" --argjson category "$category" \
             --arg started "$(cat "$RUNNER_TEMP/started-at")" --arg completed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{contract_version:$version,correlation_id:$correlation,execution_status:$status,target_repository:"Young-Consultations/portfolio-tasks",branch_name:$branch,pull_request_url:$pr,workflow_url:(env.GITHUB_SERVER_URL+"/"+env.GITHUB_REPOSITORY+"/actions/runs/"+env.GITHUB_RUN_ID),validation_result:$validation,test_result:$tests,failure_category:$category,failure_message:null,started_at:$started,completed_at:$completed}' \
+            '{contract_version:$version,correlation_id:$correlation,delivery_id:env.DELIVERY_ID,execution_status:$status,target_repository:"Young-Consultations/portfolio-tasks",branch_name:$branch,pull_request_url:$pr,workflow_url:(env.GITHUB_SERVER_URL+"/"+env.GITHUB_REPOSITORY+"/actions/runs/"+env.GITHUB_RUN_ID),validation_result:$validation,test_result:$tests,failure_category:$category,failure_message:null,started_at:$started,completed_at:$completed}' \
             > "$RUNNER_TEMP/execution-result.json"
           python -m portfolio_tasks.execution validate-result "$RUNNER_TEMP/execution-result.json"
+
+      - name: Update source issue terminal marker
+        if: always() && steps.input.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}
+          SOURCE_REPOSITORY: ${{ steps.input.outputs.source_repository }}
+          ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
+          EXECUTION_INPUT: ${{ runner.temp }}/execution-input.json
+          EXECUTION_RESULT: ${{ runner.temp }}/execution-result.json
+          PR_URL: ${{ steps.publish.outputs.url || steps.preflight.outputs.pr_url }}
+          AUTHORIZATION_OUTCOME: ${{ steps.authorization.outcome }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          VALIDATION_RESULT: ${{ steps.validation.outputs.result }}
+          CODEX_OUTCOME: ${{ steps.codex.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          set -euo pipefail; set +x
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          if [[ -s "$EXECUTION_RESULT" ]]; then
+            execution_status=$(jq -r '.execution_status // "failed"' "$EXECUTION_RESULT")
+            failure_category=$(jq -r '.failure_category // ""' "$EXECUTION_RESULT")
+            case "$execution_status" in
+              verified|draft-pr-created) state=completed ;;
+              blocked) state=blocked ;;
+              failed)
+                if [[ "$failure_category" == ambiguous ]]; then
+                  state=ambiguous
+                else
+                  state=failed
+                fi
+                ;;
+              *) state=failed ;;
+            esac
+          else
+            state=completed
+            if [[ "$PREFLIGHT_OUTCOME" == failure ]]; then state=ambiguous; fi
+            if [[ "$AUTHORIZATION_OUTCOME" == failure ]]; then state=blocked; fi
+            if [[ "$VALIDATION_RESULT" == failed || "$CODEX_OUTCOME" == failure || "$PUBLISH_OUTCOME" == failure ]]; then state=failed; fi
+          fi
+          export STATE="$state"
+          marker=$(python -c "import json, os; from pathlib import Path; from portfolio_tasks.idempotency import terminal_source_update, validate_delivery_identity; identity = validate_delivery_identity(json.loads(Path(os.environ['EXECUTION_INPUT']).read_text())); print(terminal_source_update(identity, os.environ['STATE'], os.environ.get('PR_URL', '')))")
+          comments=$(gh api "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100")
+          delivery=$(jq -r '.delivery_id // .idempotency_key // empty' "$EXECUTION_INPUT")
+          if ! jq -e --arg delivery "$delivery" --arg state "$state" \
+            'any(.[]; ((.body // "") | contains($delivery)) and ((.body // "") | contains($state)))' <<< "$comments" >/dev/null; then
+            STATE="$state" gh api --method POST \
+              "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/comments" \
+              -f body="$marker" >/dev/null
+          fi
+          gh api --method POST "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/labels" \
+            -f "labels[]=status:$state" >/dev/null
+          echo "Recorded terminal source state $state for delivery $delivery." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Prepare full execution diagnostics
         if: always()

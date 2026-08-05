@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from portfolio_tasks.idempotency import deterministic_branch
+
 PUBLISH = Path("scripts/publish-draft-pr").resolve()
 PREPARE = Path("scripts/prepare-task-branch").resolve()
 PR_URL = "https://github.com/Young-Consultations/portfolio-tasks/pull/42"
@@ -55,6 +57,9 @@ def environment(
     post_response = tmp_path / "post.json"
     validation_summary = tmp_path / "validation-summary.json"
     output = tmp_path / "output"
+    delivery_id = "portfolio-delivery/task-publishfixture"
+    branch = deterministic_branch(delivery_id)
+    execution_input = tmp_path / "execution-input.json"
     pulls_response.write_text(json.dumps(pulls), encoding="utf-8")
     post_response.write_text(
         json.dumps({"state": "open", "draft": True, "html_url": PR_URL}),
@@ -62,6 +67,19 @@ def environment(
     )
     validation_summary.write_text(
         json.dumps({"commands": [{"command": "python -m pytest", "classification": "passed"}]}),
+        encoding="utf-8",
+    )
+    execution_input.write_text(
+        json.dumps(
+            {
+                "contract_version": "ai-sdlc-contract/v2",
+                "source_issue": "Young-Consultations/portfolio-tasks#42",
+                "target_repository": "Young-Consultations/portfolio-tasks",
+                "task_id": "task-publishfixture",
+                "delivery_id": delivery_id,
+                "requested_branch": branch,
+            }
+        ),
         encoding="utf-8",
     )
     env = os.environ | {
@@ -75,7 +93,7 @@ def environment(
         "GH_TOKEN": "test-token",
         "API_ROOT": "https://api.github.test",
         "REPOSITORY": "Young-Consultations/portfolio-tasks",
-        "BRANCH": "codex/fixture-task-42",
+        "BRANCH": branch,
         "BASE_REVISION": "base-sha",
         "ISSUE_NUMBER": "42",
         "GITHUB_OUTPUT": str(output),
@@ -83,6 +101,8 @@ def environment(
         "TASK_WORKTREE": str(tmp_path / "task-worktree"),
         "VALIDATION_RESULT": "passed",
         "VALIDATION_SUMMARY": str(validation_summary),
+        "EXECUTION_INPUT": str(execution_input),
+        "PYTHONPATH": str(Path.cwd()),
     }
     return env, call_log, output
 
@@ -98,7 +118,10 @@ def test_new_branch_is_prepared_from_base(tmp_path: Path) -> None:
     env, log, _ = environment(tmp_path, [])
     result, calls = run_script(PREPARE, env, log)
     assert result.returncode == 0
-    assert any("worktree add -b codex/fixture-task-42" in call for call in calls)
+    assert any(
+        "worktree add -b codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771" in call
+        for call in calls
+    )
     assert any("task-worktree base-sha" in call for call in calls)
     assert not any(call.startswith("git fetch") for call in calls)
 
@@ -111,12 +134,14 @@ def test_existing_branch_is_fetched_and_checked_out_before_codex(tmp_path: Path)
         next(call for call in calls if "worktree add" in call)
     )
     assert any(
-        "refs/heads/codex/fixture-task-42:refs/remotes/origin/codex/fixture-task-42" in call
+        "refs/heads/codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771:refs/remotes/origin/codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771"
+        in call
         for call in calls
     )
     assert any(
-        "worktree add --force -B codex/fixture-task-42" in call
-        and "origin/codex/fixture-task-42" in call
+        "worktree add --force -B codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771"
+        in call
+        and "origin/codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771" in call
         for call in calls
     )
 
@@ -142,7 +167,8 @@ def test_first_publication_commits_pushes_and_creates_one_draft_pr(tmp_path: Pat
     assert sum(" commit " in f" {call} " for call in calls) == 1
     assert sum(" push " in f" {call} " for call in calls) == 1
     assert any(
-        "--force-with-lease=refs/heads/codex/fixture-task-42:" in call
+        "--force-with-lease=refs/heads/codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771:"
+        in call
         for call in calls
         if " push " in f" {call} "
     )
@@ -166,9 +192,12 @@ def test_repeated_publication_pushes_commit_and_reuses_open_draft_pr(tmp_path: P
     push = next(call for call in calls if " push " in f" {call} ")
     query = next(call for call in calls if call.startswith("curl "))
     assert calls.index(commit) < calls.index(push) < calls.index(query)
-    assert "HEAD:refs/heads/codex/fixture-task-42" in push
     assert (
-        "--force-with-lease=refs/heads/codex/fixture-task-42:existing-branch-oid" in push
+        "HEAD:refs/heads/codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771" in push
+    )
+    assert (
+        "--force-with-lease=refs/heads/codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771:existing-branch-oid"
+        in push
     )
     assert not any("/pulls -d" in call and " -X POST " in f" {call} " for call in calls)
 
@@ -231,4 +260,11 @@ def test_two_executions_add_two_commits_to_the_same_branch(tmp_path: Path) -> No
         assert result.returncode == 0
         all_calls.extend(calls)
     assert sum(" commit " in f" {call} " for call in all_calls) == 2
-    assert sum("HEAD:refs/heads/codex/fixture-task-42" in call for call in all_calls) == 2
+    assert (
+        sum(
+            "HEAD:refs/heads/codex/delivery-portfolio-delivery-task-publishfixture-d71ea300f771"
+            in call
+            for call in all_calls
+        )
+        == 2
+    )

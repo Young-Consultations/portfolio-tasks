@@ -471,3 +471,72 @@ Estimated scope: small
 Task type: Investigation
 Objective: Draft a client-safe implementation plan without changing code.
 ```
+
+## Dispatch redelivery and exactly-once publication
+
+Approved Codex work now uses an explicit dispatch state machine instead of a
+single `status:approved` → `status:queued` transition.  `status:approved` means a
+source issue is eligible to create or reuse one logical delivery.  Before the
+organization router is called, the source workflow enters `status:dispatching`
+and writes a machine-readable issue comment bounded by
+`portfolio-task-dispatch-marker:v1`.  The marker records the contract version,
+source issue, task ID, stable delivery ID, target repository, requested branch,
+current dispatch state, and, when the caller can observe it, the router workflow
+run URL.  Router success advances the issue to `status:queued`, which is terminal
+for initial dispatch eligibility; target execution then reports `executing` and a
+terminal state of `completed`, `failed`, `blocked`, or `ambiguous` with another
+managed marker update.
+
+The delivery ID is the publication ownership key.  It is expected to come from
+the pinned organization shared-contract release as `delivery_id` or
+`idempotency_key`.  Until the next shared-contract release exposes that field for
+source-built task contracts, this repository derives the same fallback identity
+for an unchanged approved issue from the canonical source issue, title, and body,
+and injects it only as an extension field.  No organization schemas are copied
+locally.  GitHub workflow run IDs and run attempts are intentionally excluded
+from the delivery identity, branch name, and publication ownership proof.
+
+Redelivery is normal.  A duplicate source label event or a retry after a lost
+router acknowledgement must reuse the existing dispatch marker and delivery ID.
+If GitHub accepted the target dispatch but the caller failed before it could
+persist `status:queued`, a later source workflow run sees `status:dispatching`
+and the marker, calls the router with the same logical identity, and converges on
+the same target delivery.  If the issue title or body is materially edited,
+`status:approved` is removed and renewed maintainer approval is required; the
+next approval creates a new task and delivery identity according to the canonical
+contract.
+
+The target workflow validates the canonical delivery identity before Codex runs
+and verifies that `requested_branch` is the deterministic branch for that
+identity.  Executor preflight outcomes are:
+
+- `new-delivery`: no branch or PR exists; Codex may run and publish one draft PR.
+- `resume-incomplete-delivery`: exactly one open draft PR has a valid managed
+  marker but is not terminal; the workflow may validate and safely finalize it.
+- `reuse-completed-delivery`: exactly one open draft PR has a completed managed
+  marker; Codex must not rerun and the existing draft PR is reused.
+- `blocked`: a branch exists without a verifiable PR, or a closed/merged PR owns
+  the identity; manual recovery is required.
+- `ambiguous`: multiple PRs or conflicting markers exist; Codex must not run and
+  automation must not close, overwrite, or republish anything.
+
+The invariant is: for one canonical delivery identity, repeated delivery can
+produce at most one externally visible managed draft PR, and a completed valid
+managed draft PR is reused without unnecessary Codex execution.  Concurrency is
+only scheduling; `cancel-in-progress: false` preserves retries and long-running
+work.  Idempotency is enforced by durable source markers plus target publication
+ownership markers, not by cancelling duplicate workflow runs.
+
+Manual recovery is intentionally conservative.  For `blocked` or `ambiguous`, a
+maintainer should inspect the source marker, target branch, and matching PRs;
+confirm the `delivery_id`, `source_issue`, `target_repository`, and
+`contract_version`; then either restore exactly one open draft PR with the valid
+publication marker, remove an unowned branch after review, or edit the issue and
+request renewed approval.  Automation must not automatically close ambiguous or
+user-owned PRs and must not overwrite unverified branch content.
+
+Rollout is forward-compatible with the pinned `ai-sdlc-v2.1.0` organization
+router and expects the next shared-contract release to expose stable
+`delivery_id`/`idempotency_key` on canonical execution input.  Rollback consists
+of reverting this repository change and re-running approval events; do not move
+or replace the organization release tag.

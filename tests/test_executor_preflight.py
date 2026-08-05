@@ -3,6 +3,13 @@
 import pytest
 
 from portfolio_tasks import execution
+from portfolio_tasks.idempotency import (
+    CONTRACT_VERSION,
+    DeliveryIdentity,
+    deterministic_branch,
+    publication_marker,
+)
+
 
 PR_URL = "https://github.com/Young-Consultations/portfolio-tasks/pull/42"
 
@@ -14,6 +21,7 @@ def test_open_draft_pr_is_reused_without_running_codex() -> None:
         branch_exists=True,
     )
     assert result == {
+        "preflight_outcome": "reuse-completed-delivery",
         "should_run_codex": "false",
         "reuse_open_draft": "true",
         "publish_ok": "true",
@@ -66,6 +74,7 @@ def test_preflight_allows_codex_for_new_publication_identity() -> None:
         pulls=[],
         branch_exists=False,
     ) == {
+        "preflight_outcome": "new-delivery",
         "should_run_codex": "true",
         "reuse_open_draft": "false",
         "publish_ok": "false",
@@ -100,3 +109,71 @@ def test_preflight_outputs_include_publication_identity(monkeypatch: pytest.Monk
     assert outputs["reuse_open_draft"] == "true"
     assert outputs["pr_url"] == PR_URL
 
+
+def delivery_identity() -> DeliveryIdentity:
+    delivery_id = "portfolio-delivery/task-abc12345"
+    return DeliveryIdentity(
+        contract_version=CONTRACT_VERSION,
+        source_issue="Young-Consultations/portfolio-tasks#42",
+        task_id="task-abc12345",
+        delivery_id=delivery_id,
+        target_repository="Young-Consultations/portfolio-tasks",
+        requested_branch=deterministic_branch(delivery_id),
+    )
+
+
+def test_completed_delivery_reuse_validates_publication_marker() -> None:
+    ident = delivery_identity()
+    result = execution.publication_preflight_decision(
+        publication_key="key",
+        pulls=[
+            {
+                "state": "open",
+                "draft": True,
+                "html_url": PR_URL,
+                "body": publication_marker(ident, "completed"),
+            }
+        ],
+        branch_exists=True,
+        identity=ident,
+    )
+    assert result["preflight_outcome"] == "reuse-completed-delivery"
+    assert result["should_run_codex"] == "false"
+
+
+def test_incomplete_delivery_is_resumable() -> None:
+    ident = delivery_identity()
+    result = execution.publication_preflight_decision(
+        publication_key="key",
+        pulls=[
+            {
+                "state": "open",
+                "draft": True,
+                "html_url": PR_URL,
+                "body": publication_marker(ident, "incomplete"),
+            }
+        ],
+        branch_exists=True,
+        identity=ident,
+    )
+    assert result["preflight_outcome"] == "resume-incomplete-delivery"
+    assert result["should_run_codex"] == "true"
+
+
+def test_marker_mismatch_fails_closed_before_codex() -> None:
+    ident = delivery_identity()
+    other = DeliveryIdentity(**{**ident.__dict__, "delivery_id": "portfolio-delivery/task-other99"})
+    with pytest.raises(ValueError, match="ownership marker mismatch"):
+        execution.publication_preflight_decision(
+            publication_key="key",
+            pulls=[
+                {
+                    "state": "open",
+                    "draft": True,
+                    "html_url": PR_URL,
+                    "body": publication_marker(other, "completed"),
+                }
+            ],
+            branch_exists=True,
+            identity=ident,
+        )
