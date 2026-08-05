@@ -381,16 +381,38 @@ jobs:
           SOURCE_REPOSITORY: ${{ steps.input.outputs.source_repository }}
           ISSUE_NUMBER: ${{ steps.input.outputs.issue }}
           EXECUTION_INPUT: ${{ runner.temp }}/execution-input.json
+          EXECUTION_RESULT: ${{ runner.temp }}/execution-result.json
           PR_URL: ${{ steps.publish.outputs.url || steps.preflight.outputs.pr_url }}
-          FAILURE_CATEGORY: ${{ steps.preflight.outcome == 'failure' && 'ambiguous' || '' }}
+          AUTHORIZATION_OUTCOME: ${{ steps.authorization.outcome }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          VALIDATION_RESULT: ${{ steps.validation.outputs.result }}
+          CODEX_OUTCOME: ${{ steps.codex.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
         run: |
           set -euo pipefail; set +x
           cd "$GITHUB_WORKSPACE"
           export PYTHONPATH="$GITHUB_WORKSPACE"
-          state=completed
-          if [[ "${{ steps.preflight.outcome }}" == failure ]]; then state=ambiguous; fi
-          if [[ "${{ steps.authorization.outcome }}" == failure ]]; then state=blocked; fi
-          if [[ "${{ steps.validation.outputs.result }}" == failed ]]; then state=failed; fi
+          if [[ -s "$EXECUTION_RESULT" ]]; then
+            execution_status=$(jq -r '.execution_status // "failed"' "$EXECUTION_RESULT")
+            failure_category=$(jq -r '.failure_category // ""' "$EXECUTION_RESULT")
+            case "$execution_status" in
+              verified|draft-pr-created) state=completed ;;
+              blocked) state=blocked ;;
+              failed)
+                if [[ "$failure_category" == ambiguous ]]; then
+                  state=ambiguous
+                else
+                  state=failed
+                fi
+                ;;
+              *) state=failed ;;
+            esac
+          else
+            state=completed
+            if [[ "$PREFLIGHT_OUTCOME" == failure ]]; then state=ambiguous; fi
+            if [[ "$AUTHORIZATION_OUTCOME" == failure ]]; then state=blocked; fi
+            if [[ "$VALIDATION_RESULT" == failed || "$CODEX_OUTCOME" == failure || "$PUBLISH_OUTCOME" == failure ]]; then state=failed; fi
+          fi
           export STATE="$state"
           marker=$(python -c "import json, os; from pathlib import Path; from portfolio_tasks.idempotency import terminal_source_update, validate_delivery_identity; identity = validate_delivery_identity(json.loads(Path(os.environ['EXECUTION_INPUT']).read_text())); print(terminal_source_update(identity, os.environ['STATE'], os.environ.get('PR_URL', '')))")
           comments=$(gh api "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100")
