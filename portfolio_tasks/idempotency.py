@@ -76,7 +76,7 @@ def _extract(text: str, begin: str, end: str) -> list[dict[str, Any]]:
         except json.JSONDecodeError as exc:
             raise ValueError("managed marker is not valid JSON") from exc
         if not isinstance(value, dict):
-            raise ValueError("managed marker must be a JSON object")
+            raise TypeError("managed marker must be a JSON object")
         markers.append(value)
         start = j + len(end)
 
