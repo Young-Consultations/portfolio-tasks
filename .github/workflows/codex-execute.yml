@@ -131,7 +131,8 @@ jobs:
         if: >-
           steps.input.outputs.execution_mode == 'implement' &&
           (steps.preflight.outputs.should_run_codex == 'true' ||
-          steps.preflight.outputs.preflight_outcome == 'resume-incomplete-delivery')
+          steps.preflight.outputs.preflight_outcome == 'resume-incomplete-delivery' ||
+          steps.preflight.outputs.reuse_open_draft == 'true')
         id: prepare
         env:
           GH_TOKEN: ${{ secrets.SLUGGER_GITHUB_TOKEN }}

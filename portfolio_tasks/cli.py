@@ -11,6 +11,15 @@ from pathlib import Path
 from typing import Any
 
 from .github_api import GitHubApi, GitHubApiError
+from .idempotency import (
+    CONTRACT_VERSION,
+    DeliveryIdentity,
+    deterministic_branch,
+    dispatch_marker,
+    fallback_delivery_id,
+    parse_dispatch_markers,
+    stable_task_id,
+)
 from .issue_sync import (
     MANAGED_LABEL,
     SOURCE_LABEL,
@@ -22,15 +31,6 @@ from .issue_sync import (
 )
 from .models import Issue
 from .projects_sync import sync_projects_phase2
-from .idempotency import (
-    CONTRACT_VERSION,
-    DeliveryIdentity,
-    deterministic_branch,
-    dispatch_marker,
-    fallback_delivery_id,
-    parse_dispatch_markers,
-    stable_task_id,
-)
 from .routing import route_decision
 from .validation import validate_dispatch
 

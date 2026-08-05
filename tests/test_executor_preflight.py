@@ -10,7 +10,6 @@ from portfolio_tasks.idempotency import (
     publication_marker,
 )
 
-
 PR_URL = "https://github.com/Young-Consultations/portfolio-tasks/pull/42"
 
 
