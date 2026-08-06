@@ -8,7 +8,11 @@ This file is a navigation index for AI agents. It links to canonical sources and
 
 Canonical reference:
 
+- [Young Consultations AI-SDLC vision](docs/VISION.md) — authoritative for organizational intent
+  and this repository's purpose and boundaries
 - [Repository overview and governance contract](README.md)
+
+The issue form, workflows, and applicable contracts remain authoritative for implemented behavior.
 
 ## Current project state
 

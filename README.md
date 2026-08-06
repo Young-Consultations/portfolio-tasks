@@ -2,6 +2,10 @@
 
 This repository owns portfolio-level planning issues and can hand qualifying work to the Slugger implementation backlog.
 
+The [Young Consultations AI-SDLC vision](docs/VISION.md) is authoritative for organizational
+intent and this repository's purpose and boundaries. The issue form, workflows, and applicable
+contracts remain authoritative for implemented behavior.
+
 ## Shared AI-SDLC execution contract
 
 This repository is an execution target, not a contract owner. The organization router produces
