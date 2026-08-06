@@ -245,6 +245,10 @@ auditable; duplicates remain prevented.
 
 ## Status, results, review, and closure
 
+The next-MVP adds the cross-cutting CI requirement `FR-CIV-01`, normatively specified in
+[`../releases/next-mvp.md`](../releases/next-mvp.md). Its durable acceptance criteria
+`AC-FR-CIV-01-1..5` validate the complete lifecycle without Codex or real publication.
+
 ### FR-OUT-01 — Ingest execution status and result
 
 **Description.** The product SHALL receive or retrieve authenticated, version-compatible,

@@ -59,3 +59,10 @@ contract versions, executor support, result transport, state mapping, permission
 objectives, retention, cancellation, and owner escalation. The Slugger and control-plane owners
 MUST validate these before enabling either interaction. If mirroring has no approved business
 purpose, it SHOULD be retired rather than preserved as accidental architecture.
+
+## Next-MVP target role
+
+Slugger target execution is in candidate MVP scope; its optional issue mirror is not. Enablement is
+blocked until Slugger and `.github` owners confirm registration, supported contract/executor,
+target-local authorization and validation, draft publication/reuse, result transport, and a
+provider conformance fixture. A mirror label or issue cannot supply execution authorization.

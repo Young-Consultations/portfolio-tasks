@@ -26,6 +26,10 @@
 | BR-22 | Approver, task author, executor, reviewer, and target owner authorities SHALL remain distinguishable even if one person holds multiple roles. |
 | BR-23 | Mirrored external issues SHALL identify their source, managed fields, synchronization direction, and authority. |
 | BR-24 | Retention, redaction, and audit access SHALL follow approved organizational policy; absence of policy blocks sensitive-data automation. |
+| BR-25 | Approval authority SHALL reside in immutable revision/digest-bound evidence; labels are UI projections, and replacing `status:approved` with a queued projection SHALL neither revoke nor establish authority. |
+| BR-26 | Pre-acceptance revocation SHALL prevent routing; post-acceptance revocation SHALL request cancellation and preserve the accepted authorization history until an external terminal fact is confirmed. |
+| BR-27 | Delivery SHALL be at least once with idempotent visible effects; no issue event, routing delivery, target result, or publication replay may create a second logical effect. |
+| BR-28 | Portfolio completion SHALL require consumption of a validated correlated terminal result and visible source-issue evidence; a draft link or missing/ambiguous result alone is insufficient. |
 
 ## Validation and lifecycle policy
 

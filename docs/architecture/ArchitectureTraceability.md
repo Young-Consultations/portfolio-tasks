@@ -63,3 +63,11 @@ authentication and status guarantees; target registrations/capabilities; and the
 on Slugger mirroring. These map to `docs/requirements/Assumptions.md` and must remain visible as
 blocked validation work, never resolved by architectural invention.
 
+
+## Next-MVP architecture trace
+
+`FR-CIV-01` traces from VG-03/04/05/06/07/09 and BO-02/03/04/06 through ADR-011/012, the
+approval/routing/target/result state and sequence views, and deterministic adapters for every
+external port to `TC-MVP-E2E-001`, `TC-MVP-NEG-001`, `TC-MVP-REC-001`, and
+`TC-MVP-NOEFFECT-001`. Those tests trace back respectively to lifecycle success, fail-closed human
+authority, at-least-once replay/reconciliation, and absence of live Codex/branch/PR effects.

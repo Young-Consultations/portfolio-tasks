@@ -65,3 +65,16 @@ A vision or business-objective change SHALL identify affected requirement IDs. A
 nonfunctional change SHALL update its acceptance criteria, future tests, stories/use cases,
 interfaces, assumptions, and this matrix. A requirement SHALL NOT be marked verified unless its
 evidence is reproducible and all dependent external contracts have been validated by their owners.
+
+## Next-MVP traceability
+
+| Vision / business | Requirement and acceptance | Architecture / interface | Evidence |
+| --- | --- | --- | --- |
+| VG-03, VG-04, VG-05, VG-06, VG-07, VG-09 / BO-02, BO-03, BO-04, BO-06 | FR-CIV-01 / AC-FR-CIV-01-1..5 | ADR-011..012; control-plane, target and GitHub interfaces; state and sequence models | TC-MVP-E2E-001, TC-MVP-NEG-001, TC-MVP-REC-001, TC-MVP-NOEFFECT-001 |
+
+Reverse trace: `TC-MVP-E2E-001` proves the selected `FR-INT`, `FR-CLS`, `FR-GOV`, `FR-RTE`,
+`FR-OUT`, and `FR-TGT` path; `TC-MVP-NEG-001` proves human authority and fail-closed gates;
+`TC-MVP-REC-001` proves `FR-RTE-03..04` and `FR-OUT-01` replay/reconciliation; and
+`TC-MVP-NOEFFECT-001` proves `FR-CIV-01`, `NFR-TST-02`, and `NFR-AI-02` without Codex, a real
+branch, or a real PR. The exact included/deferred set is release-controlled in
+`docs/releases/next-mvp.md`.

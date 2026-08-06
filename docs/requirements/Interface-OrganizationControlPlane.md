@@ -9,6 +9,10 @@ routing, compatibility policy, shared validation, and routing/result contract re
 routing initiation. It SHALL consume, not copy or redefine, the control plane's contracts.
 
 No implementation or current availability is assumed; owner validation is a release dependency.
+The next-MVP organization baseline is expected at
+`Young-Consultations/.github/docs/releases/next-mvp.md` and has not been inspected. Its exact
+contract version, result transport, lifecycle semantics, and target enablements are therefore
+release-blocking unknowns; the portfolio expectation below is consumer-owned semantics only.
 
 ## Required inputs from portfolio-tasks
 
@@ -26,6 +30,9 @@ A routing request MUST convey, under a machine-validatable versioned contract:
 
 The precise field names, encoding, transport, signing/authentication mechanism, maximum sizes, and
 identity relationships are owned externally and MUST be validated before integration.
+Approval MUST be validated from revision/digest-bound evidence. Mutable labels may be projected
+for people, but router acceptance and replacement of an approval label with a queued label MUST
+NOT revoke authority or force a target to race a label read.
 
 ## Required outputs and events
 
@@ -74,3 +81,11 @@ transport/events, release pinning, schema fields, payload limits, delivery/corre
 authentication and signing, approver registry, cancellation semantics, retry windows, status
 ordering, evidence retention, service objectives, and incident ownership. All MUST be agreed with
 the `.github` repository owner before production routing.
+
+
+## Next-MVP conformance gate
+
+The external owner SHALL provide an owner-pinned provider fixture or conformance artifact for
+accepted, rejected, duplicate, conflict, timeout/query, ordered status, cancellation, and terminal
+result semantics. `portfolio-tasks` SHALL run it against `FR-CIV-01`; absent or incompatible
+evidence blocks all live routes, including `.github` when it acts as a target.

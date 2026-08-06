@@ -185,6 +185,13 @@ The vision is successful when these outcomes are observable:
 These are outcome statements. Detailed measures, thresholds, and acceptance criteria belong to
 requirements and verification work.
 
+For the next MVP, vision success is narrowed to one revision-bound, human-approved issue routed to
+exactly one of the four candidate targets, followed by target validation, exactly one created or
+reused draft PR, and a correlated terminal result visible on the source issue. Continuous CI must
+prove the same lifecycle with deterministic substitutes and no Codex invocation, real branch, or
+real pull request. The repository release selection and external blockers are defined in
+[`releases/next-mvp.md`](releases/next-mvp.md).
+
 ## Constraints and Guardrails
 
 * Humans retain priority, approval, review, merge, and production authority.

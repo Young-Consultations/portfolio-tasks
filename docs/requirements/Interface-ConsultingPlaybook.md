@@ -38,3 +38,11 @@ govern derived work and shall preserve attribution. Unknowns include whether any
 desired, reference format, licensing/confidentiality, version semantics, event support, status
 feedback, retention, and authorized audiences. These MUST be validated with the external owner;
 until then, this is a boundary requirement and external dependency, not an API commitment.
+
+## Next-MVP target role
+
+Consulting Playbook is a candidate execution target as well as a possible knowledge source. These
+roles remain distinct. Target enablement is blocked until its owner and the `.github` owner confirm
+registration, supported contract/executor, target-local authorization and validation, draft-only
+publication/reuse, result transport, and a provider conformance fixture. No behavior or field name
+is inferred from the optional knowledge interface.
