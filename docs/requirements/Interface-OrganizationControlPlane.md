@@ -1,91 +1,74 @@
-# Interface Requirements — Young-Consultations/.github
+# Interface Requirements — organization control plane
 
-## Purpose and responsibility boundary
+## Frozen compatibility boundary
 
-This required contract connects portfolio authorization to the organization control plane. The
-external repository is expected to own organization schemas, repository/executor registration,
-routing, compatibility policy, shared validation, and routing/result contract releases.
-`portfolio-tasks` owns authoritative intent, readiness, approval, canonical task construction, and
-routing initiation. It SHALL consume, not copy or redefine, the control plane's contracts.
+The next MVP consumes `Young-Consultations/.github` release `2.2.0`, payload version
+`ai-sdlc-contract/v2`, at the full immutable SHA
+`f2491872976a4dcc1633997954c03c07cbc4fced`. All workflow `uses:` references and direct schema-file
+consumption MUST use that SHA. The compatibility-unit file list and registry snapshot are recorded
+in [`../releases/next-mvp.md`](../releases/next-mvp.md). This repository consumes but does not copy,
+extend, or claim ownership of the closed organization schemas.
 
-No implementation or current availability is assumed; owner validation is a release dependency.
-The next-MVP organization baseline is expected at
-`Young-Consultations/.github/docs/releases/next-mvp.md` and has not been inspected. Its exact
-contract version, result transport, lifecycle semantics, and target enablements are therefore
-release-blocking unknowns; the portfolio expectation below is consumer-owned semantics only.
+## Router
 
-## Required inputs from portfolio-tasks
+Reusable workflow:
+`Young-Consultations/.github/.github/workflows/codex-router.yml@f2491872976a4dcc1633997954c03c07cbc4fced`.
 
-A routing request MUST convey, under a machine-validatable versioned contract:
+| Kind | Name | Contract |
+| --- | --- | --- |
+| input | `task_payload` | Required string containing complete canonical `task-contract/v2` JSON. |
+| input | `execution_mode` | Workflow-optional `verify` or `implement`, default `implement`; `portfolio-tasks` MUST always supply it explicitly. |
+| secret | `CODEX_ROUTER_TOKEN` | Router credential. |
+| output | `execution_result` | Router workflow output. |
+| output | `correlation_id` | End-to-end observability identity. |
+| output | `delivery_id` | At-least-once idempotency key. |
+| output | `failure_category` | Safe failure category. |
+| output | `diagnostic_summary` | Sanitized diagnostic summary. |
+| output | `concurrency_group` | Routing transport concurrency value. |
 
-* contract version and stable request, task, delivery, correlation, and source-issue identities;
-* authoritative source repository and issue revision/content digest;
-* target repository and requested executor identity/class;
-* objective, business/engineering rationale, bounded required behavior, in/out scope, constraints,
-  acceptance criteria, and required test/evidence outcomes;
-* dependency resolution snapshot, risk, sensitivity decision, and parallel-safety declaration;
-* attributable approval evidence, approval policy/version, and approval time;
-* draft-only publication constraint and permitted operation boundary;
-* provenance sufficient to validate without target access to the portfolio repository.
+The complete canonical task is validated directly against
+`contracts/task-contract.schema.json@f2491872976a4dcc1633997954c03c07cbc4fced`. Only
+`status: approved` is admissible. `queued` is a post-admission source projection and MUST be
+rejected if submitted to the router. At minimum, dispatch also requires
+`contract_version: ai-sdlc-contract/v2`, `executor: codex`, `dependencies: []`, and exactly one
+enabled registry target. Summaries here are subordinate to the schema.
 
-The precise field names, encoding, transport, signing/authentication mechanism, maximum sizes, and
-identity relationships are owned externally and MUST be validated before integration.
-Approval MUST be validated from revision/digest-bound evidence. Mutable labels may be projected
-for people, but router acceptance and replacement of an approval label with a queued label MUST
-NOT revoke authority or force a target to race a label read.
+Delivery is at least once with idempotent visible effects. `delivery_id` is the idempotency key and
+MUST remain stable on retry; `correlation_id` is the end-to-end observability identity. Router
+admission is not target acceptance, result validation, or execution success. Rejection, timeout,
+and ambiguity retain the last proven state and enter reconciliation rather than blind redispatch.
 
-## Required outputs and events
+## Result receiver
 
-The control plane MUST return a correlated outcome of accepted, rejected, duplicate/existing,
-conflict, or indeterminate. Acceptance MUST identify the contract version and routing identity; a
-rejection MUST provide safe machine category and actionable explanation. It MUST provide or
-mediate authenticated, correlated lifecycle statuses and one terminal execution result, including
-target, executor, attempt, outcome, validation/test evidence, publication reference if any,
-timestamps, and failure category. Portfolio receipt MUST be possible without granting the target
-write access to portfolio authority.
+Reusable workflow:
+`Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@f2491872976a4dcc1633997954c03c07cbc4fced`.
 
-Required semantic events are routing accepted/rejected, execution queued/started/blocked/failed/
-completed, publication produced (draft only), and result finalized. The owner MAY select event,
-request/response, polling, or artifact transport if ordering, authentication, replay, and recovery
-requirements are met.
+| Kind | Name | Contract |
+| --- | --- | --- |
+| input | `execution_result` | Required canonical `execution-result/v2` JSON string. |
+| input | `source_issue` | Required `owner/repository#number` binding. |
+| secret | `CODEX_RESULT_TOKEN` | Result transport credential. |
+| output | `accepted` | Receiver validation decision. |
+| output | `delivery_id` | Validated delivery identity. |
+| output | `correlation_id` | Validated correlation identity. |
+| output | `execution_status` | Canonical execution status. |
+| output | `failure_category` | Safe failure category. |
+| output | `diagnostic_summary` | Sanitized diagnostic summary. |
 
-## Contract behavior
+The checked-in receiver is an approved, fail-closed interface skeleton; it does not accept live
+results. Consumer documentation and implementation planning MAY depend on this frozen interface,
+but a successful live result-return test is currently impossible. Receiver implementation remains
+an organization-owned external dependency. `portfolio-tasks` MUST NOT redesign or locally replace
+it, and its current fail-closed behavior is not interpreted as consumer-contract incompatibility.
 
-* Both parties MUST validate syntax, semantics, version, identity, authorization, and correlation.
-* A stable request replay MUST cause at most one logical route; reused identity with changed
-  authorized content MUST be a conflict.
-* Status sequence MUST NOT regress; duplicates MUST be harmless; late/unknown events MUST be
-  quarantined or reconciled.
-* Transient errors MAY be retried with bounded backoff and the same identity. Authorization,
-  validation, incompatibility, sensitivity, and conflict errors MUST NOT be blindly retried.
-* Timeout without durable acceptance evidence is indeterminate, not permission to create a new ID.
-* Supported major versions MUST have explicit compatibility; unknown majors fail closed. Minor
-  evolution MUST preserve old required meaning or negotiate support. Deprecation follows
-  `NFR-MNT-03`.
-* Revocation after acceptance MUST be communicated when externally supported, but inability to
-  stop irreversible work MUST be reported honestly and handled by target-owner review.
+After receiver validation, `portfolio-tasks` owns source-issue projection as specified in the MVP
+release baseline. Identical duplicate results are no-ops; conflicting duplicates are quarantined;
+missing or delayed results require reconciliation.
 
-## Ownership and assurance
+## Approval data boundary
 
-The control-plane owner owns schema publication, validators, registration, routing authorization,
-compatibility, and shared conformance tests. The portfolio owner owns source truth and approval.
-Each side owns its credentials, logs, retries, and evidence. Joint tests MUST cover forged
-approval, wrong target, incompatible version, replay, payload conflict, timeout after acceptance,
-out-of-order result, revocation, and least privilege.
-
-## Assumptions, unknowns, and validation required
-
-Working assumptions: a registered portfolio source and target directory exist; the control plane
-can validate human approval evidence; and a result path exists. Unknown: supported versions,
-transport/events, release pinning, schema fields, payload limits, delivery/correlation relationship,
-authentication and signing, approver registry, cancellation semantics, retry windows, status
-ordering, evidence retention, service objectives, and incident ownership. All MUST be agreed with
-the `.github` repository owner before production routing.
-
-
-## Next-MVP conformance gate
-
-The external owner SHALL provide an owner-pinned provider fixture or conformance artifact for
-accepted, rejected, duplicate, conflict, timeout/query, ordered status, cancellation, and terminal
-result semantics. `portfolio-tasks` SHALL run it against `FR-CIV-01`; absent or incompatible
-evidence blocks all live routes, including `.github` when it acts as a target.
+`portfolio-tasks` owns human approval truth and may keep rich internal audit evidence. The closed v2
+inter-repository payload MUST contain only schema-declared fields. Approval ID, revision digest,
+approver, approval timestamp, revocation record, and freshness metadata are deferred to v3 and MUST
+NOT be injected as v2 extensions. Every material change creates a new `task_id` and requires new
+human approval.

@@ -34,8 +34,7 @@ and traceability in the same change set.
 [`../releases/next-mvp.md`](../releases/next-mvp.md) is the repository-level release selection. It
 lists the exact included and deferred requirement IDs, lifecycle/authorization decisions,
 continuous interface-validation requirement `FR-CIV-01`, acceptance scenario, external blockers,
-and exit criteria. The organization baseline is expected at
-`Young-Consultations/.github/docs/releases/next-mvp.md`; because it has not been inspected, contract
-version, result transport, lifecycle compatibility, and all four target enablements remain blocked
-pending owner confirmation. A `Must` priority outside the selected list is not automatically MVP
+and exit criteria. The external organization compatibility unit is release `2.2.0`, payload version
+`ai-sdlc-contract/v2`, pinned to `f2491872976a4dcc1633997954c03c07cbc4fced`. The release baseline
+records its exact interfaces, registry states, receiver limitation, and fixture limitation. A `Must` priority outside the selected list is not automatically MVP
 scope.

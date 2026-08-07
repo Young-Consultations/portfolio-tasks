@@ -5,7 +5,7 @@
 | BR-01 | One executable task SHALL have exactly one authoritative issue and one target per active authorization. |
 | BR-02 | Issue creation, edit, priority, labels alone, Project placement, or card movement SHALL NOT confer approval. |
 | BR-03 | Only a currently authorized human SHALL approve or revoke; automation SHALL NOT approve itself. |
-| BR-04 | Approval SHALL be invalidated by any material change and require renewed human review. |
+| BR-04 | A material change SHALL invalidate approval, create a new `task_id`, and require renewed human review. |
 | BR-05 | Approved work SHALL NOT route while a blocking dependency is unresolved. |
 | BR-06 | A cross-target outcome SHALL be decomposed into separately approved, linked target tasks. |
 | BR-07 | An executable task SHALL be self-sufficient for a target with no sibling-repository access. |
@@ -26,7 +26,7 @@
 | BR-22 | Approver, task author, executor, reviewer, and target owner authorities SHALL remain distinguishable even if one person holds multiple roles. |
 | BR-23 | Mirrored external issues SHALL identify their source, managed fields, synchronization direction, and authority. |
 | BR-24 | Retention, redaction, and audit access SHALL follow approved organizational policy; absence of policy blocks sensitive-data automation. |
-| BR-25 | Approval authority SHALL reside in immutable revision/digest-bound evidence; labels are UI projections, and replacing `status:approved` with a queued projection SHALL neither revoke nor establish authority. |
+| BR-25 | Only a canonical v2 task with `status: approved` is router authorization. `queued` is a post-admission UI projection and SHALL be rejected at admission; rich approval provenance remains internal and is not added to the closed v2 payload. |
 | BR-26 | Pre-acceptance revocation SHALL prevent routing; post-acceptance revocation SHALL request cancellation and preserve the accepted authorization history until an external terminal fact is confirmed. |
 | BR-27 | Delivery SHALL be at least once with idempotent visible effects; no issue event, routing delivery, target result, or publication replay may create a second logical effect. |
 | BR-28 | Portfolio completion SHALL require consumption of a validated correlated terminal result and visible source-issue evidence; a draft link or missing/ambiguous result alone is insufficient. |

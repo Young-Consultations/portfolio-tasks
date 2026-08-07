@@ -54,20 +54,21 @@ negative tests, security/observability impact, migration/rollback and external v
 requirement is not verified by unit tests alone when provider-owned behavior remains unknown.
 Changes to Vision or Requirements update this matrix before architecture or implementation.
 
-## Known traceability gaps
+## Next-MVP decision status
 
-The following prevent full implementation authorization: named product/data/security/operations
-owners; approver and separation-of-duty policy; material-change and lifecycle/cancellation rules;
-data classification/retention/legal hold; approved SLO/RTO/RPO and scale; control-plane schema,
-authentication and status guarantees; target registrations/capabilities; and the business decision
-on Slugger mirroring. These map to `docs/requirements/Assumptions.md` and must remain visible as
-blocked validation work, never resolved by architectural invention.
-
+The pinned interfaces, v2 approval semantics, material-change identity rule, registry states,
+source projection, and local validation plan resolve the repository-owned decisions required to
+begin implementation. Receiver implementation, complete executable organization fixtures, release
+tag creation, and disabled-target enablement remain external dependencies and do not block local
+consumer implementation or documentation alignment.
 
 ## Next-MVP architecture trace
 
 `FR-CIV-01` traces from VG-03/04/05/06/07/09 and BO-02/03/04/06 through ADR-011/012, the
 approval/routing/target/result state and sequence views, and deterministic adapters for every
-external port to `TC-MVP-E2E-001`, `TC-MVP-NEG-001`, `TC-MVP-REC-001`, and
-`TC-MVP-NOEFFECT-001`. Those tests trace back respectively to lifecycle success, fail-closed human
+external port to `PT-MVP-APPROVED`, `PT-MVP-NONAPPROVED`, `PT-MVP-QUEUED`,
+`PT-MVP-MATERIAL-EDIT`, `PT-MVP-VERIFY`, `PT-MVP-IMPLEMENT`, `PT-MVP-TARGETS`,
+`PT-MVP-DISABLED`, `PT-MVP-UNKNOWN`, `PT-MVP-DUP-DISPATCH`, `PT-MVP-RETRY-ID`,
+`PT-MVP-RESULT`, `PT-MVP-RESULT-DUP`, `PT-MVP-RESULT-CONFLICT`, `PT-MVP-RESULT-DELAY`,
+`PT-MVP-ROUTER-REJECT`, `PT-MVP-RECEIVER-CLOSED`, and `PT-MVP-NOEFFECT`. Those tests trace back respectively to lifecycle success, fail-closed human
 authority, at-least-once replay/reconciliation, and absence of live Codex/branch/PR effects.

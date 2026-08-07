@@ -31,8 +31,8 @@ authority, or contract validity SHALL block the affected automation until resolv
 | WA-08 | Initial scale and service objectives in NFRs cover three-year demand. | Capacity baseline requires revision. | Product/operations; forecast and load test. |
 | WA-09 | The expected `.github/docs/releases/next-mvp.md` selects a contract version and lifecycle compatible with this repository baseline. | Contract construction and every live route remain disabled. | `.github` owner; baseline review plus owner-pinned consumer/provider fixture. |
 | WA-10 | The organization contract supplies an authenticated result transport that can correlate a terminal result and draft link to the source issue. | Portfolio cannot reach `Completed`; reconciliation remains blocked. | `.github` owner; result conformance and timeout/ambiguity exercise. |
-| WA-11 | `.github`, `portfolio-tasks`, `slugger`, and `consulting-playbook` will each be explicitly enabled as Codex targets for the selected contract. | The affected target cannot participate; listing it does not enable it. | `.github` and each target owner; registry evidence and target conformance fixture. |
-| WA-12 | Targets can validate immutable revision-bound approval evidence without requiring a current approval label. | Mutable-label races could deny valid queued work or accept stale work. | `.github` and target owners; label-removal and material-edit conformance cases. |
+| WA-11 | Registry enablement follows the pinned snapshot: only `portfolio-tasks` is enabled; `.github`, `slugger`, and `consulting-playbook` fail closed. | A disabled target cannot participate; listing it does not enable it. | Organization owner; a future organization-controlled enablement decision. |
+| WA-12 | Targets validate the schema-declared v2 execution input; rich approval provenance remains internal. | Undeclared payload data would violate the closed schema. | Pinned schema validation and local queued/material-edit cases. |
 
 ## Unknowns and questions requiring clarification
 

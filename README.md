@@ -8,11 +8,9 @@ contracts remain authoritative for implemented behavior.
 
 ## Shared AI-SDLC execution contract
 
-This repository is an execution target, not a contract owner. The organization router produces
-the sole canonical input, `execution-input.json`; the target workflow installs the pinned
-`ai_sdlc_contracts` distribution from `Young-Consultations/.github` and delegates input and result
-validation to its CLI. No schemas, contract builders, version constants, or validators are copied
-into this repository.
+This repository is an execution target, not a contract owner. For the next MVP, the organization router supplies the canonical execution-input/v2 JSON. Validation consumes the organization schema files directly at the full SHA
+`f2491872976a4dcc1633997954c03c07cbc4fced`; no published contract package is assumed and no
+organization schema is copied or extended here.
 
 `.github/workflows/codex-execute.yml` applies only target policy after shared validation: the
 repository must be `Young-Consultations/portfolio-tasks`, the executor must be Codex, the source
@@ -33,21 +31,21 @@ runs: replays reuse an existing open draft pull request without rerunning Codex,
 branch without a pull request and any closed or merged pull request for that identity fail closed
 for explicit manual intervention.
 
-`portfolio_tasks.execution` is deliberately a small policy adapter. It invokes
-`python -m ai_sdlc_contracts` for schema validation and exposes only validated workflow outputs;
-it does not load or interpret shared schemas itself.
+The planned target adapter remains a small policy boundary. Its exact reusable-workflow inputs are
+`execution_input_json` and router-supplied `concurrency_group`; canonical results return separately
+through the pinned organization result receiver.
 
 ### Shared router release
 
-The approval workflow consumes the organization router at the immutable
-`ai-sdlc-v2.1.0` release tag. Upgrading that pin requires a separate, reviewed consumer pull
+The approval workflow consumes the organization router at the immutable full SHA
+`f2491872976a4dcc1633997954c03c07cbc4fced` for organization release `2.2.0`. Upgrading that pin requires a separate, reviewed consumer pull
 request. If a rollback is necessary, pin the tag named by the release manifest's
 `previous_known_good` value; published release tags must never be moved or replaced. See the
 [authoritative AI-SDLC release documentation](https://github.com/Young-Consultations/.github/pull/17)
 for the organization release policy and manifest.
 
-Workflow checkouts of the organization control plane use the same `ai-sdlc-v2.1.0` release tag,
-rather than a commit SHA from the calling `portfolio-tasks` workflow. Checkout credentials are
+Workflow checkouts of the organization control plane use the full SHA `f2491872976a4dcc1633997954c03c07cbc4fced`, never a mutable branch or the
+uncreated `ai-sdlc-v2.2.0` tag. Checkout credentials are
 not persisted.
 
 ## Python architecture and developer workflow
@@ -491,13 +489,9 @@ for initial dispatch eligibility; target execution then reports `executing` and 
 terminal state of `completed`, `failed`, `blocked`, or `ambiguous` with another
 managed marker update.
 
-The delivery ID is the publication ownership key.  It is expected to come from
-the pinned organization shared-contract release as `delivery_id` or
-`idempotency_key`.  Until the next shared-contract release exposes that field for
-source-built task contracts, this repository derives the same fallback identity
-for an unchanged approved issue from the canonical source issue, title, and body,
-and injects it only as an extension field.  No organization schemas are copied
-locally.  GitHub workflow run IDs and run attempts are intentionally excluded
+The canonical `delivery_id` is the publication ownership key and the idempotency
+key. Retries preserve it. Undeclared extension fields must not be injected into
+the closed v2 organization schemas.  GitHub workflow run IDs and run attempts are intentionally excluded
 from the delivery identity, branch name, and publication ownership proof.
 
 Redelivery is normal.  A duplicate source label event or a retry after a lost
@@ -539,8 +533,7 @@ publication marker, remove an unowned branch after review, or edit the issue and
 request renewed approval.  Automation must not automatically close ambiguous or
 user-owned PRs and must not overwrite unverified branch content.
 
-Rollout is forward-compatible with the pinned `ai-sdlc-v2.1.0` organization
-router and expects the next shared-contract release to expose stable
-`delivery_id`/`idempotency_key` on canonical execution input.  Rollback consists
+Rollout planning uses organization release `2.2.0`, payload version
+`ai-sdlc-contract/v2`, pinned at `f2491872976a4dcc1633997954c03c07cbc4fced`.  Rollback consists
 of reverting this repository change and re-running approval events; do not move
 or replace the organization release tag.

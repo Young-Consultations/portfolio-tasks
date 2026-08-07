@@ -5,7 +5,7 @@
 | Flow data | Source authority | Consumers | Required handling |
 | --- | --- | --- | --- |
 | Intent and revisions | Portfolio issue | governance, task builder, reporting | preserve provenance; classify/redact; revision checks |
-| Approval evidence | Authorized human decision on issue | routing gate, target, audit | immutable actor/time/revision/digest/target/executor/policy; never inferred from or revoked by labels |
+| Approval evidence | Authorized human decision on issue | routing gate, target, audit | repository-internal audit data; only schema-declared `status: approved` crosses the v2 boundary |
 | Canonical task | Constructed portfolio command | control plane, target | versioned, authenticated, bounded, self-sufficient |
 | Routing receipt/status | Control plane | reconciliation, portfolio view | correlate, authenticate, order, deduplicate |
 | Execution evidence/result | Target through control plane | portfolio, reviewer, reporting | externally owned; validate and link, do not rewrite |

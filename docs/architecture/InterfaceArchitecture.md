@@ -33,14 +33,22 @@ exception is a contract.
 | Operations/Admin / portfolio | Reconcile, activate config, inspect quarantine without bypassing policy | authorized command + reason → auditable outcome | privileged, separation-of-duty configurable; repeat operation idempotent |
 | Local Target Workflow / portfolio-tasks target owner | Apply shared plus local policy for this repository | control-plane task → status/result/draft reference | logically separate credentials; never implies portfolio approval |
 
-## Canonical task minimum contract
+## Frozen next-MVP interface profile
 
-The routing payload contains: contract/schema version; canonical work, source issue, revision,
-delivery and correlation identities; semantic digest; provenance; target and executor; attributable
-approval evidence; objective and rationale; bounded requirements/scope/non-scope; constraints;
-acceptance criteria; required validations/evidence; dependency snapshot; sensitivity decision;
-draft-only publication policy; configuration/policy versions; and creation/expiry timestamps if
-expiry is supported. It must be understandable without portfolio or sibling access.
+The authoritative schemas and workflows are consumed directly from
+`Young-Consultations/.github@f2491872976a4dcc1633997954c03c07cbc4fced` as detailed in
+[`../requirements/Interface-OrganizationControlPlane.md`](../requirements/Interface-OrganizationControlPlane.md).
+The router accepts required `task_payload`, explicitly supplied `execution_mode`, and
+`CODEX_ROUTER_TOKEN`; its outputs are `execution_result`, `correlation_id`, `delivery_id`,
+`failure_category`, `diagnostic_summary`, and `concurrency_group`. The target adapter accepts only
+`execution_input_json` and `concurrency_group`. The separate result receiver accepts
+`execution_result`, `source_issue`, and `CODEX_RESULT_TOKEN`, and exposes `accepted`, `delivery_id`,
+`correlation_id`, `execution_status`, `failure_category`, and `diagnostic_summary`.
+
+Canonical field completeness is defined only by the three pinned closed schemas. Architecture
+summaries do not recreate or extend them. Only `status: approved` can cross router admission;
+`queued` is a post-admission projection. Rich approval provenance stays internal. Material edits
+create a new `task_id` and require new approval.
 
 ## Event/result minimum contract
 
@@ -52,16 +60,8 @@ draft publication reference. Missing evidence is `not supplied`, never success.
 
 ## Ownership and validation register
 
-External schemas, transports, authentication, status ordering, limits, cancellation and service
-objectives are **unknown until validated by their owners**. This document specifies required
-semantics only. Conformance fixtures must cover valid, incompatible, forged, stale, duplicate,
-divergent, out-of-order, oversize, sensitive and timeout cases before enabling an integration.
-
-
-## Next-MVP interface-validation profile
-
-The portfolio consumer fixture is normative for portfolio-owned semantics, while provider fixtures
-are owned by `.github` and each target. Exact contract version, transport, approval-evidence
-representation, result path, lifecycle ordering, and enablement are blocking unknowns. Normal CI
-wires these interfaces only to deterministic adapters and asserts that no Codex or real GitHub
-publication port is reachable. See `FR-CIV-01` in `docs/releases/next-mvp.md`.
+Release `2.2.0`, payload version `ai-sdlc-contract/v2`, the four-entry registry, workflow signatures,
+and schema locations are frozen at the compatibility SHA. The receiver implementation and missing
+executable fixture/expected-output files are external dependencies. Normal CI uses deterministic
+local doubles and asserts no Codex call, real branch, or real PR. Documentation alignment and local
+consumer implementation can proceed without redesigning either external dependency.
