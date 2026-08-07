@@ -8,9 +8,12 @@ stateDiagram-v2
   Proposed --> ReadyForApproval: eligibility/readiness passes
   ReadyForApproval --> Approved: authorized human + bound revision
   Approved --> PendingRouting: initiation requested / gates rechecked
-  PendingRouting --> QueuedAccepted: authenticated router + target acceptance
+  PendingRouting --> RouterAcceptedTargetPending: authenticated router acceptance
+  RouterAcceptedTargetPending --> QueuedAccepted: authenticated target acceptance
+  RouterAcceptedTargetPending --> FailedBlocked: authenticated target rejection
   PendingRouting --> HandoffUncertain: timeout/ambiguous receipt
   HandoffUncertain --> QueuedAccepted: reconciliation proves accepted
+  HandoffUncertain --> RouterAcceptedTargetPending: reconciliation proves router-only acceptance
   HandoffUncertain --> PendingRouting: proves retry safe
   QueuedAccepted --> Executing: valid target status
   Executing --> DraftPRAvailable: validated draft result
@@ -20,8 +23,12 @@ stateDiagram-v2
   ReadyForApproval --> FailedBlocked
   Approved --> ReadyForApproval: material edit / stale authority
   Approved --> WithdrawnCancelled: revoke before acceptance
+  PendingRouting --> ReadyForApproval: material edit / terminate pending routing effect
+  PendingRouting --> WithdrawnCancelled: revoke / terminate pending routing effect
+  RouterAcceptedTargetPending --> RouterAcceptedTargetPending: edit or revoke / request cancellation
+  RouterAcceptedTargetPending --> WithdrawnCancelled: cancellation confirmed
   QueuedAccepted --> WithdrawnCancelled: confirmed cancellation
-  QueuedAccepted --> FailedBlocked: target rejection / failure
+  QueuedAccepted --> FailedBlocked: target or routing failure
   Executing --> FailedBlocked: execution / validation failure
   HandoffUncertain --> FailedBlocked: reconciliation requires human
   FailedBlocked --> ReadyForApproval: cause resolved
@@ -31,10 +38,15 @@ stateDiagram-v2
 ```
 
 These are semantic states; UI labels may differ only via an explicit versioned mapping. Labels are
-not authority. `Failed / blocked` requires a cause, correlation, next owner, and recovery action.
-`Completed` means the portfolio consumed a validated terminal result and displayed its correlation;
-it does not imply merged, released, or deployed. Post-acceptance revocation is a cancellation
-request and cannot transition to cancelled until the externally owned contract confirms it.
+not authority. `RouterAcceptedTargetPending` records that the control-plane router durably accepted
+the handoff while the target has not yet accepted or rejected it; it is not `QueuedAccepted`.
+`Failed / blocked` requires a cause, correlation, next owner, and recovery action. `Completed` means
+the portfolio consumed a validated terminal result and displayed its correlation; it does not imply
+merged, released, or deployed. A material edit or revocation in `PendingRouting` invalidates the
+authorization, terminates the still-controlled pending routing effect, and prevents dispatch.
+After router acceptance, either event is instead a cancellation request: the accepted state is
+retained until the externally owned contract confirms cancellation, and a target rejection remains
+a valid terminal non-success response while cancellation is pending.
 
 ## Approval state
 
