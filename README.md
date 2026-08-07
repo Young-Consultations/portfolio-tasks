@@ -3,8 +3,9 @@
 This repository owns portfolio-level planning issues and can hand qualifying work to the Slugger implementation backlog.
 
 The [Young Consultations AI-SDLC vision](docs/VISION.md) is authoritative for organizational
-intent and this repository's purpose and boundaries. The issue form, workflows, and applicable
-contracts remain authoritative for implemented behavior.
+intent and this repository's purpose and boundaries. Applicable contracts define the next-MVP
+interface. Checked-in workflows describe current implemented behavior only and are not evidence of
+next-MVP conformance unless they match the baseline in `docs/releases/next-mvp.md`.
 
 ## Shared AI-SDLC execution contract
 
@@ -12,13 +13,14 @@ This repository is an execution target, not a contract owner. For the next MVP, 
 `f2491872976a4dcc1633997954c03c07cbc4fced`; no published contract package is assumed and no
 organization schema is copied or extended here.
 
-`.github/workflows/codex-execute.yml` applies only target policy after shared validation: the
+The next-MVP replacement for `.github/workflows/codex-execute.yml` applies only target policy after shared validation: the
 repository must be `Young-Consultations/portfolio-tasks`, the executor must be Codex, the source
 must be an open approved non-sensitive issue in this repository, and publication must remain a
 draft PR. `execution_mode: verify` validates the contract, routing authorization, repository, and
 tests without running Codex or creating a branch or PR. `execution_mode: implement` continues
-through Codex and controlled draft-PR publication. Both modes emit a shared-contract-validated
-`execution-result.json` artifact.
+through Codex and controlled draft-PR publication. Both modes construct canonical
+`execution-result/v2`, which is sent separately through the pinned organization result receiver
+with `source_issue`; neither an artifact nor router output is the normative result-return interface.
 
 Implementation changes are committed and safely pushed before the workflow reports validation
 failure. Publication creates or updates one deterministic **draft** pull request, records the
@@ -34,6 +36,13 @@ for explicit manual intervention.
 The planned target adapter remains a small policy boundary. Its exact reusable-workflow inputs are
 `execution_input_json` and router-supplied `concurrency_group`; canonical results return separately
 through the pinned organization result receiver.
+
+> **Implementation status:** the checked-in routing and target workflows still implement the
+> pre-baseline transport. Their obsolete release tag and package checkout, optional artifact inputs,
+> live `status:queued` authorization recheck, and legacy result handling are replacement work, not
+> approved interface alternatives. Implementation MUST use the full compatibility SHA, consume the
+> schemas directly, expose exactly the two target inputs above, and keep router and receiver paths
+> separate.
 
 ### Shared router release
 
@@ -517,6 +526,12 @@ identity.  Executor preflight outcomes are:
   the identity; manual recovery is required.
 - `ambiguous`: multiple PRs or conflicting markers exist; Codex must not run and
   automation must not close, overwrite, or republish anything.
+
+If branch or draft-PR creation reports an already-existing resource, conflict, timeout, or
+ambiguous response, the target must requery the deterministic branch identity and
+`ai-sdlc-delivery-id` marker before deciding the outcome. Exactly one matching open draft PR is
+reused. No conclusive match enters reconciliation; multiple or conflicting matches are ambiguous.
+The adapter must not blindly retry creation, adopt an unverified PR, or produce a second visible PR.
 
 The invariant is: for one canonical delivery identity, repeated delivery can
 produce at most one externally visible managed draft PR, and a completed valid

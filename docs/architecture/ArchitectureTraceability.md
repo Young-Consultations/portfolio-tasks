@@ -69,6 +69,8 @@ approval/routing/target/result state and sequence views, and deterministic adapt
 external port to `PT-MVP-APPROVED`, `PT-MVP-NONAPPROVED`, `PT-MVP-QUEUED`,
 `PT-MVP-MATERIAL-EDIT`, `PT-MVP-VERIFY`, `PT-MVP-IMPLEMENT`, `PT-MVP-TARGETS`,
 `PT-MVP-DISABLED`, `PT-MVP-UNKNOWN`, `PT-MVP-DUP-DISPATCH`, `PT-MVP-RETRY-ID`,
+`PT-MVP-OWNERSHIP`, `PT-MVP-CREATE-RACE`, `PT-MVP-CREATE-RACE-NONE`,
+`PT-MVP-CREATE-RACE-AMBIGUOUS`,
 `PT-MVP-RESULT`, `PT-MVP-RESULT-DUP`, `PT-MVP-RESULT-CONFLICT`, `PT-MVP-RESULT-DELAY`,
 `PT-MVP-ROUTER-REJECT`, `PT-MVP-RECEIVER-CLOSED`, and `PT-MVP-NOEFFECT`. Those tests trace back respectively to lifecycle success, fail-closed human
 authority, at-least-once replay/reconciliation, and absence of live Codex/branch/PR effects.

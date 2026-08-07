@@ -48,8 +48,9 @@ sequenceDiagram
   actor H as Authorized human
   participant P as Portfolio
   participant D as Idempotency/evidence
-  participant C as Control plane
+  participant C as Router / control plane
   participant T as Target
+  participant V as Organization result receiver
   actor R as Target reviewer
   H->>P: Initiate approved task
   P->>P: Recheck revision, approval, dependency, sensitivity, compatibility
@@ -58,16 +59,60 @@ sequenceDiagram
   C-->>P: Authenticated accepted receipt
   C->>T: Routed target task
   T->>T: Validate canonical v2 input + target-local policy
-  T-->>C: accepted / queued / executing
-  T-->>C: terminal result + evidence + draft reference
-  C-->>P: Correlated ordered events
+  T->>T: Create or reuse one owned draft PR
+  T->>V: Canonical execution-result/v2 + source_issue
+  V->>V: Authenticate; validate schema, source, and identity
+  V-->>T: Transport accepted or fail closed
+  T->>P: Invoke portfolio result ingestion with receiver-validated result
+  P-->>T: Projection accepted, duplicate, or quarantined
   P->>D: Deduplicate and preserve audit
   P->>P: Consume result; show correlation + draft on source issue
+  Note over C,V: The router does not receive or project the canonical result.
   Note over P,T: Labels are projections, never cross-boundary authority.
   R->>T: Review / merge or reject decision
-  T-->>C: Disposition (when contracted)
-  C-->>P: Disposition evidence
+  Note over R,P: Post-MVP disposition transport is not implied by this sequence.
 ```
+
+The receiver acknowledgement and validated outputs return to its direct caller, the target; the
+receiver does not call the portfolio. Portfolio completion therefore requires a separate,
+authenticated target-to-portfolio result-ingestion invocation carrying the receiver-validated
+canonical result. That invocation projects `execution_status` separately from router admission,
+target acceptance, and result transport. The target-to-portfolio invocation is still a planned
+integration boundary, and the currently frozen receiver fails closed, so the successful result
+steps above are not a claim of live cross-repository conformance.
+
+## Target publication create race
+
+```mermaid
+sequenceDiagram
+  participant T as Target adapter
+  participant G as GitHub
+  participant Q as Ownership query
+  T->>Q: Query branch and PRs in all states by delivery_id + ai-sdlc-delivery-id
+  Q-->>T: No owned publication
+  T->>G: Create deterministic branch / draft PR
+  G--xT: Already exists, conflict, or ambiguous response
+  T->>Q: Requery branch and PRs in all states by ownership identity
+  alt exactly one owned open draft PR
+    Q-->>T: Unique managed publication
+    T->>T: Reuse; do not create a second PR
+  else any owned closed or merged PR
+    Q-->>T: Historical managed publication
+    T->>T: Fail closed for manual intervention; do not recreate
+  else no conclusive owned publication
+    Q-->>T: Not found / uncertain
+    T->>T: Stop and reconcile; do not blindly retry creation
+  else multiple or conflicting owners
+    Q-->>T: Ambiguous ownership
+    T->>T: Quarantine; no overwrite, close, or publication
+  end
+```
+
+A create conflict or ambiguous create response is not terminal evidence by itself. The adapter
+MUST requery using the deterministic `delivery_id` branch identity and `ai-sdlc-delivery-id`
+ownership marker across all pull-request states. Only one uniquely owned open draft PR may be
+reused. Any matching closed or merged PR fails closed even if its branch was deleted; absence or
+ambiguity also fails closed without another visible effect.
 
 ## Timeout, replay and reconciliation failure flow
 
