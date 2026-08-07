@@ -1,144 +1,144 @@
 # portfolio-tasks next-MVP baseline
 
-**Status:** repository baseline for approval; external enablement blocked pending organization
-confirmation. **Organization baseline expected at:**
-`Young-Consultations/.github/docs/releases/next-mvp.md` (not inspected). The prompt-supplied objective
-is the working organization baseline. This document does not copy an organization-owned schema.
+**Status:** documentation and interface baseline; ready for repository implementation planning.
 
-## Outcome and repository contribution
+## Immutable organization compatibility unit
 
-The MVP carries one eligible `portfolio-tasks` issue, approved by an authorized human for one
-immutable revision, through organization routing to exactly one enabled target:
-`Young-Consultations/.github`, `Young-Consultations/portfolio-tasks`,
-`Young-Consultations/slugger`, or `Young-Consultations/consulting-playbook`. The target invokes Codex,
-performs its own validation, and creates or reuses exactly one draft pull request. A validated
-terminal result and draft-PR link are projected onto the source issue. Merge, release, deployment,
-production operation, and any claim of production readiness remain human-controlled and outside
-this MVP.
+This repository consumes release `2.2.0` and payload version `ai-sdlc-contract/v2` from
+`Young-Consultations/.github` at the immutable reference
+`f2491872976a4dcc1633997954c03c07cbc4fced` (the **compatibility SHA**). The compatibility unit is:
 
-`portfolio-tasks` owns work intake; source-issue identity; eligibility evaluation; authoritative
-human approval truth and provenance; revision/digest binding; selection of exactly one target;
-canonical task construction; routing initiation; portfolio execution-state projection; result
-consumption/correlation; and user-visible status, failures, and recovery guidance. It does **not**
-own the organization target registry or shared contracts, target-local authorization, Codex
-implementation semantics, target validation policy, PR review/merge, release, or deployment.
-When this repository is the target, its target gateway is a distinct responsibility, identity, and
-audit boundary from portfolio approval and dispatch.
+* `release/release-manifest.json`
+* `docs/interfaces/mvp-v2-compatibility.md`
+* `docs/releases/next-mvp.md`
+* `config/codex-repositories.json`
+* `contracts/task-contract.schema.json`
+* `contracts/execution-input.schema.json`
+* `contracts/execution-result.schema.json`
+* `tests/fixtures/mvp-v2/manifest.json` (fixture set `TC-MVP-CI-001`)
+* `.github/workflows/codex-router.yml`
+* `.github/workflows/codex-result-receiver.yml`
 
-## Selected requirements
+Every workflow reference and direct schema-file fetch MUST use the full compatibility SHA. Mutable
+`main`, the uncreated `ai-sdlc-v2.2.0` tag, an assumed `ai-sdlc-contracts` package, and local copies
+or extensions of the closed schemas are not dependencies. Direct immutable schema-file consumption
+is the MVP dependency unless publication of an artifact is independently confirmed.
 
-MVP selection is deliberate; priority `Must` does not by itself imply inclusion.
+This consumer alignment does not establish sibling-repository conformance or executable
+cross-repository conformance.
+
+## Outcome and responsibility boundary
+
+The MVP ends with one validated draft PR and one correlated canonical result projected on its
+source issue. Merge, release, deployment, production operation, and production-readiness decisions
+remain human-controlled.
+
+`portfolio-tasks` owns source issue identity, intake and eligibility, human approval truth,
+material-change detection, creation of a new `task_id` after a material change, exactly-one-target
+selection, canonical task construction, explicit execution-mode selection, router invocation,
+post-admission lifecycle projection, and result consumption/presentation. It is also one possible
+execution target through the separately bounded `.github/workflows/codex-execute.yml` adapter.
+That target role applies only target policy: it cannot approve its own work, bypass the router, or
+gain portfolio authority.
+
+## Exact included and deferred requirements
+
+MVP inclusion is deliberate; a `Must` priority alone does not imply inclusion.
 
 **Included:** `FR-INT-01`, `FR-INT-02`, `FR-INT-03`, `FR-CLS-01`, `FR-CLS-02`, `FR-CLS-03`,
 `FR-GOV-02`, `FR-GOV-03`, `FR-GOV-04`, `FR-RTE-01`, `FR-RTE-02`, `FR-RTE-03`, `FR-RTE-04`,
-`FR-OUT-01`, `FR-TGT-01`, `FR-TGT-02`, `NFR-REL-01`, `NFR-REL-02`, `NFR-REL-03`,
-`NFR-SEC-01`, `NFR-SEC-02`, `NFR-SEC-05`, `NFR-AUD-01`, `NFR-OBS-02`, `NFR-MNT-01`,
-`NFR-MNT-02`, `NFR-INT-01`, `NFR-INT-02`, `NFR-USA-02`, `NFR-TST-01`, `NFR-TST-02`,
-`NFR-AUT-01`, `NFR-AI-01`, and `NFR-AI-02`.
+`FR-OUT-01`, `FR-TGT-01`, `FR-TGT-02`, `FR-CIV-01`, `NFR-REL-01`, `NFR-REL-02`,
+`NFR-REL-03`, `NFR-SEC-01`, `NFR-SEC-02`, `NFR-SEC-05`, `NFR-AUD-01`, `NFR-OBS-02`,
+`NFR-MNT-01`, `NFR-MNT-02`, `NFR-INT-01`, `NFR-INT-02`, `NFR-USA-02`, `NFR-TST-01`,
+`NFR-TST-02`, `NFR-AUT-01`, `NFR-AI-01`, and `NFR-AI-02`.
 
-**Deferred from this MVP:** `FR-CLS-04`, `FR-GOV-01`, `FR-OUT-02`, `FR-OUT-03`,
-`FR-PRJ-01`, `FR-PRJ-02`, and `FR-RPT-01`. They remain baseline requirements, but portfolio
-prioritization, Projects synchronization/reporting, post-draft human disposition, archival, reopen,
-and delivery-outcome analytics are not needed to prove this MVP. Unlisted NFRs remain quality
-constraints for later releases or evidence plans; they are not silently satisfied or waived.
+**Deferred:** `FR-CLS-04`, `FR-GOV-01`, `FR-OUT-02`, `FR-OUT-03`, `FR-PRJ-01`,
+`FR-PRJ-02`, and `FR-RPT-01`. Unlisted NFRs remain later-release quality constraints and are not
+claimed satisfied or waived.
 
-## Authoritative lifecycle and authorization
+## Canonical task and approval lifecycle
 
-| State | Meaning and permitted transition |
-| --- | --- |
-| Proposed | Intake exists; it is neither eligible nor authorized. |
-| Ready for approval | Current revision passes eligibility/readiness; no approval exists. |
-| Approved | Authorized human evidence binds the target, executor, policy version, issue revision and material-content digest. |
-| Pending routing | A dispatch intent with stable correlation/delivery identity is durable; acceptance is not yet proven. |
-| Queued / accepted | The control plane and then target have acknowledged the same authorized delivery. Queued work remains authorized by immutable approval evidence, not by a label. |
-| Executing | The target reports bounded execution in progress. |
-| Draft PR available | A validated result identifies exactly one created or reused open draft PR. This is the MVP success state, not merge or delivery. |
-| Completed | Portfolio processing of an authenticated terminal result is complete and the source issue visibly contains its correlation, result, and draft link (or an allowed terminal no-change result). |
-| Failed / blocked | Progress stopped with confirmed failure or unresolved prerequisite, owner, correlation, and recovery action; unknown is not failure. |
-| Withdrawn / cancelled | A human withdrew pre-dispatch authority, or an externally confirmed cancellation stopped accepted work. |
-| Superseded | A replacement issue is linked; old approval never transfers. |
+The complete field set and validation rules come only from
+`contracts/task-contract.schema.json@f2491872976a4dcc1633997954c03c07cbc4fced`. The subordinate
+MVP dispatch summary is: `contract_version` is `ai-sdlc-contract/v2`, `status` is `approved`,
+`executor` is `codex`, `dependencies` is `[]`, and `target_repository` is exactly one enabled
+registry target.
 
-Approval is an append-only decision record, not a mutable label. The record identifies the human
-and authority basis, UTC time, decision, issue revision, material digest, one target, executor, and
-policy version. `status:approved`, `status:queued`, or similar labels are replaceable UI projections.
-Adding, removing, or replacing a label cannot create or revoke authorization. Router acceptance may
-replace an approval label with a queued label while the bound evidence remains valid. A target must
-validate that evidence rather than require a racing label read.
+1. A human approves the current material task content.
+2. `portfolio-tasks` constructs the canonical task with `status: approved`.
+3. It explicitly selects `verify` or `implement`.
+4. It calls the router pinned to the compatibility SHA.
+5. Only successful router admission permits the source projection `queued`.
+6. `queued` is never submitted as authorization.
+7. A material edit invalidates the executable identity, creates a new `task_id`, and requires new
+   human approval.
+8. Duplicate dispatch of the same logical delivery preserves `delivery_id`.
+9. Missing, delayed, rejected, or ambiguous results enter reconciliation; they do not authorize a
+   blind redispatch.
+10. Withdrawal before execution prevents new side effects; cancellation after execution begins is
+    best effort.
+11. A transport acknowledgement is never presented as execution success.
 
-A material edit to objective, behavior, scope/non-scope, acceptance evidence, constraints, target,
-executor, risk, sensitivity, or dependencies creates a new digest and invalidates unaccepted
-authorization. A policy-classified cosmetic edit may retain it only with an audited classification.
-Pre-acceptance revocation prevents dispatch or causes the pending intent to terminate. After
-control-plane or target acceptance, revocation becomes a cancellation request; state remains
-authorized-but-cancellation-pending until the externally owned contract confirms stopped,
-completed, or unable-to-cancel. It never rewrites history or claims that already occurring work was
-unauthorized.
+Approval ID, revision digest, approver, approval timestamp, revocation record, and freshness
+metadata are deferred to v3. Repository-internal audit records MAY retain richer approval
+information, but it MUST NOT be added as undeclared v2 inter-repository payload fields.
 
-Delivery is **at least once with idempotent visible effects**. Same identity and digest returns the
-recorded outcome; same identity with a different digest is a conflict. Duplicate issue events,
-router delivery, target result, or publication request cannot create another logical execution,
-branch, PR, terminal comment, or state advance. Results correlate by source issue, approved digest,
-target, delivery/correlation identity, and attempt identity; precise identity relationships await
-the organization contract. Missing, conflicting, or ambiguous results enter reconciliation and
-cannot become `Completed`. MVP completion requires a validated terminal result visibly correlated
-on the source issue; draft availability alone is insufficient until consumption succeeds.
+## Registry snapshot
 
-## Required organization and target decisions
+| Target | Enabled | Permitted task types |
+| --- | --- | --- |
+| `Young-Consultations/.github` | No | `ci-cd`, `documentation`, `repository-maintenance`, `testing` |
+| `Young-Consultations/portfolio-tasks` | Yes | `automation`, `backlog-governance`, `ci-cd`, `documentation`, `repository-maintenance` |
+| `Young-Consultations/slugger` | No | `automation`, `bug-fix`, `documentation`, `feature`, `testing` |
+| `Young-Consultations/consulting-playbook` | No | `automation`, `documentation`, `feature`, `testing` |
 
-The following are release-blocking until the `.github` owner publishes evidence: exact contract
-version; request and result transports; authentication; approval-evidence representation and
-validation; correlation/delivery/attempt relationships; ordered lifecycle semantics; duplicate,
-query, timeout and cancellation behavior; target registry entries; and enablement of all four
-targets. Portfolio-owned expectations are semantic only and do not invent field names.
+All entries use `contract_version: ai-sdlc-contract/v2`, `draft_pr_only: true`,
+`branch_identity: delivery_id`, `ownership_marker: ai-sdlc-delivery-id`, and
+`terminal_reuse_status: duplicate-reused`. Disabled and unknown targets fail closed. Only an
+organization-controlled decision can enable a disabled target.
 
-| Boundary | External owner | Required evidence | Status and consumer check |
-| --- | --- | --- | --- |
-| Organization control plane and `.github` as target | `.github` owner | Published baseline, supported version, request/result transport, approver validation, registry and target conformance evidence | **Blocking**; portfolio consumer fixtures validate accept/reject/duplicate/conflict/timeout/result semantics. |
-| `portfolio-tasks` as target | repository target owner plus `.github` owner | Separate target identity/policy, supported version, local validation and publication/result conformance | **Blocking**; local target fixture proves no portfolio privilege and one draft. |
-| Slugger | Slugger owner plus `.github` owner | Enabled registration, supported contract/executor, local authorization/validation, result and draft-publication evidence | **Blocking**; consumer fixture uses only confirmed semantics. |
-| Consulting Playbook | playbook owner plus `.github` owner | Enabled registration, supported contract/executor, local authorization/validation, result and draft-publication evidence | **Blocking**; consumer fixture uses only confirmed semantics. |
-| GitHub platform | organization administrator | Identity/permission, event/redelivery, draft-PR and nonproduction test-environment evidence | **Blocking for live enablement**; mocked adapter in normal CI, separately approved platform conformance evidence. |
+## Result projection
 
-## CI interface-validation requirement (`FR-CIV-01`)
+After organization receiver validation, the source-issue projection records source issue, task ID
+or locally bound approved-task identity, correlation ID, delivery ID, target, execution status,
+validation result, test result, draft-PR URL when present, sanitized failure category/message,
+safe workflow URL, completion time, duplicate-reuse status, and ambiguous-result status. It
+distinguishes router admission, delivery acceptance, target execution, result transport, receiver
+validation, and final execution outcome.
 
-Normal CI SHALL run a deterministic, hermetic consumer lifecycle suite using fixtures, mocks,
-stubs, or test adapters in place of Codex, GitHub branch/PR writes, and external transports. It
-SHALL simulate, in order: eligible issue creation; authorized approval of a revision/digest;
-canonical construction; dispatch request; routing acceptance; target acceptance; stub execution;
-stub validation; simulated draft-PR result; and result consumption/source-issue update.
+## `FR-CIV-01` — repository-local, no-Codex conformance plan
 
-* `AC-FR-CIV-01-1`: the happy-path fixture asserts the chosen one of four targets, deterministic
-  branch identity, draft flag/title/link metadata, correlation/delivery identity, ordered states,
-  exactly one logical draft publication, and the correlated terminal source-issue representation.
-* `AC-FR-CIV-01-2`: process/network assertions prove no Codex executable/API is invoked, no remote
-  mutation occurs, and no real branch, commit push, or pull request is created in normal CI.
-* `AC-FR-CIV-01-3`: table-driven negative fixtures cover missing approval, unauthorized approver,
-  material edit after approval, pre-acceptance withdrawal, invalid target, disabled target,
-  malformed/incompatible contract, target rejection, execution failure, and validation failure;
-  each fails closed at the expected state with safe recovery guidance.
-* `AC-FR-CIV-01-4`: recovery fixtures cover withdrawal after acceptance, duplicate dispatch,
-  duplicate target result, existing draft PR reuse, result timeout, ambiguous status, stale and
-  out-of-order results; each asserts at-least-once handling and idempotent visible effects.
-* `AC-FR-CIV-01-5`: schemas/fixtures assert the portfolio-owned semantic expectations while an
-  owner-pinned provider fixture supplies external details. Any incompatible contract, lifecycle,
-  target enablement, branch/publication, or result-correlation drift fails CI rather than updating
-  snapshots automatically.
+Normal interface CI SHALL use deterministic local doubles and no organization-owned fixture files
+beyond those actually published. Planned cases are:
 
-`FR-CIV-01` traces forward to `NFR-REL-01..03`, `NFR-SEC-01..02`, `NFR-INT-01..02`,
-`NFR-TST-01..02`, and `NFR-AUT-01`; test obligations are `TC-MVP-E2E-001`,
-`TC-MVP-NEG-001`, `TC-MVP-REC-001`, and `TC-MVP-NOEFFECT-001`.
+| Local case | Required assertion | Trace |
+| --- | --- | --- |
+| `PT-MVP-APPROVED`, `PT-MVP-NONAPPROVED`, `PT-MVP-QUEUED` | construct an approved canonical task; reject every non-approved status; specifically reject queued admission | FR-GOV-03, FR-RTE-01/02 |
+| `PT-MVP-MATERIAL-EDIT` | material edit produces a new task ID and requires new approval | FR-GOV-04 |
+| `PT-MVP-VERIFY`, `PT-MVP-IMPLEMENT` | router call explicitly supplies each execution mode | FR-RTE-02 |
+| `PT-MVP-TARGETS` | exercise all four selections; only the enabled registry entry can admit | FR-CLS-03, FR-RTE-02 |
+| `PT-MVP-DISABLED`, `PT-MVP-UNKNOWN` | disabled and unknown targets fail closed | FR-RTE-02, NFR-INT-02 |
+| `PT-MVP-DUP-DISPATCH`, `PT-MVP-RETRY-ID` | duplicate has one visible effect and retry preserves delivery ID | FR-RTE-03/04, NFR-REL-01/03 |
+| `PT-MVP-RESULT`, `PT-MVP-RESULT-DUP`, `PT-MVP-RESULT-CONFLICT` | valid projection; identical duplicate no-op; conflicting duplicate quarantined | FR-OUT-01 |
+| `PT-MVP-RESULT-DELAY`, `PT-MVP-ROUTER-REJECT`, `PT-MVP-RECEIVER-CLOSED` | reconcile missing/delayed result; safely project router rejection; expect receiver fail-closed response | FR-RTE-04, FR-OUT-01 |
+| `PT-MVP-NOEFFECT` | no Codex call, real branch, or real pull request | FR-CIV-01, NFR-TST-02, NFR-AI-02 |
 
-## Acceptance scenario and repository-local exit criteria
+The cases align to the scenario list in
+`tests/fixtures/mvp-v2/manifest.json@f2491872976a4dcc1633997954c03c07cbc4fced` (`TC-MVP-CI-001`).
+That release does not contain executable input and expected-output files for every failure,
+duplicate, timeout, and ambiguity scenario. Local fixtures may be implemented but are not
+organization-owned canonical fixtures; full shared-fixture conformance is not claimed.
 
-Given an eligible issue whose approved digest selects one enabled target, when a duplicate-capable
-transport delivers its canonical task, then the target validates authorization, stub execution and
-validation succeed, one deterministic draft PR is simulated or reused, and a compatible terminal
-result updates the same source issue to `Completed` with correlation and draft link. No merge,
-release, deployment, Codex call, real branch, or real PR occurs in this acceptance test.
+## External dependencies and readiness
 
-Repository-local exit requires: (1) all included acceptance criteria and the four MVP suites pass;
-(2) lifecycle terms and bidirectional traceability contain no contradiction; (3) each failure has
-an owner and recovery action; (4) source representation proves a correlated terminal result;
-(5) normal CI proves zero Codex/publication side effects; and (6) the organization and each target
-provide the blocking conformance evidence above. Until item 6 is confirmed, documentation may be
-approved but live MVP routing is **not ready for enablement**.
+The frozen result-receiver interface is safe to plan against, but its current implementation is an
+approved fail-closed skeleton and cannot accept a successful live return. Its implementation is an
+organization-owned external dependency, not a reason to redesign or locally replace it and not an
+incompatibility in this consumer contract. Other external dependencies are publication of complete
+executable expected-output fixtures for `TC-MVP-CI-001`, creation of the declared immutable release
+tag, and organization-controlled enablement of disabled targets. None blocks this repository's
+documentation alignment or implementation of its local consumer responsibilities. Live
+end-to-end enablement remains dependent on the receiver and applicable target enablement.
+
+No new repository-owned requirement or architecture decision remains before implementation can
+begin. Cross-repository compatibility and successful live result return remain unproven.

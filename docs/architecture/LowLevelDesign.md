@@ -28,7 +28,7 @@ Commands express intent and return a decision/result object; they do not expose 
 | CaptureWork | actor, provenance, structured intent, request ID | work identity, revision, violations |
 | AmendWork | identity, expected revision, patch, actor | new revision, approval impact, violations |
 | EvaluateReadiness | identity/revision | deterministic violations and required actions |
-| RecordApproval / RevokeApproval | actor, revision/digest, reason | recorded decision or denial |
+| RecordApproval / RevokeApproval | actor, current task identity, reason | recorded decision or denial |
 | InitiateRouting | identity, expected revision, request ID | accepted/rejected/ambiguous plus correlation |
 | ApplyExecutionEvent | authenticated envelope | applied/duplicate/stale/conflict/quarantined |
 | ReconcileHandoff | correlation or work identity | verified state and permitted next action |

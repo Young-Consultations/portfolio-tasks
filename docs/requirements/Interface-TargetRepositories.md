@@ -1,65 +1,51 @@
-# Interface Requirements — Target Repositories
+# Interface Requirements — target repositories
 
-## Purpose and responsibilities
+## Adapter contract and separation of authority
 
-This contract describes any registered repository targeted by portfolio work, including
-`portfolio-tasks` in its separate target-side role. The portfolio authorizes a task and initiates
-routing; the control plane routes; the target owns architecture, source changes, local validation,
-review, merge, release, deployment, and final engineering disposition; an executor acts only within
-the target's delegated boundary.
+Every eventual target adapter is `.github/workflows/codex-execute.yml`. It is reached only through
+the organization router; it cannot admit portfolio work directly, approve its own work, or bypass
+the router. This applies when `Young-Consultations/portfolio-tasks` acts as both the source-system
+owner and, through a separately bounded target adapter, the selected execution target.
 
-## Required inputs
+The target consumes the canonical execution input validated against
+`contracts/execution-input.schema.json@f2491872976a4dcc1633997954c03c07cbc4fced` and produces a
+separately transported result validated against
+`contracts/execution-result.schema.json@f2491872976a4dcc1633997954c03c07cbc4fced`. These direct,
+immutable files are authoritative; this repository MUST NOT invent fields, copy schemas, or assume
+a published contract package.
 
-Through the organization-owned contract, the target MUST receive a self-sufficient canonical task
-with stable identities, source/provenance, target, executor, approval evidence, objective/rationale,
-bounded requirements and scope, constraints, acceptance criteria, required validation/evidence,
-dependency snapshot, sensitivity decision, draft-only policy, and contract version. It MUST NOT
-need read access to portfolio or sibling repositories to interpret required behavior.
+## Exact reusable-workflow inputs
 
-## Required outputs and events
+| Input | Contract |
+| --- | --- |
+| `execution_input_json` | Required string containing the complete canonical `execution-input/v2` JSON. |
+| `concurrency_group` | Required concurrency value supplied by the routing transport. |
 
-The target MUST provide authenticated correlated acceptance/rejection, status sufficient to
-distinguish queued/executing/blocked/terminal conditions, and a terminal result containing outcome,
-attempt identity, target revision/branch where applicable, validation and test evidence, safe
-failure details, timestamps, and at most one draft publication reference. It SHOULD provide target
-owner disposition when contractually available. Exact transport belongs to the control plane.
+The obsolete name `execution_input` MUST NOT be used. The target sends its canonical result
+separately through the pinned result receiver and does not return the result directly to the
+router.
 
-## Required behavior
+## Registry behavior
 
-* Independently validate shared contract and target-local policy before effects.
-* Reject wrong target, unsupported executor/version, stale/invalid authority, sensitive or
-  ambiguous request, and any request for non-draft automated publication.
-* Treat task content and AI output as untrusted; enforce least privilege and target validation.
-* Preserve one logical execution/publication outcome for stable delivery identity; payload mismatch
-  is a conflict, not an update.
-* Never let automation approve, mark ready, merge, release, or deploy.
-* Preserve diagnostic evidence on failure without exposing secrets and never report unrun checks
-  as passed.
-* Accept bounded retry only with the same identity; state whether an uncertain attempt is safe to
-  retry. Support compatibility and deprecation rules owned by the organization contract.
+The authoritative four-entry registry snapshot, task-type permissions, common policy values, and
+enabled states are in [`../releases/next-mvp.md`](../releases/next-mvp.md). The only currently
+enabled target is `Young-Consultations/portfolio-tasks`; `.github`, `slugger`, and
+`consulting-playbook` fail closed until enabled by an organization-controlled decision. Unknown
+targets also fail closed. Merely documenting or selecting a disabled target does not enable it.
 
-## Ownership and onboarding
+## Required target behavior
 
-Each target owner SHALL publish registration, supported contract versions/executors, permissions,
-validation expectations, sensitive-data limits, concurrency policy, publication policy, service
-objectives, result capability, and escalation contact to the external control-plane owner. Target
-registration SHALL pass conformance tests before enablement and after material changes.
+* Validate the shared input and target-local policy before side effects.
+* Require the routed target identity, permitted task type, `draft_pr_only: true`, and router-supplied
+  concurrency group; treat task and AI content as untrusted.
+* Use `delivery_id` as branch identity and idempotency key, preserve it on retries, mark ownership
+  with `ai-sdlc-delivery-id`, and report terminal reuse as `duplicate-reused`.
+* Create or reuse at most one draft PR and report validation/tests honestly. Never approve, mark
+  ready, merge, release, deploy, or perform production operations.
+* Send the canonical result through the organization result receiver with `source_issue`; do not
+  treat transport acknowledgement as final success.
+* Fail closed on wrong target, invalid schema, prohibited task type, incompatible version, unknown
+  or disabled target, conflict, sensitive/ambiguous request, or non-draft publication request.
 
-## Assumptions, unknowns, and validation
-
-No target implementation is assumed. For every target, entry point, authentication, supported
-versions, size limits, executor availability, validation policy, concurrency, retry, cancellation,
-evidence format, result transport, retention, and incident response are external dependencies and
-MUST be validated before routing is enabled.
-
-
-## Next-MVP target enablement gate
-
-The only candidate targets are `Young-Consultations/.github`,
-`Young-Consultations/portfolio-tasks`, `Young-Consultations/slugger`, and
-`Young-Consultations/consulting-playbook`. Inclusion is not enablement. Each target owner and the
-`.github` contract owner MUST confirm registration, supported contract/executor,
-revision-bound approval validation independent of current labels, local validation, deterministic
-branch/publication reuse, result transport, and cancellation behavior. Each SHALL supply provider
-conformance evidence usable by the portfolio consumer fixture. Missing evidence is release-blocking
-for that target and SHALL fail closed, not cause invented field names or behavior.
+These are consumer requirements and do not claim that any sibling repository implements or
+conforms to the adapter.

@@ -28,7 +28,7 @@
 | Routing initiation | Portfolio request to the organization control plane to route an approved canonical task. |
 | Routing acceptance | External control-plane acknowledgment that a valid request has been accepted; not proof of execution or delivery. |
 | Pending routing | Durable dispatch intent exists but routing acceptance is not yet proven; timeout moves to reconciliation, not success or safe retry. |
-| Queued / accepted | A routed delivery is acknowledged and remains authorized by its bound approval evidence even if an approval label is replaced. |
+| Queued / accepted | A post-router-admission source projection; it is not authorization and cannot be submitted to the router. |
 | Draft PR available | A validated result identifies one open draft PR created or reused; it is not merge, delivery, or portfolio completion by itself. |
 | Completed | Portfolio consumption of a compatible terminal result is complete and the authoritative issue visibly identifies correlation and result; it does not mean merged, released, or deployed. |
 | Sensitive data | Credentials, secrets, regulated, client-restricted, export-controlled, personal, or other policy-restricted information. |

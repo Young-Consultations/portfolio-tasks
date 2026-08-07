@@ -20,7 +20,7 @@ sequenceDiagram
     H->>P: Approve work ID + observed revision + reason
     P->>G: Verify authority/readiness and compute digest
     G-->>P: Eligible
-    P->>I: Compare-and-set approval evidence
+    P->>I: Record internal human approval truth
     I-->>H: Approved revision or revision conflict
   end
 ```
@@ -57,7 +57,7 @@ sequenceDiagram
   P->>C: Canonical task
   C-->>P: Authenticated accepted receipt
   C->>T: Routed target task
-  T->>T: Validate bound approval evidence + target-local policy
+  T->>T: Validate canonical v2 input + target-local policy
   T-->>C: accepted / queued / executing
   T-->>C: terminal result + evidence + draft reference
   C-->>P: Correlated ordered events

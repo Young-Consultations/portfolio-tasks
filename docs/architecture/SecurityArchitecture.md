@@ -27,7 +27,7 @@ reconciler, target owner, reviewer and administrator remain distinct even when o
 several. Bot activity cannot satisfy human approval. Separation of duties is policy-configurable
 and unresolved risk classes fail closed.
 
-Approval evidence contains actor, authority basis, time, revision/digest, decision and reason.
+Rich approval audit evidence may contain actor, authority basis, time, revision information, decision, and reason internally; those values are not added as undeclared fields to the closed v2 inter-repository payload.
 Targets repeat shared and local authorization checks. Revocation/material edits prevent new
 initiation; cancellation of an already accepted attempt depends on a validated external contract.
 

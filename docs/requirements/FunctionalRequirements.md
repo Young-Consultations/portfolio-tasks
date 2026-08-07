@@ -149,22 +149,21 @@ result and assessed revision are auditable.
 ### FR-GOV-03 — Record explicit approval and revocation
 
 **Description.** The product MUST accept approval or revocation only from a currently authorized
-human, attribute the decision, bind it to a validated revision and target/executor, and make the
+human, attribute the decision, bind it to the current material task content and target/executor, and make the
 state visible. **Rationale:** execution needs accountable human consent. **Priority:** Must.
-**Dependencies:** identity/role policy, FR-GOV-02. **Inputs:** decision, actor, revision, optional
-rationale. **Outputs:** approved or revoked decision event. **Preconditions:** approver authorized;
+**Dependencies:** identity/role policy, FR-GOV-02. **Inputs:** decision, actor, current task identity, optional rationale. **Outputs:** approved or revoked decision event. **Preconditions:** approver authorized;
 approval requires readiness pass. **Postconditions:** approval may enable but does not itself prove
 routing acceptance; revocation stops future progress where control remains possible.
 
 * **AC-FR-GOV-03-1:** An automated identity or unauthorized human cannot approve.
-* **AC-FR-GOV-03-2:** Approval evidence shows approver, time, revision, target, executor, and policy.
+* **AC-FR-GOV-03-2:** The repository can audit the human decision internally; no undeclared rich approval fields are transported in v2.
 * **AC-FR-GOV-03-3:** Revocation is visible and prevents a not-yet-accepted handoff.
 
 **Related vision goals:** explicit approval, revocation, human authority.
 
 ### FR-GOV-04 — Invalidate stale approval
 
-**Description.** Any material change after approval SHALL invalidate execution eligibility until a
+**Description.** Any material change after approval SHALL create a new `task_id` and invalidate execution eligibility until a
 new readiness assessment and approval; nonmaterial changes MUST be defined and audited.
 **Rationale:** consent must match executed intent. **Priority:** Must. **Dependencies:** FR-INT-02,
 FR-GOV-03, material-change policy. **Inputs:** edit event. **Outputs:** retained approval history and
@@ -185,7 +184,7 @@ approval cannot authorize changed work.
 **Description.** The product SHALL construct a complete, target-specific, immutable-at-handoff task
 from the authoritative approved revision, including identity, provenance, objective, rationale,
 scope, requirements, constraints, acceptance/evidence needs, dependencies, sensitivity decision,
-target, executor, approval evidence, and contract version. It MUST NOT require target access to
+target, executor, schema-declared authorization state, and contract version. It MUST NOT require target access to
 portfolio or sibling repositories. **Rationale:** isolated execution needs self-contained context.
 **Priority:** Must. **Dependencies:** FR-GOV-02–04, organization contract. **Inputs:** approved
 snapshot. **Outputs:** canonical task or validation failure. **Preconditions:** current approval.
@@ -344,7 +343,7 @@ reporting period. **Outputs:** accessible report and export with calculation met
 ### FR-TGT-01 — Enforce target-local authorization
 
 **Description.** When `portfolio-tasks` is the target, it SHALL independently validate the shared
-contract, target identity, executor permission, source approval evidence, sensitivity, and
+contract, target identity, executor permission, schema-declared approval state, sensitivity, and
 draft-only constraint before execution. **Rationale:** targets retain policy authority.
 **Priority:** Must. **Dependencies:** organization contract, FR-RTE-01. **Inputs:** canonical
 execution request. **Outputs:** accepted for bounded execution or rejected with safe reason.

@@ -52,7 +52,7 @@ into this repository.
 
 ## Vision for portfolio-tasks
 
-Young-Consultations/portfolio-tasks is the governed portfolio front door for the organization’s AI-assisted software development lifecycle. It converts human intent into structured, prioritized, traceable work; preserves explicit human approval; and initiates authorized execution without becoming the executor or the owner of shared cross-repository contracts.
+Young-Consultations/portfolio-tasks is the governed portfolio front door for the organization’s AI-assisted software development lifecycle. It converts human intent into structured, prioritized, traceable work; preserves explicit human approval; and initiates authorized execution without owning shared cross-repository contracts. It may also be an execution target through a separately bounded adapter that has no approval or router-bypass authority.
 
 Its long-term direction is the organization’s portfolio operating layer: a dependable system for
 backlog health, strategic alignment, work decomposition, approval, routing readiness, execution

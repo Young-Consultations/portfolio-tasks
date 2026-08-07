@@ -5,97 +5,57 @@
 ```mermaid
 stateDiagram-v2
   [*] --> Proposed
-  Proposed --> ReadyForApproval: eligibility/readiness passes
-  ReadyForApproval --> Approved: authorized human + bound revision
-  Approved --> PendingRouting: initiation requested / gates rechecked
-  PendingRouting --> RouterAcceptedTargetPending: authenticated router acceptance
-  RouterAcceptedTargetPending --> QueuedAccepted: authenticated target acceptance
-  RouterAcceptedTargetPending --> FailedBlocked: authenticated target rejection
-  PendingRouting --> HandoffUncertain: timeout/ambiguous receipt
-  HandoffUncertain --> QueuedAccepted: reconciliation proves accepted
-  HandoffUncertain --> RouterAcceptedTargetPending: reconciliation proves router-only acceptance
-  HandoffUncertain --> PendingRouting: proves retry safe
-  QueuedAccepted --> Executing: valid target status
-  Executing --> DraftPRAvailable: validated draft result
-  DraftPRAvailable --> Completed: result consumed + source correlated
-  Executing --> Completed: allowed no-change result consumed
-  Proposed --> FailedBlocked: violation/dependency/sensitivity
-  ReadyForApproval --> FailedBlocked
-  Approved --> ReadyForApproval: material edit / stale authority
-  Approved --> WithdrawnCancelled: revoke before acceptance
-  PendingRouting --> ReadyForApproval: material edit / terminate pending routing effect
-  PendingRouting --> WithdrawnCancelled: revoke / terminate pending routing effect
-  RouterAcceptedTargetPending --> RouterAcceptedTargetPending: edit or revoke / request cancellation
-  RouterAcceptedTargetPending --> WithdrawnCancelled: cancellation confirmed
-  QueuedAccepted --> WithdrawnCancelled: confirmed cancellation
-  QueuedAccepted --> FailedBlocked: target or routing failure
-  Executing --> FailedBlocked: execution / validation failure
-  HandoffUncertain --> FailedBlocked: reconciliation requires human
-  FailedBlocked --> ReadyForApproval: cause resolved
-  Proposed --> Superseded: replacement linked
-  ReadyForApproval --> Superseded: replacement linked
-  Approved --> Superseded: replacement linked
+  Proposed --> ReadyForApproval: eligibility passes
+  ReadyForApproval --> Approved: human approves current material content
+  Approved --> PendingRouting: canonical approved task + explicit mode
+  PendingRouting --> Queued: router admission confirmed
+  PendingRouting --> Rejected: router rejects
+  PendingRouting --> Reconciliation: acknowledgement missing or ambiguous
+  Queued --> Executing: validated target status
+  Queued --> Reconciliation: result missing or delayed
+  Executing --> ResultTransport: canonical result sent
+  ResultTransport --> ReceiverValidated: receiver accepts
+  ResultTransport --> Reconciliation: receiver rejects / fail-closed / ambiguity
+  ReceiverValidated --> Completed: final outcome projected
+  Approved --> ReadyForApproval: material edit creates new task_id
+  PendingRouting --> Withdrawn: withdrawal prevents new effects
+  Queued --> CancellationPending: cancellation best effort
+  Executing --> CancellationPending: cancellation best effort
 ```
 
-These are semantic states; UI labels may differ only via an explicit versioned mapping. Labels are
-not authority. `RouterAcceptedTargetPending` records that the control-plane router durably accepted
-the handoff while the target has not yet accepted or rejected it; it is not `QueuedAccepted`.
-`Failed / blocked` requires a cause, correlation, next owner, and recovery action. `Completed` means
-the portfolio consumed a validated terminal result and displayed its correlation; it does not imply
-merged, released, or deployed. A material edit or revocation in `PendingRouting` invalidates the
-authorization, terminates the still-controlled pending routing effect, and prevents dispatch.
-After router acceptance, either event is instead a cancellation request: the accepted state is
-retained until the externally owned contract confirms cancellation, and a target rejection remains
-a valid terminal non-success response while cancellation is pending.
+`Approved` is the only router-admissible canonical task status. `Queued` is created only after
+router admission and is never fresh authorization. Router admission, delivery acceptance, target
+execution, result transport, receiver validation, and final outcome are distinct facts. A transport
+acknowledgement is not execution success. `Completed` means a receiver-validated canonical result
+has been projected; it does not mean merged, released, deployed, or production-ready.
 
-## Approval state
+## Approval and task identity
 
 | State | Entry | Exit / rule |
 | --- | --- | --- |
-| Not requested | intake or changed work | readiness allows request |
-| Eligible | all gates except human decision pass | approve, new violation, or material edit |
-| Approved-current | immutable authorized-human evidence matches revision/digest, target, executor, and policy | revoke, expire if policy defines, material edit, authority invalidation; label changes alone have no effect |
-| Revoked | attributable human revocation | new readiness evaluation and new approval |
-| Stale | material content/authority/policy change invalidates binding | never auto-restored; fresh approval required |
-| Denied | human denial with reason | governed amendment/reconsideration |
+| Not approved | intake, rejection, withdrawal, or changed work | current material content receives human approval |
+| Approved current task | human approves current material content and its exactly-one-target selection | dispatch, withdrawal, or material edit |
+| Superseded identity | any material edit after approval | create a new `task_id`; rerun readiness and obtain new approval |
 
-## Routing delivery state
+Rich approval provenance may be retained in repository-internal audit records. Approval ID,
+revision digest, approver, approval timestamp, revocation record, and freshness metadata are not
+transported as undeclared fields in the closed v2 schemas.
 
-```mermaid
-stateDiagram-v2
-  [*] --> Unreserved
-  Unreserved --> Reserved: delivery ID + digest persisted
-  Reserved --> Submitting
-  Submitting --> Accepted: verified receipt
-  Submitting --> Rejected: permanent rejection
-  Submitting --> Uncertain: timeout/indeterminate
-  Uncertain --> Accepted: query proves acceptance
-  Uncertain --> Reserved: query proves absent and retry safe
-  Uncertain --> ReconciliationRequired: inconclusive/exhausted
-  Accepted --> Terminal: correlated terminal result
-  Rejected --> [*]
-  Terminal --> [*]
-```
+## Delivery and result identity
 
-Same ID/same digest replay returns recorded state. Same ID/different digest transitions to conflict
-quarantine, not any normal state.
+`delivery_id` is the idempotency key. At-least-once retries for the same logical delivery preserve
+it and cause idempotent visible effects. `correlation_id` is the end-to-end observability identity.
+An identical duplicate result is a no-op; a conflicting duplicate is quarantined. Missing, delayed,
+rejected, or ambiguous results enter reconciliation rather than blind redispatch.
 
-## Target attempt state
+## Withdrawal and cancellation
 
-Valid semantic progression is `received → validating → accepted/queued → executing → draft PR
-available or failed/blocked/cancelled/allowed no-change`. Validation may yield rejected. A draft
-reference is evidence, not merged or delivered. The portfolio reaches `Completed` only after it
-consumes the authenticated compatible terminal result and exposes correlation on the source issue.
-Status never regresses; exact duplicate results are no-ops, divergent duplicates are quarantined,
-and late events are audited without changing state.
+Withdrawal while the source still controls execution prevents new side effects. After execution
+begins, cancellation is best effort and state remains honest about effects already started. A
+cancel request never rewrites prior authorization or implies that execution stopped.
 
-## Projection state
+## Projection discipline
 
-`unknown → current → stale/drifted → reconciling → current`, with `conflict` or `unavailable`
-requiring operator attention. Projection state is independent of portfolio approval/routing.
-
-## Entry/exit discipline
-
-Every transition records prior/new state, work revision, actor/service identity, cause, policy and
-contract version, correlation, timestamp and evidence reference. Exit effects are idempotent.
-Impossible transitions are rejected/quarantined and observable rather than coerced.
+Each source projection records the identities and evidence listed in the next-MVP baseline and
+never advances beyond the last validated fact. Impossible or out-of-order transitions are rejected
+or quarantined and made observable rather than coerced.
