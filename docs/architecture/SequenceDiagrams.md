@@ -63,7 +63,8 @@ sequenceDiagram
   T->>V: Canonical execution-result/v2 + source_issue
   V->>V: Authenticate; validate schema, source, and identity
   V-->>T: Transport accepted or fail closed
-  V-->>P: Receiver-validated correlated result
+  T->>P: Invoke portfolio result ingestion with receiver-validated result
+  P-->>T: Projection accepted, duplicate, or quarantined
   P->>D: Deduplicate and preserve audit
   P->>P: Consume result; show correlation + draft on source issue
   Note over C,V: The router does not receive or project the canonical result.
@@ -72,11 +73,13 @@ sequenceDiagram
   Note over R,P: Post-MVP disposition transport is not implied by this sequence.
 ```
 
-The receiver acknowledgement proves only transport acceptance. Portfolio completion requires a
-receiver-validated canonical result whose `execution_status` is projected separately from router
-admission, target acceptance, and result transport. The currently frozen receiver fails closed, so
-the successful receiver steps above are a planned interface sequence rather than a claim of live
-cross-repository conformance.
+The receiver acknowledgement and validated outputs return to its direct caller, the target; the
+receiver does not call the portfolio. Portfolio completion therefore requires a separate,
+authenticated target-to-portfolio result-ingestion invocation carrying the receiver-validated
+canonical result. That invocation projects `execution_status` separately from router admission,
+target acceptance, and result transport. The target-to-portfolio invocation is still a planned
+integration boundary, and the currently frozen receiver fails closed, so the successful result
+steps above are not a claim of live cross-repository conformance.
 
 ## Target publication create race
 
@@ -85,14 +88,17 @@ sequenceDiagram
   participant T as Target adapter
   participant G as GitHub
   participant Q as Ownership query
-  T->>Q: Query branch and open PRs by delivery_id + ai-sdlc-delivery-id
+  T->>Q: Query branch and PRs in all states by delivery_id + ai-sdlc-delivery-id
   Q-->>T: No owned publication
   T->>G: Create deterministic branch / draft PR
   G--xT: Already exists, conflict, or ambiguous response
-  T->>Q: Requery branch and open PRs by ownership identity
+  T->>Q: Requery branch and PRs in all states by ownership identity
   alt exactly one owned open draft PR
     Q-->>T: Unique managed publication
     T->>T: Reuse; do not create a second PR
+  else any owned closed or merged PR
+    Q-->>T: Historical managed publication
+    T->>T: Fail closed for manual intervention; do not recreate
   else no conclusive owned publication
     Q-->>T: Not found / uncertain
     T->>T: Stop and reconcile; do not blindly retry creation
@@ -104,8 +110,9 @@ sequenceDiagram
 
 A create conflict or ambiguous create response is not terminal evidence by itself. The adapter
 MUST requery using the deterministic `delivery_id` branch identity and `ai-sdlc-delivery-id`
-ownership marker. Only one uniquely owned open draft PR may be reused; absence or ambiguity fails
-closed without another visible effect.
+ownership marker across all pull-request states. Only one uniquely owned open draft PR may be
+reused. Any matching closed or merged PR fails closed even if its branch was deleted; absence or
+ambiguity also fails closed without another visible effect.
 
 ## Timeout, replay and reconciliation failure flow
 
