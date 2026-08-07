@@ -43,3 +43,11 @@ repositories, permissions, Projects, secrets, protection, and audit configuratio
 target owners own their records and policies. Unknown production tier, quotas, retention, audit
 features, token model, identity federation, Project field limits, and outage commitments MUST be
 validated. Platform unavailability SHALL preserve safe pending state and invoke `NFR-REC-*`.
+
+## Next-MVP CI boundary
+
+Normal CI SHALL replace GitHub mutation with a deterministic adapter that records intended target,
+branch, draft metadata, correlation, and result update. The test identity SHALL have no path that
+creates a real branch or pull request. Live-platform enablement separately requires organization
+administrator evidence for identity, permissions, event redelivery, and draft-only publication;
+mock success is not platform conformance.

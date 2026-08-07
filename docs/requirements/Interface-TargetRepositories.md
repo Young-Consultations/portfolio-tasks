@@ -51,3 +51,15 @@ No target implementation is assumed. For every target, entry point, authenticati
 versions, size limits, executor availability, validation policy, concurrency, retry, cancellation,
 evidence format, result transport, retention, and incident response are external dependencies and
 MUST be validated before routing is enabled.
+
+
+## Next-MVP target enablement gate
+
+The only candidate targets are `Young-Consultations/.github`,
+`Young-Consultations/portfolio-tasks`, `Young-Consultations/slugger`, and
+`Young-Consultations/consulting-playbook`. Inclusion is not enablement. Each target owner and the
+`.github` contract owner MUST confirm registration, supported contract/executor,
+revision-bound approval validation independent of current labels, local validation, deterministic
+branch/publication reuse, result transport, and cancellation behavior. Each SHALL supply provider
+conformance evidence usable by the portfolio consumer fixture. Missing evidence is release-blocking
+for that target and SHALL fail closed, not cause invented field names or behavior.

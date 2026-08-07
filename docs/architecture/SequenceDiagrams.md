@@ -57,12 +57,13 @@ sequenceDiagram
   P->>C: Canonical task
   C-->>P: Authenticated accepted receipt
   C->>T: Routed target task
-  T->>T: Shared + target-local validation
-  T-->>C: accepted / executing
+  T->>T: Validate bound approval evidence + target-local policy
+  T-->>C: accepted / queued / executing
   T-->>C: terminal result + evidence + draft reference
   C-->>P: Correlated ordered events
   P->>D: Deduplicate and preserve audit
-  P->>P: Link result; await human disposition
+  P->>P: Consume result; show correlation + draft on source issue
+  Note over P,T: Labels are projections, never cross-boundary authority.
   R->>T: Review / merge or reject decision
   T-->>C: Disposition (when contracted)
   C-->>P: Disposition evidence
@@ -135,3 +136,25 @@ sequenceDiagram
   Note over G,I: Project state never grants approval.
 ```
 
+
+
+## Revocation around dispatch
+
+```mermaid
+sequenceDiagram
+  actor H as Authorized human
+  participant P as Portfolio
+  participant C as Control plane
+  participant T as Target
+  alt before acceptance
+    H->>P: Revoke bound approval
+    P->>P: Withdraw dispatch eligibility
+  else after acceptance
+    H->>P: Revoke / request cancellation
+    P->>C: Cancellation request, same correlation
+    C->>T: Contracted cancellation request
+    T-->>C: stopped / completed / unable to cancel
+    C-->>P: Authenticated terminal fact
+    P->>P: Preserve approval history and project confirmed fact
+  end
+```

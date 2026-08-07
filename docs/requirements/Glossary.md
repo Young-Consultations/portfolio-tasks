@@ -3,6 +3,7 @@
 | Term | Definition |
 | --- | --- |
 | Approval | An explicit, attributable, current human decision permitting one bounded task to be routed; not priority, creation, editing, or Project placement. |
+| Approval evidence | Immutable decision evidence containing authorized human identity and authority basis, time, decision, revision/material digest, one target, executor, and policy version; labels are only projections of it. |
 | Approval freshness | Whether approval still applies to the current material content, target, executor, dependencies, risk, and constraints. |
 | Authoritative issue | The single `portfolio-tasks` GitHub Issue that governs an executable task. |
 | Bounded AI executor | An automation identity permitted to act only on an approved canonical task within the target and authority supplied. |
@@ -18,6 +19,7 @@
 | Fail closed | Stop automated progress when validity, authority, identity, sensitivity, scope, or compatibility is uncertain. |
 | Human approver | Authorized person who grants or revokes execution approval and cannot be replaced by automation. |
 | Idempotency | Repetition of an event or request produces no conflicting or duplicate business effect. |
+| At-least-once delivery with idempotent visible effects | A delivery may repeat; stable identity and digest ensure repeats reuse the same logical execution, publication, result, and source update. |
 | Material change | A change that can affect authorization, intended outcome, scope, target, executor, risk, dependencies, constraints, or acceptance criteria. |
 | Portfolio item | Any governed unit in the strategy-to-outcome hierarchy; not every item is executable. |
 | Priority | Human-owned relative importance or urgency; never execution authorization. |
@@ -25,6 +27,10 @@
 | Provenance | Evidence of where content and decisions originated, who/what changed them, and when. |
 | Routing initiation | Portfolio request to the organization control plane to route an approved canonical task. |
 | Routing acceptance | External control-plane acknowledgment that a valid request has been accepted; not proof of execution or delivery. |
+| Pending routing | Durable dispatch intent exists but routing acceptance is not yet proven; timeout moves to reconciliation, not success or safe retry. |
+| Queued / accepted | A routed delivery is acknowledged and remains authorized by its bound approval evidence even if an approval label is replaced. |
+| Draft PR available | A validated result identifies one open draft PR created or reused; it is not merge, delivery, or portfolio completion by itself. |
+| Completed | Portfolio consumption of a compatible terminal result is complete and the authoritative issue visibly identifies correlation and result; it does not mean merged, released, or deployed. |
 | Sensitive data | Credentials, secrets, regulated, client-restricted, export-controlled, personal, or other policy-restricted information. |
 | Source of truth | Record whose value governs resolution of disagreement for a defined datum. |
 | Target repository | Exactly one repository authorized to receive an executable task. |

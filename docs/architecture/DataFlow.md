@@ -5,7 +5,7 @@
 | Flow data | Source authority | Consumers | Required handling |
 | --- | --- | --- | --- |
 | Intent and revisions | Portfolio issue | governance, task builder, reporting | preserve provenance; classify/redact; revision checks |
-| Approval evidence | Authorized human decision on issue | routing gate, audit | immutable actor/time/revision/digest; never inferred |
+| Approval evidence | Authorized human decision on issue | routing gate, target, audit | immutable actor/time/revision/digest/target/executor/policy; never inferred from or revoked by labels |
 | Canonical task | Constructed portfolio command | control plane, target | versioned, authenticated, bounded, self-sufficient |
 | Routing receipt/status | Control plane | reconciliation, portfolio view | correlate, authenticate, order, deduplicate |
 | Execution evidence/result | Target through control plane | portfolio, reviewer, reporting | externally owned; validate and link, do not rewrite |
@@ -81,3 +81,11 @@ telemetry, Project/read-model changes, reports, alerts and human action queues.
 No cross-repository consumer may require undocumented access to internal persistence. Bulk exports
 and reports apply authorization, redaction, pagination, freshness and retention policy.
 
+
+
+## Next-MVP completion flow
+
+Delivery is at least once with idempotent visible effects, not exactly-once transport. A terminal
+result is not complete until validated correlation and outcome are projected onto the source issue;
+missing or ambiguous result state remains in reconciliation. Normal CI substitutes deterministic
+adapters for Codex, transport, branch creation, and draft-PR publication.

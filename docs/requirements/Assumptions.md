@@ -29,6 +29,10 @@ authority, or contract validity SHALL block the affected automation until resolv
 | WA-06 | Project freshness targets are feasible within quotas. | Objectives or projection design require approved change. | GitHub administrator; load/quota test. |
 | WA-07 | Slugger mirroring provides continuing business value. | Retire mirror interaction and simplify authority model. | Product and Slugger owners; value/process review. |
 | WA-08 | Initial scale and service objectives in NFRs cover three-year demand. | Capacity baseline requires revision. | Product/operations; forecast and load test. |
+| WA-09 | The expected `.github/docs/releases/next-mvp.md` selects a contract version and lifecycle compatible with this repository baseline. | Contract construction and every live route remain disabled. | `.github` owner; baseline review plus owner-pinned consumer/provider fixture. |
+| WA-10 | The organization contract supplies an authenticated result transport that can correlate a terminal result and draft link to the source issue. | Portfolio cannot reach `Completed`; reconciliation remains blocked. | `.github` owner; result conformance and timeout/ambiguity exercise. |
+| WA-11 | `.github`, `portfolio-tasks`, `slugger`, and `consulting-playbook` will each be explicitly enabled as Codex targets for the selected contract. | The affected target cannot participate; listing it does not enable it. | `.github` and each target owner; registry evidence and target conformance fixture. |
+| WA-12 | Targets can validate immutable revision-bound approval evidence without requiring a current approval label. | Mutable-label races could deny valid queued work or accept stale work. | `.github` and target owners; label-removal and material-edit conformance cases. |
 
 ## Unknowns and questions requiring clarification
 

@@ -90,3 +90,30 @@ snapshots; extensions use ports and pass provider/consumer and invariant suites.
 discipline versus safe independent evolution. **Consequences:** rollback/deprecation and policy
 version evidence are mandatory. **Open questions:** configuration owners and approval workflow.
 
+
+## ADR-011 — Approval evidence, not labels, carries authorization
+
+**Context:** Blueprint workflows route `status:approved`, add `status:queued`, then remove the
+approval label, while targets may recheck either label. That creates a mutable-label race.
+**Decision:** Immutable human approval evidence bound to revision/material digest, target, executor,
+and policy is authoritative. Labels only project lifecycle. Queued/accepted work remains authorized
+by that evidence; label replacement neither revokes nor grants authority. Material edits invalidate
+unaccepted approval. Revocation before acceptance stops dispatch; afterward it requests contracted
+cancellation without rewriting history. **Alternatives:** require approval label forever; transfer
+authority to a queued label; target rereads current labels. **Tradeoffs:** durable evidence and
+target validation are more complex but remove race-dependent authorization. **Consequences:**
+existing workflow behavior is migration evidence only; consumer fixtures must prove
+label-independent checks. **Open questions:** evidence representation and cancellation semantics
+require `.github` confirmation.
+
+## ADR-012 — Next-MVP interface lifecycle is simulated continuously
+
+**Context:** Cross-repository drift can break the approved-issue-to-draft-PR path, while normal CI
+must not invoke Codex or publish. **Decision:** `FR-CIV-01` defines a deterministic full-lifecycle
+consumer suite using contract fixtures and side-effect-free adapters. It asserts at-least-once
+delivery with idempotent visible effects, target/branch/draft/correlation/result identity, negative
+gates, recovery, and zero Codex/branch/PR effects. **Alternatives:** unit tests only; live Codex/PR
+smoke tests; exactly-once claims. **Tradeoffs:** fixtures require owner-pinned maintenance but make
+drift safe and reproducible. **Consequences:** provider fixture or lifecycle drift fails CI; live
+enablement still requires external conformance. **Open questions:** organization contract version,
+transport, lifecycle ordering, result path, and four target enablements.

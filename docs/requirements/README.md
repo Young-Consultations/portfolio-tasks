@@ -28,3 +28,14 @@ Changes to product authority, approval semantics, repository boundaries, or exte
 require review by the organization owner, portfolio owner, and affected repository owner. Every
 approved change shall update impacted requirements, acceptance criteria, interfaces, glossary,
 and traceability in the same change set.
+
+## Next-MVP selection
+
+[`../releases/next-mvp.md`](../releases/next-mvp.md) is the repository-level release selection. It
+lists the exact included and deferred requirement IDs, lifecycle/authorization decisions,
+continuous interface-validation requirement `FR-CIV-01`, acceptance scenario, external blockers,
+and exit criteria. The organization baseline is expected at
+`Young-Consultations/.github/docs/releases/next-mvp.md`; because it has not been inspected, contract
+version, result transport, lifecycle compatibility, and all four target enablements remain blocked
+pending owner confirmation. A `Must` priority outside the selected list is not automatically MVP
+scope.

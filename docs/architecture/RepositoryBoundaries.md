@@ -1,5 +1,10 @@
 # Repository Boundaries
 
+The next-MVP scope and blocking validation register are in
+[`../releases/next-mvp.md`](../releases/next-mvp.md). In particular, `portfolio-tasks` owns
+portfolio approval and dispatch even when it is also the selected target; its local target gateway
+uses a distinct responsibility, identity, authorization decision, and audit trail.
+
 ## Responsibility map
 
 | Capability/data | This repository | Organization control plane | Target repository | GitHub platform |
@@ -52,4 +57,3 @@ and local target roles. No adapter receives broader permissions than its operati
 boundary exchange is authenticated, versioned, bounded and correlated. Architectural review must
 reject changes that move shared control-plane responsibilities here or permit a projection to
 become authority.
-

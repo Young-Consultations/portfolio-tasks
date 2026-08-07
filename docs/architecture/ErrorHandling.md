@@ -12,6 +12,7 @@
 | Ambiguous handoff | timeout after possible acceptance | mark uncertain; query/reconcile; never blind retry |
 | Ordering/data integrity | stale/impossible/forged external event | duplicate no-op, stale audit-only, invalid/divergent quarantine |
 | Target execution | local validation/test/tool failure | correlated result with checks actually run and safe diagnostics; no false success |
+| Result timeout/ambiguity | missing, conflicting, or unqueryable terminal result | preserve last confirmed state; reconcile by correlation; expose owner and next action; never mark complete or mint a new delivery |
 | Projection/reporting | Project write failure, stale read model | isolate from authority; show freshness/drift and reconcile |
 | Internal defect | violated invariant/unclassified exception | stop affected unit, preserve safe evidence, alert; do not expose stack trace |
 

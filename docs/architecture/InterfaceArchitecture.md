@@ -57,3 +57,11 @@ objectives are **unknown until validated by their owners**. This document specif
 semantics only. Conformance fixtures must cover valid, incompatible, forged, stale, duplicate,
 divergent, out-of-order, oversize, sensitive and timeout cases before enabling an integration.
 
+
+## Next-MVP interface-validation profile
+
+The portfolio consumer fixture is normative for portfolio-owned semantics, while provider fixtures
+are owned by `.github` and each target. Exact contract version, transport, approval-evidence
+representation, result path, lifecycle ordering, and enablement are blocking unknowns. Normal CI
+wires these interfaces only to deterministic adapters and asserts that no Codex or real GitHub
+publication port is reachable. See `FR-CIV-01` in `docs/releases/next-mvp.md`.
