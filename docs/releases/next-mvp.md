@@ -119,6 +119,8 @@ beyond those actually published. Planned cases are:
 | `PT-MVP-TARGETS` | exercise all four selections; only the enabled registry entry can admit | FR-CLS-03, FR-RTE-02 |
 | `PT-MVP-DISABLED`, `PT-MVP-UNKNOWN` | disabled and unknown targets fail closed | FR-RTE-02, NFR-INT-02 |
 | `PT-MVP-DUP-DISPATCH`, `PT-MVP-RETRY-ID` | duplicate has one visible effect and retry preserves delivery ID | FR-RTE-03/04, NFR-REL-01/03 |
+| `PT-MVP-OWNERSHIP`, `PT-MVP-CREATE-RACE` | lookup uses deterministic branch identity plus `ai-sdlc-delivery-id`; a create conflict requeries and uniquely reuses one owned open draft PR | FR-TGT-02, FR-RTE-03, NFR-REL-01/03 |
+| `PT-MVP-CREATE-RACE-NONE`, `PT-MVP-CREATE-RACE-AMBIGUOUS` | post-conflict requery with no conclusive owner enters reconciliation; multiple/conflicting owners quarantine without another create or mutation | FR-TGT-02, FR-RTE-03/04, NFR-REL-01/03 |
 | `PT-MVP-RESULT`, `PT-MVP-RESULT-DUP`, `PT-MVP-RESULT-CONFLICT` | valid projection; identical duplicate no-op; conflicting duplicate quarantined | FR-OUT-01 |
 | `PT-MVP-RESULT-DELAY`, `PT-MVP-ROUTER-REJECT`, `PT-MVP-RECEIVER-CLOSED` | reconcile missing/delayed result; safely project router rejection; expect receiver fail-closed response | FR-RTE-04, FR-OUT-01 |
 | `PT-MVP-NOEFFECT` | no Codex call, real branch, or real pull request | FR-CIV-01, NFR-TST-02, NFR-AI-02 |
@@ -142,3 +144,10 @@ end-to-end enablement remains dependent on the receiver and applicable target en
 
 No new repository-owned requirement or architecture decision remains before implementation can
 begin. Cross-repository compatibility and successful live result return remain unproven.
+
+The checked-in `route-approved-task.yml` and `codex-execute.yml` predate this baseline and are
+nonconforming implementation inputs to the first implementation issue, not normative compatibility
+evidence. In particular, their legacy tag/package consumption, artifact transport inputs, live
+label recheck, and result handling MUST NOT be copied forward. Readiness here means the replacement
+can be implemented without choosing a new interface or lifecycle rule; it does not claim that the
+current workflows already conform.
