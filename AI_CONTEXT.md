@@ -158,7 +158,7 @@ python -m pytest --ignore=tests/test_codex_e2e.py
 python -m pytest tests/test_workflow_contract.py tests/test_workflow_compatibility.py
 python -m pytest tests/test_run_codex.py tests/test_codex_e2e.py
 env -u CODEX_API_KEY -u OPENAI_API_KEY bash tests/e2e/run_stubbed_codex_workflow.sh
-actionlint -shellcheck=
+$(go env GOPATH)/bin/actionlint -shellcheck=
 git diff --check
 ```
 
