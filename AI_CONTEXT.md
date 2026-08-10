@@ -17,9 +17,13 @@ Apply this order, highest authority first:
    constraints, interfaces, and acceptance conditions.
 3. Approved architecture, design documentation, and ADRs define structure, responsibility
    allocation, security boundaries, and architectural decisions.
-4. Current organization and repository interface documentation defines cross-repository
-   interactions and ownership boundaries.
-5. Code, workflows, schemas, tests, fixtures, packages, examples, and other implementation artifacts
+4. The approved [next-MVP release baseline](docs/releases/next-mvp.md) selects the requirements,
+   compatibility unit, interface lifecycle, target registry state, validation evidence, and
+   external blockers for the implementation increment. It narrows scope without overriding the
+   vision, requirements, or approved architecture.
+5. Versioned organization and repository interface documentation present in this repository
+   defines cross-repository interactions and ownership boundaries.
+6. Code, workflows, schemas, tests, fixtures, packages, examples, and other implementation artifacts
    are blueprints and evidence only.
 
 An existing or operating artifact never overrides a higher-authority source. Once deliberately
@@ -112,20 +116,31 @@ sources.
 
 ## Implementation authority and compatibility policy
 
+- For implementation decisions, the vision, approved requirements, approved architecture/design,
+  approved ADRs, applicable versioned interfaces, and approved next-MVP selection are the only
+  product and architectural authorities. Preserve the documented status of each source: a proposed
+  ADR is guidance at its recorded status, not an approved decision.
 - This project is pre-production and currently has **no backward-compatibility requirement**.
-- Existing implementation is a blueprint, not product authority. Reuse it only when it conforms to
-  approved requirements and design.
+- Existing source code, workflows, tests, fixtures, schemas, and operational examples are
+  implementation blueprints, not requirements or architectural authority. Reuse them only when
+  they conform to the authoritative sources.
 - Later tasks may modify, replace, or remove conflicting, duplicated, obsolete, or out-of-scope
   code, workflows, schemas, tests, fixtures, packages, and examples. Git history is the recovery
   mechanism for removed implementation and historical behavior.
-- The organization supports **exactly one active cross-repository contract and one current
-  execution path**. The local next-MVP record identifies release `2.2.0`, payload
+- The repository must converge on **one supported MVP contract and one active implementation path
+  for each responsibility**. The local next-MVP record identifies release `2.2.0`, payload
   `ai-sdlc-contract/v2`, at the immutable full SHA in the [release baseline](docs/releases/next-mvp.md).
   Repository-local interfaces must conform to this single contract as described locally.
-- Earlier shapes, compatibility adapters, legacy aliases, migration layers, dual-schema validation,
-  obsolete workflow inputs, and fallbacks must not remain active unless a future approved
-  requirement requires them. A version/discriminator may identify the one current payload without
-  requiring earlier-version support.
+- Do not preserve backward compatibility, deprecated execution paths, duplicate contracts,
+  wrappers, aliases, transitional structures, migration layers, dual-schema validation, obsolete
+  workflow inputs, or fallbacks unless an authoritative requirement explicitly requires them. A
+  version/discriminator may identify the one current payload without requiring earlier-version
+  support.
+- Never infer behavior, compatibility, access, readiness, or authority from a sibling repository.
+  A cross-repository assumption is usable only when an explicit, applicable, versioned interface or
+  release document in this repository states it. If implementation needs an external dependency
+  or fact that those local documents do not establish, fail closed and report a blocker; do not
+  invent the missing requirement or architecture.
 - Legacy-looking files are not automatically disposable; trace their disposition during the
   relevant implementation task.
 - This documentation task authorizes no deletion, implementation, workflow, or contract change.
@@ -140,9 +155,9 @@ conformance validation.
 
 `FR-CLS-04`, `FR-GOV-01`, `FR-OUT-02`, `FR-OUT-03`, `FR-PRJ-01`, `FR-PRJ-02`, and `FR-RPT-01` are
 deferred. Unlisted NFRs are later-release constraints, not waived or satisfied. Merge, release,
-deployment, production readiness, autonomous approval, and sibling implementation are out of
-scope. Only `Young-Consultations/portfolio-tasks` is enabled in the recorded registry; disabled and
-unknown targets fail closed.
+deployment, production operations, production-readiness claims, automatic merge, autonomous
+approval, and sibling implementation are out of scope. Only `Young-Consultations/portfolio-tasks`
+is enabled in the recorded registry; disabled and unknown targets fail closed.
 
 ## Development workflow
 
@@ -166,7 +181,9 @@ Do not invent or silently skip a required validator.
 
 ## Prompt rules
 
-Every future AI task must read this file, identify applicable approved requirement IDs,
+Before every implementation task, load and read this file completely, then follow its ordered
+document reading path and repository boundaries before inspecting implementation blueprints or
+proposing changes. Every future AI task must identify applicable approved requirement IDs,
 architecture/design sources, ADR status, interfaces, security constraints, and MVP selection, and
 evaluate implementation only as blueprints. Never silently change approved requirements,
 architecture, security boundaries, or the active contract. Report material contradictions rather
