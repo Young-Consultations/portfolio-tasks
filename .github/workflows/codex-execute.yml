@@ -40,6 +40,9 @@ jobs:
       mode: ${{ steps.admit.outputs.mode }}
       delivery_id: ${{ steps.admit.outputs.delivery_id }}
       payload_digest: ${{ steps.admit.outputs.payload_digest }}
+      branch: ${{ steps.admit.outputs.branch }}
+      correlation_id: ${{ steps.admit.outputs.correlation_id }}
+      ownership_marker: ${{ steps.admit.outputs.ownership_marker }}
     steps:
       - name: Authenticate and authorize organization router caller
         env:
@@ -85,7 +88,9 @@ jobs:
           jq -e --arg repo "$TARGET_REPOSITORY" \
             '.repositories[] | select(.repository == $repo and .enabled == true and .draft_pr_only == true)' \
             "$RUNNER_TEMP/contracts/codex-repositories.json" >/dev/null
-          jq -r '"mode=" + .mode, "delivery_id=" + .delivery_id, "payload_digest=" + .digest' \
+          jq -r '"mode=" + .mode, "delivery_id=" + .delivery_id, "payload_digest=" + .digest,
+            "branch=" + .branch, "correlation_id=" + .correlation_id,
+            "ownership_marker=" + .ownership_marker' \
             "$RUNNER_TEMP/admitted.json" >> "$GITHUB_OUTPUT"
 
   # Verify deliberately ends after complete admission and repository validation.  It has no
@@ -127,6 +132,8 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with: {python-version: "3.12", cache: pip}
       - run: python -m pip install '.[dev]'
+      - name: Install pinned actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
       - name: Execute Codex without publication or result credentials
         env:
           CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -134,8 +141,29 @@ jobs:
         run: |
           set -euo pipefail; set +x
           npm install --global @openai/codex@0.63.0
-          jq -r .instructions <<<"$EXECUTION_INPUT_JSON" | \
-            python -m portfolio_tasks.run_codex --working-directory "$GITHUB_WORKSPACE"
+          python - <<'PY' > "$RUNNER_TEMP/execution-prompt.md"
+          import json
+          import os
+          from pathlib import Path
+
+          from portfolio_tasks.prompts import render_execution_prompt
+
+          task = json.loads(os.environ["EXECUTION_INPUT_JSON"])
+          print(render_execution_prompt(
+              task_instructions=task["instructions"],
+              repository_context=Path("AI_CONTEXT.md").read_text(encoding="utf-8"),
+              validation_commands=[
+                  "ruff check .",
+                  "ruff format --check portfolio_tasks tests",
+                  "mypy portfolio_tasks",
+                  "python -m pytest",
+                  "git diff --check",
+                  '"$(go env GOPATH)/bin/actionlint" -shellcheck=',
+              ],
+          ))
+          PY
+          python -m portfolio_tasks.run_codex --working-directory "$GITHUB_WORKSPACE" \
+            < "$RUNNER_TEMP/execution-prompt.md"
       - name: Validate candidate before publication handoff
         run: |
           ruff check .
@@ -150,16 +178,140 @@ jobs:
           path: |
             .
             !.git
+          include-hidden-files: true
           retention-days: 1
+
+  publish:
+    if: needs.implement.result == 'success'
+    needs: [admission, implement]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      branch_name: ${{ steps.publish.outputs.branch_name }}
+      pull_request_url: ${{ steps.publish.outputs.pull_request_url }}
+      execution_status: ${{ steps.publish.outputs.execution_status }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: Young-Consultations/portfolio-tasks
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: candidate-${{ needs.admission.outputs.delivery_id }}
+          path: .
+      - name: Reconcile and publish one managed draft
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_PUBLICATION_TOKEN }}
+          BRANCH: ${{ needs.admission.outputs.branch }}
+          DELIVERY_ID: ${{ needs.admission.outputs.delivery_id }}
+          OWNERSHIP_MARKER: ${{ needs.admission.outputs.ownership_marker }}
+          REPOSITORY: ${{ env.TARGET_REPOSITORY }}
+        run: |
+          set -euo pipefail; set +x
+          marker="$OWNERSHIP_MARKER"
+
+          reconcile() {
+            gh api --paginate --slurp "repos/$REPOSITORY/pulls?state=open&per_page=100" \
+              | jq 'add' > "$RUNNER_TEMP/pulls.json"
+            jq --arg branch "$BRANCH" --arg marker "$marker" \
+              '[.[] | select(.head.ref == $branch or (.body // "" | contains($marker)))]' \
+              "$RUNNER_TEMP/pulls.json" > "$RUNNER_TEMP/candidates.json"
+            count="$(jq length "$RUNNER_TEMP/candidates.json")"
+            [[ "$count" -le 1 ]] || { echo 'ambiguous managed draft ownership' >&2; return 2; }
+            [[ "$count" -eq 1 ]] || return 1
+            jq -e --arg branch "$BRANCH" --arg marker "$marker" \
+              '.[0] | select(.head.ref == $branch and .draft == true and (.body // "" | contains($marker)))' \
+              "$RUNNER_TEMP/candidates.json" >/dev/null || {
+                echo 'conflicting managed draft ownership' >&2; return 2;
+              }
+            jq -r '.[0].html_url' "$RUNNER_TEMP/candidates.json"
+          }
+
+          if pull_url="$(reconcile)"; then
+            status=duplicate-reused
+          else
+            rc=$?
+            [[ "$rc" -eq 1 ]] || exit "$rc"
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git switch -C "$BRANCH"
+            rm -f codex-result.json codex-trace.log git-diff.patch
+            git add --all
+            git commit -m "codex: implement delivery $DELIVERY_ID"
+            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+            if ! git push --set-upstream origin "HEAD:$BRANCH"; then
+              pull_url="$(reconcile)" || exit $?
+              status=duplicate-reused
+            else
+              if ! pull_url="$(gh pr create --repo "$REPOSITORY" --head "$BRANCH" \
+                --title "Codex delivery $DELIVERY_ID" --body "$marker" --draft)"; then
+                pull_url="$(reconcile)" || exit $?
+                status=duplicate-reused
+              else
+                status=published
+              fi
+            fi
+          fi
+          printf 'branch_name=%s\npull_request_url=%s\nexecution_status=%s\n' \
+            "$BRANCH" "$pull_url" "$status" >> "$GITHUB_OUTPUT"
+
+  prepare-result:
+    if: ${{ always() && needs.admission.result != 'cancelled' }}
+    needs: [admission, verify, implement, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      execution_result: ${{ steps.result.outputs.execution_result }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: Young-Consultations/portfolio-tasks
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: {python-version: "3.12", cache: pip}
+      - name: Fetch the pinned result schema
+        env:
+          GH_TOKEN: ${{ secrets.CONTRACT_READ_TOKEN }}
+        run: |
+          set -euo pipefail; set +x
+          curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github.raw+json' \
+            "https://api.github.com/repos/Young-Consultations/.github/contents/contracts/execution-result.schema.json?ref=$COMPATIBILITY_SHA" \
+            > "$RUNNER_TEMP/execution-result.schema.json"
+      - name: Build and validate canonical execution-result/v2
+        id: result
+        env:
+          EXECUTION_INPUT_JSON: ${{ inputs.execution_input_json }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          IMPLEMENT_RESULT: ${{ needs.implement.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          PUBLICATION_STATUS: ${{ needs.publish.outputs.execution_status }}
+          BRANCH_NAME: ${{ needs.publish.outputs.branch_name }}
+          PULL_REQUEST_URL: ${{ needs.publish.outputs.pull_request_url }}
+          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m portfolio_tasks.target_adapter result \
+            "$RUNNER_TEMP/execution-result.schema.json" > "$RUNNER_TEMP/execution-result.json"
+          {
+            printf 'execution_result<<RESULT_EOF\n'
+            jq -c . "$RUNNER_TEMP/execution-result.json"
+            printf 'RESULT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
 
   # Publication and result transport are intentionally separate credential domains.  Live
   # enablement remains blocked until the pinned receiver ceases to be fail-closed.
   result:
     if: ${{ always() && needs.admission.result != 'cancelled' }}
-    needs: [admission, verify, implement]
+    needs: [admission, prepare-result]
     uses: Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@f2491872976a4dcc1633997954c03c07cbc4fced
     with:
-      execution_result: ${{ toJSON(needs) }}
+      execution_result: ${{ needs.prepare-result.outputs.execution_result }}
       source_issue: ${{ fromJSON(inputs.execution_input_json).source_issue }}
     secrets:
       CODEX_RESULT_TOKEN: ${{ secrets.CODEX_RESULT_TOKEN }}

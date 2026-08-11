@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -176,6 +177,52 @@ def verify_result(delivery: Admitted, *, workflow_url: str) -> dict[str, Any]:
     }
 
 
+def execution_result_from_environment() -> dict[str, Any]:
+    """Build the terminal contract result from trusted job outcomes and admitted input."""
+    raw = os.environ["EXECUTION_INPUT_JSON"]
+    payload = json.loads(raw)
+    delivery = Admitted(
+        payload=payload,
+        digest=canonical_digest(payload),
+        delivery_id=str(payload["delivery_id"]),
+        correlation_id=str(payload["correlation_id"]),
+        mode=str(payload["execution_mode"]),
+        source_issue=str(payload["source_issue"]),
+        branch=branch_for(str(payload["delivery_id"])),
+    )
+    workflow_url = os.environ["WORKFLOW_URL"]
+    if delivery.mode == "verify" and os.environ.get("VERIFY_RESULT") == "success":
+        return verify_result(delivery, workflow_url=workflow_url)
+
+    implement = os.environ.get("IMPLEMENT_RESULT")
+    publication = os.environ.get("PUBLISH_RESULT")
+    if delivery.mode == "implement" and implement == publication == "success":
+        return result_base(delivery, workflow_url=workflow_url) | {
+            "execution_status": os.environ["PUBLICATION_STATUS"],
+            "branch_name": os.environ["BRANCH_NAME"],
+            "pull_request_url": os.environ["PULL_REQUEST_URL"],
+            "validation_result": "passed",
+            "test_result": "passed",
+            "failure_category": None,
+            "failure_message": None,
+        }
+
+    failed_stage = (
+        "verification"
+        if delivery.mode == "verify"
+        else ("publication" if implement == "success" else "implementation")
+    )
+    return result_base(delivery, workflow_url=workflow_url) | {
+        "execution_status": "failed",
+        "branch_name": None,
+        "pull_request_url": None,
+        "validation_result": "failed",
+        "test_result": "failed",
+        "failure_category": f"{failed_stage}-failed",
+        "failure_message": f"Trusted {failed_stage} job did not complete successfully.",
+    }
+
+
 class ResultLedger:
     """Deterministic receiver double: identical replay is safe, conflict is rejected."""
 
@@ -196,8 +243,22 @@ def main() -> int:
     """Validate admission using schemas fetched from the pinned compatibility SHA."""
     from jsonschema import Draft202012Validator, FormatChecker  # type: ignore[import-untyped]
 
+    if len(sys.argv) == 3 and sys.argv[1] == "result":
+        schema = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        result = execution_result_from_environment()
+        try:
+            validator.validate(result)
+        except Exception as exc:
+            print(f"canonical execution result is invalid: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, sort_keys=True))
+        return 0
     if len(sys.argv) != 5 or sys.argv[1] != "admit":
-        print("usage: target_adapter admit INPUT SCHEMA CONCURRENCY_GROUP", file=sys.stderr)
+        print(
+            "usage: target_adapter admit INPUT SCHEMA CONCURRENCY_GROUP | result SCHEMA",
+            file=sys.stderr,
+        )
         return 64
     input_path, schema_path, group = sys.argv[2:]
     schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
@@ -213,7 +274,13 @@ def main() -> int:
     except AdmissionError as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    print(json.dumps(admitted.__dict__, sort_keys=True, default=str))
+    print(
+        json.dumps(
+            admitted.__dict__ | {"ownership_marker": ownership_marker(admitted)},
+            sort_keys=True,
+            default=str,
+        )
+    )
     return 0
 
 

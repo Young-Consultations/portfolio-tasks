@@ -159,9 +159,17 @@ def test_one_active_target_workflow_is_pinned_and_credential_separated() -> None
     assert "pull_request_target" not in text
     references = re.findall(r"(?:uses: )[^\s]+@([^\s]+)", text)
     assert references and all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in references)
-    codex_job = text[text.index("  implement:") : text.index("  result:")]
+    codex_job = text[text.index("  implement:") : text.index("  publish:")]
     assert "TARGET_PUBLICATION_TOKEN" not in codex_job
     assert "CODEX_RESULT_TOKEN" not in codex_job
+    publish_job = text[text.index("  publish:") : text.index("  prepare-result:")]
+    assert "TARGET_PUBLICATION_TOKEN" in publish_job
+    assert "CODEX_API_KEY" not in publish_job
+    assert "CODEX_RESULT_TOKEN" not in publish_job
+    assert "gh pr create" in publish_job and "--draft" in publish_job
+    assert "render_execution_prompt" in codex_job
+    assert "actionlint/cmd/actionlint@v1.7.7" in codex_job
+    assert "toJSON(needs)" not in text
 
 
 def test_normal_ci_has_no_codex_or_publication_effect() -> None:
