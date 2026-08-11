@@ -167,12 +167,11 @@ iterating and run the full applicable suite before completion:
 
 ```bash
 ruff check .
-ruff format --check tests/test_codex_e2e.py tests/test_workflow_contract.py tests/fixtures/fake_codex.py
+ruff format --check portfolio_tasks tests
 mypy portfolio_tasks
-python -m pytest --ignore=tests/test_codex_e2e.py
-python -m pytest tests/test_workflow_contract.py tests/test_workflow_compatibility.py
-python -m pytest tests/test_run_codex.py tests/test_codex_e2e.py
-env -u CODEX_API_KEY -u OPENAI_API_KEY bash tests/e2e/run_stubbed_codex_workflow.sh
+python -m pytest
+python -m pytest tests/test_workflow_contract.py
+python -m pytest tests/test_run_codex.py
 $(go env GOPATH)/bin/actionlint -shellcheck=
 git diff --check
 ```
