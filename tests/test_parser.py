@@ -8,5 +8,7 @@ def test_sections_stop_at_next_heading() -> None:
 
 
 def test_target_repository_rejects_injection() -> None:
-    assert TargetRepositoryParser.parse("Young-Consultations/slugger") == "Young-Consultations/slugger"
+    assert (
+        TargetRepositoryParser.parse("Young-Consultations/slugger") == "Young-Consultations/slugger"
+    )
     assert TargetRepositoryParser.parse("repo; touch /tmp/pwned") is None
