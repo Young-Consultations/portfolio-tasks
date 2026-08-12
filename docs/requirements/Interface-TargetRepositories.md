@@ -8,9 +8,9 @@ the router. This applies when `Young-Consultations/portfolio-tasks` acts as both
 owner and, through a separately bounded target adapter, the selected execution target.
 
 The target consumes the canonical execution input validated against
-`contracts/execution-input.schema.json@f2491872976a4dcc1633997954c03c07cbc4fced` and produces a
+`contracts/execution-input.schema.json@c6090e5bbadcc2102a1cb91875466e9decdada1e` and produces a
 separately transported result validated against
-`contracts/execution-result.schema.json@f2491872976a4dcc1633997954c03c07cbc4fced`. These direct,
+`contracts/execution-result.schema.json@c6090e5bbadcc2102a1cb91875466e9decdada1e`. These direct,
 immutable files are authoritative; this repository MUST NOT invent fields, copy schemas, or assume
 a published contract package.
 
@@ -25,13 +25,18 @@ The obsolete name `execution_input` MUST NOT be used. The target sends its canon
 separately through the pinned result receiver and does not return the result directly to the
 router.
 
-## Registry behavior
+## Capability and activation boundary
 
-The authoritative four-entry registry snapshot, task-type permissions, common policy values, and
-enabled states are in [`../releases/next-mvp.md`](../releases/next-mvp.md). The only currently
-enabled target is `Young-Consultations/portfolio-tasks`; `.github`, `slugger`, and
-`consulting-playbook` fail closed until enabled by an organization-controlled decision. Unknown
-targets also fail closed. Merely documenting or selecting a disabled target does not enable it.
+The pinned compatibility unit owns immutable target capabilities such as the supported contract,
+workflow interface, task types and modes, draft-only policy, concurrency, delivery and ownership
+semantics, and result behavior. Current enabled or disabled state is separate mutable `.github`
+control-plane activation state. The organization router enforces that state before dispatch.
+
+The target MUST NOT consume historical activation from the pinned compatibility unit, reject a
+request solely because its compatibility revision predates activation, or alter activation. An
+authenticated router call does not waive target-local validation of caller authority, exact target
+identity, schema and format, immutable capabilities, draft-only policy, transport concurrency,
+delivery identity, payload digest, idempotency, or publication ownership.
 
 ## Required target behavior
 
@@ -49,8 +54,10 @@ targets also fail closed. Merely documenting or selecting a disabled target does
   ready, merge, release, deploy, or perform production operations.
 * Send the canonical result through the organization result receiver with `source_issue`; do not
   treat transport acknowledgement as final success.
-* Fail closed on wrong target, invalid schema, prohibited task type, incompatible version, unknown
-  or disabled target, conflict, sensitive/ambiguous request, or non-draft publication request.
+* Fail closed on wrong target, invalid schema or format, prohibited task type or mode, incompatible
+  version, unauthorized caller, invalid concurrency or delivery identity, conflicting replay,
+  sensitive or ambiguous request, or non-draft publication request. Operational inactivity and
+  unknown route selection are router-side failures and do not create target-side activation policy.
 
 These are consumer requirements and do not claim that any sibling repository implements or
 conforms to the adapter.

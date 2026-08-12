@@ -67,7 +67,6 @@ def admit(
     *,
     caller_authenticated: bool,
     caller_authorized: bool,
-    enabled: bool = True,
 ) -> Admitted:
     """Validate the shared schema and every target-local gate before effects."""
     if not caller_authenticated or not caller_authorized:
@@ -88,8 +87,6 @@ def admit(
         raise AdmissionError("unsupported contract version")
     if value.get("target_repository") != TARGET:
         raise AdmissionError("delivery targets another repository")
-    if not enabled:
-        raise AdmissionError("target is disabled")
     if value.get("executor") != "codex" or value.get("draft_pr_only") is not True:
         raise AdmissionError("executor or draft-only policy conflict")
     mode = value.get("execution_mode")
@@ -221,22 +218,6 @@ def execution_result_from_environment() -> dict[str, Any]:
         "failure_category": f"{failed_stage}-failed",
         "failure_message": f"Trusted {failed_stage} job did not complete successfully.",
     }
-
-
-class ResultLedger:
-    """Deterministic receiver double: identical replay is safe, conflict is rejected."""
-
-    def __init__(self) -> None:
-        self._digests: dict[str, str] = {}
-
-    def deliver(self, result: dict[str, Any], validator: SchemaValidator) -> bool:
-        validator.validate(result)
-        delivery_id = str(result["delivery_id"])
-        digest = canonical_digest(result)
-        previous = self._digests.setdefault(delivery_id, digest)
-        if previous != digest:
-            raise OwnershipError("conflicting result redelivery")
-        return previous == digest
 
 
 def main() -> int:
