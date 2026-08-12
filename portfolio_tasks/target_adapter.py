@@ -222,7 +222,7 @@ def execution_result_from_environment() -> dict[str, Any]:
 
 def main() -> int:
     """Validate admission using schemas fetched from the pinned compatibility SHA."""
-    from jsonschema import Draft202012Validator, FormatChecker  # type: ignore[import-untyped]
+    from jsonschema import Draft202012Validator, FormatChecker, ValidationError  # type: ignore[import-untyped]
 
     if len(sys.argv) == 3 and sys.argv[1] == "result":
         schema = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
@@ -230,7 +230,7 @@ def main() -> int:
         result = execution_result_from_environment()
         try:
             validator.validate(result)
-        except Exception as exc:
+        except ValidationError as exc:
             print(f"canonical execution result is invalid: {exc}", file=sys.stderr)
             return 2
         print(json.dumps(result, sort_keys=True))

@@ -1,7 +1,7 @@
 """Contract and security tests for the sole canonical target adapter."""
 
-import json
 import inspect
+import json
 import re
 from pathlib import Path
 
