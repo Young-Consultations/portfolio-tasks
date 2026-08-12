@@ -35,6 +35,8 @@ and traceability in the same change set.
 lists the exact included and deferred requirement IDs, lifecycle/authorization decisions,
 continuous interface-validation requirement `FR-CIV-01`, acceptance scenario, external blockers,
 and exit criteria. The external organization compatibility unit is release `2.2.0`, payload version
-`ai-sdlc-contract/v2`, pinned to `f2491872976a4dcc1633997954c03c07cbc4fced`. The release baseline
-records its exact interfaces, registry states, receiver limitation, and fixture limitation. A `Must` priority outside the selected list is not automatically MVP
+`ai-sdlc-contract/v2`, pinned to `c6090e5bbadcc2102a1cb91875466e9decdada1e`. The release baseline
+records its exact interfaces, immutable target capabilities, complete shared fixture oracle, and
+result-receiver contract. Mutable target activation is separately owned and enforced by the
+organization router. A `Must` priority outside the selected list is not automatically MVP
 scope.

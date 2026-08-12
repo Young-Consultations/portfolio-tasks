@@ -1,6 +1,7 @@
 """Contract and security tests for the sole canonical target adapter."""
 
 import json
+import inspect
 import re
 from pathlib import Path
 
@@ -10,7 +11,6 @@ from portfolio_tasks.target_adapter import (
     AdmissionError,
     OwnershipError,
     Pull,
-    ResultLedger,
     admit,
     branch_for,
     canonical_digest,
@@ -57,6 +57,12 @@ def test_valid_modes(mode: str) -> None:
     assert accepted(execution_mode=mode).mode == mode
 
 
+def test_admission_has_no_target_activation_gate() -> None:
+    """Mutable activation belongs to the router, not the immutable target adapter."""
+    assert "enabled" not in inspect.signature(admit).parameters
+    assert accepted().payload["target_repository"] == "Young-Consultations/portfolio-tasks"
+
+
 @pytest.mark.parametrize(
     ("change", "kwargs"),
     [
@@ -65,12 +71,11 @@ def test_valid_modes(mode: str) -> None:
         ({"malformed": True}, {}),
         ({"task_type": "feature"}, {}),
         ({"draft_pr_only": False}, {}),
-        ({}, {"enabled": False}),
         ({}, {"caller_authorized": False}),
     ],
 )
 def test_admission_failures(change: dict[str, object], kwargs: dict[str, object]) -> None:
-    options = {"caller_authenticated": True, "caller_authorized": True, "enabled": True} | kwargs
+    options = {"caller_authenticated": True, "caller_authorized": True} | kwargs
     with pytest.raises(AdmissionError):
         admit(json.dumps(payload(**change)), "transport-group-0001", Validator(), **options)  # type: ignore[arg-type]
 
@@ -132,15 +137,6 @@ def test_verify_result_is_side_effect_free_and_preserves_identity() -> None:
     assert result["target_repository"] == delivery.payload["target_repository"]
 
 
-def test_identical_and_conflicting_result_redelivery() -> None:
-    result = verify_result(accepted(execution_mode="verify"), workflow_url="https://x.test/r/1")
-    ledger = ResultLedger()
-    assert ledger.deliver(result, Validator())
-    assert ledger.deliver(dict(result), Validator())
-    with pytest.raises(OwnershipError):
-        ledger.deliver(result | {"execution_status": "failed"}, Validator())
-
-
 def test_digest_is_canonical_and_diagnostics_are_not_identity() -> None:
     assert canonical_digest({"b": 2, "a": 1}) == canonical_digest({"a": 1, "b": 2})
 
@@ -154,7 +150,10 @@ def test_one_active_target_workflow_is_pinned_and_credential_separated() -> None
     text = workflows[1].read_text(encoding="utf-8")
     assert "execution_input_json:" in text and "execution_input:" not in text
     assert "concurrency_group:" in text
-    assert "f2491872976a4dcc1633997954c03c07cbc4fced" in text
+    assert "c6090e5bbadcc2102a1cb91875466e9decdada1e" in text
+    assert "f2491872976a4dcc1633997954c03c07cbc4fced" not in text
+    assert ".enabled == true" not in text
+    assert "timeout-minutes:" in text
     assert "ai-sdlc-delivery-id" not in text  # trusted Python owns marker semantics
     assert "pull_request_target" not in text
     references = re.findall(r"(?:uses: )[^\s]+@([^\s]+)", text)

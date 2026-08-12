@@ -28,12 +28,13 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  COMPATIBILITY_SHA: f2491872976a4dcc1633997954c03c07cbc4fced
+  COMPATIBILITY_SHA: c6090e5bbadcc2102a1cb91875466e9decdada1e
   TARGET_REPOSITORY: Young-Consultations/portfolio-tasks
 
 jobs:
   admission:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -52,7 +53,18 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$CALLER_REPOSITORY" == "Young-Consultations/.github" ]]
-          [[ ",${AUTHORIZED_ACTORS}," == *",${CALLER_ACTOR},"* ]]
+          [[ -n "$AUTHORIZED_ACTORS" && -n "$CALLER_ACTOR" ]]
+          authorized=false
+          IFS=',' read -ra actors <<< "$AUTHORIZED_ACTORS"
+          for actor in "${actors[@]}"; do
+            actor="${actor#"${actor%%[![:space:]]*}"}"
+            actor="${actor%"${actor##*[![:space:]]}"}"
+            if [[ -n "$actor" && "$actor" == "$CALLER_ACTOR" ]]; then
+              authorized=true
+              break
+            fi
+          done
+          [[ "$authorized" == true ]]
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: Young-Consultations/portfolio-tasks
@@ -85,8 +97,10 @@ jobs:
             "$RUNNER_TEMP/execution-input.json" \
             "$RUNNER_TEMP/contracts/execution-input.schema.json" \
             "$CONCURRENCY_GROUP" > "$RUNNER_TEMP/admitted.json"
+          # This immutable registry supplies capabilities only. Current activation is mutable
+          # control-plane state already enforced by the organization router before dispatch.
           jq -e --arg repo "$TARGET_REPOSITORY" \
-            '.repositories[] | select(.repository == $repo and .enabled == true and .draft_pr_only == true)' \
+            '.repositories[] | select(.repository == $repo and .draft_pr_only == true)' \
             "$RUNNER_TEMP/contracts/codex-repositories.json" >/dev/null
           jq -r '"mode=" + .mode, "delivery_id=" + .delivery_id, "payload_digest=" + .digest,
             "branch=" + .branch, "correlation_id=" + .correlation_id,
@@ -99,6 +113,7 @@ jobs:
     if: needs.admission.outputs.mode == 'verify'
     needs: admission
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -121,6 +136,7 @@ jobs:
     if: needs.admission.outputs.mode == 'implement'
     needs: admission
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
@@ -185,6 +201,7 @@ jobs:
     if: needs.implement.result == 'success'
     needs: [admission, implement]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     outputs:
@@ -262,6 +279,7 @@ jobs:
     if: ${{ always() && needs.admission.result != 'cancelled' }}
     needs: [admission, verify, implement, publish]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -304,12 +322,11 @@ jobs:
             printf 'RESULT_EOF\n'
           } >> "$GITHUB_OUTPUT"
 
-  # Publication and result transport are intentionally separate credential domains.  Live
-  # enablement remains blocked until the pinned receiver ceases to be fail-closed.
+  # Publication and result transport are intentionally separate credential domains.
   result:
     if: ${{ always() && needs.admission.result != 'cancelled' }}
     needs: [admission, prepare-result]
-    uses: Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@f2491872976a4dcc1633997954c03c07cbc4fced
+    uses: Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@c6090e5bbadcc2102a1cb91875466e9decdada1e
     with:
       execution_result: ${{ needs.prepare-result.outputs.execution_result }}
       source_issue: ${{ fromJSON(inputs.execution_input_json).source_issue }}

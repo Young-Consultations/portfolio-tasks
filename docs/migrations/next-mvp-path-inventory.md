@@ -14,19 +14,19 @@ release selection. Git history, rather than active files, preserves removed blue
 | Legacy dispatch validator, router gate, marker implementation, publication scripts, and tests | REMOVE | These existed only for the removed pre-baseline workflows and encoded local aliases/transport not required by the closed v2 contract. |
 | Organization schemas, registry, and shared fixtures | REMOVE / do not add | The control plane owns them. The release baseline requires direct immutable consumption and forbids a duplicate local authority. None is checked in. |
 | Proposed ADR collection | KEEP | It remains architectural guidance with its recorded **Proposed normative architecture** status; it is not represented as approved. |
-| Reporting, automated Project projection, merge/release/deploy, and disabled targets | DEFER | These are deferred, later-release, human-controlled, or externally enabled responsibilities and are not implemented by this cleanup. |
+| Reporting, automated Project projection, merge/release/deploy, and target activation | DEFER | These are deferred, later-release, human-controlled, or organization control-plane responsibilities and are not implemented by this cleanup. |
 
 ## Supported state after migration
 
 There is one documented contract selection: release `2.2.0`, payload `ai-sdlc-contract/v2`, at
-`f2491872976a4dcc1633997954c03c07cbc4fced`. There is intentionally no live consumer workflow until
-a replacement can implement that interface without the removed aliases or transports. CI and
-retained local utilities have no Codex, branch, pull-request, Project, sibling-write, router, or
-result-publication side effect.
+`c6090e5bbadcc2102a1cb91875466e9decdada1e`. The sole replacement target workflow is
+`.github/workflows/codex-execute.yml`; the removed aliases and transports remain unsupported. Normal
+CI and retained source-side utilities have no Codex, branch, pull-request, Project, sibling-write,
+router, or result-publication side effect.
 
 ## External dependencies
 
-Successful live result return is blocked by the organization result receiver's approved
-fail-closed skeleton. Complete executable expected-output fixtures, creation of the declared
-immutable release tag, and organization-controlled enablement of disabled targets also remain
-external. These gaps do not authorize a local contract copy or substitute workflow.
+The result receiver contract and complete executable `TC-MVP-CI-001` fixture oracle are available
+at the compatibility SHA. Current activation, credentials, and live operational readiness remain
+organization-owned external state and decisions. They do not authorize a local contract copy,
+activation check, result receiver, or substitute workflow.
