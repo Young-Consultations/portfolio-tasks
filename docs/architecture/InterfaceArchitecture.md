@@ -36,7 +36,7 @@ exception is a contract.
 ## Frozen next-MVP interface profile
 
 The authoritative schemas and workflows are consumed directly from
-`Young-Consultations/.github@f2491872976a4dcc1633997954c03c07cbc4fced` as detailed in
+`Young-Consultations/.github@c6090e5bbadcc2102a1cb91875466e9decdada1e` as detailed in
 [`../requirements/Interface-OrganizationControlPlane.md`](../requirements/Interface-OrganizationControlPlane.md).
 The router accepts required `task_payload`, explicitly supplied `execution_mode`, and
 `CODEX_ROUTER_TOKEN`; its outputs are `execution_result`, `correlation_id`, `delivery_id`,
@@ -60,8 +60,9 @@ draft publication reference. Missing evidence is `not supplied`, never success.
 
 ## Ownership and validation register
 
-Release `2.2.0`, payload version `ai-sdlc-contract/v2`, the four-entry registry, workflow signatures,
-and schema locations are frozen at the compatibility SHA. The receiver implementation and missing
-executable fixture/expected-output files are external dependencies. Normal CI uses deterministic
-local doubles and asserts no Codex call, real branch, or real PR. Documentation alignment and local
-consumer implementation can proceed without redesigning either external dependency.
+Release `2.2.0`, payload version `ai-sdlc-contract/v2`, target capability semantics, workflow
+signatures, schema locations, result-receiver contract, and complete executable fixture oracle are
+frozen at the compatibility SHA. Current target activation is separate mutable control-plane state
+that the router enforces before dispatch; it is not target-side compatibility policy. Normal CI
+uses the organization fixtures with deterministic local doubles and asserts no Codex call, real
+branch, or real PR.

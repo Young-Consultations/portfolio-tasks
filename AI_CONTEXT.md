@@ -148,7 +148,8 @@ sources.
 ## MVP boundaries
 
 The exact [next-MVP inclusion list](docs/releases/next-mvp.md) is authoritative. In summary: one
-revision-bound human-approved issue; canonical construction/routing to exactly one enabled target;
+revision-bound human-approved issue; canonical construction/routing to exactly one currently
+activated target;
 idempotent initiation/reconciliation; local authorization when this repository is the target; at
 most one created or reused draft PR; correlated result projection; and deterministic no-Codex local
 conformance validation.
@@ -156,8 +157,12 @@ conformance validation.
 `FR-CLS-04`, `FR-GOV-01`, `FR-OUT-02`, `FR-OUT-03`, `FR-PRJ-01`, `FR-PRJ-02`, and `FR-RPT-01` are
 deferred. Unlisted NFRs are later-release constraints, not waived or satisfied. Merge, release,
 deployment, production operations, production-readiness claims, automatic merge, autonomous
-approval, and sibling implementation are out of scope. Only `Young-Consultations/portfolio-tasks`
-is enabled in the recorded registry; disabled and unknown targets fail closed.
+approval, and sibling implementation are out of scope. Immutable compatibility records target
+capabilities but not current enabled or disabled state. Mutable activation is owned and enforced by
+the `.github` router before dispatch; target adapters neither read historical activation nor change
+it. Unknown or inactive selections fail closed at the router, while a dispatched target repeats its
+local identity, contract, schema, capability, draft-only, concurrency, delivery, and ownership
+checks.
 
 ## Development workflow
 
@@ -205,12 +210,11 @@ No material contradiction among approved repository-owned next-MVP sources was i
 these statuses and gaps rather than inventing solutions:
 
 - [ADR.md](docs/architecture/ADR.md) remains **Proposed normative architecture**, not approved.
-- The pinned result receiver is an approved fail-closed skeleton, so successful live result return
-  is currently impossible. Complete executable shared fixtures and creation of the declared
-  immutable release tag are also external dependencies. Local consumer implementation may proceed,
-  but live cross-repository conformance remains unproved.
-- `.github`, `slugger`, and `consulting-playbook` remain disabled targets until an
-  organization-controlled enablement decision.
+- The result receiver contract and complete executable `TC-MVP-CI-001` fixture oracle are available
+  at the pinned organization compatibility SHA. Local conformance still requires implementation
+  and deterministic evidence; live operational readiness is not inferred from artifact presence.
+- Current target activation is mutable organization control-plane state. This repository neither
+  records it as immutable compatibility nor changes or bypasses it.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or

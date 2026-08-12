@@ -4,15 +4,15 @@
 
 The next MVP consumes `Young-Consultations/.github` release `2.2.0`, payload version
 `ai-sdlc-contract/v2`, at the full immutable SHA
-`f2491872976a4dcc1633997954c03c07cbc4fced`. All workflow `uses:` references and direct schema-file
-consumption MUST use that SHA. The compatibility-unit file list and registry snapshot are recorded
+`c6090e5bbadcc2102a1cb91875466e9decdada1e`. All workflow `uses:` references and direct schema-file
+consumption MUST use that SHA. The compatibility-unit file list and capability semantics are recorded
 in [`../releases/next-mvp.md`](../releases/next-mvp.md). This repository consumes but does not copy,
 extend, or claim ownership of the closed organization schemas.
 
 ## Router
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-router.yml@f2491872976a4dcc1633997954c03c07cbc4fced`.
+`Young-Consultations/.github/.github/workflows/codex-router.yml@c6090e5bbadcc2102a1cb91875466e9decdada1e`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |
@@ -27,11 +27,13 @@ Reusable workflow:
 | output | `concurrency_group` | Routing transport concurrency value. |
 
 The complete canonical task is validated directly against
-`contracts/task-contract.schema.json@f2491872976a4dcc1633997954c03c07cbc4fced`. Only
+`contracts/task-contract.schema.json@c6090e5bbadcc2102a1cb91875466e9decdada1e`. Only
 `status: approved` is admissible. `queued` is a post-admission source projection and MUST be
 rejected if submitted to the router. At minimum, dispatch also requires
 `contract_version: ai-sdlc-contract/v2`, `executor: codex`, `dependencies: []`, and exactly one
-enabled registry target. Summaries here are subordinate to the schema.
+currently activated target. Activation is mutable control-plane state evaluated by the router; it
+is not frozen into the compatibility unit or delegated to the target adapter. Summaries here are
+subordinate to the schema and organization-owned capability and activation policy.
 
 Delivery is at least once with idempotent visible effects. `delivery_id` is the idempotency key and
 MUST remain stable on retry; `correlation_id` is the end-to-end observability identity. Router
@@ -41,7 +43,7 @@ and ambiguity retain the last proven state and enter reconciliation rather than 
 ## Result receiver
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@f2491872976a4dcc1633997954c03c07cbc4fced`.
+`Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@c6090e5bbadcc2102a1cb91875466e9decdada1e`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |
@@ -55,11 +57,10 @@ Reusable workflow:
 | output | `failure_category` | Safe failure category. |
 | output | `diagnostic_summary` | Sanitized diagnostic summary. |
 
-The checked-in receiver is an approved, fail-closed interface skeleton; it does not accept live
-results. Consumer documentation and implementation planning MAY depend on this frozen interface,
-but a successful live result-return test is currently impossible. Receiver implementation remains
-an organization-owned external dependency. `portfolio-tasks` MUST NOT redesign or locally replace
-it, and its current fail-closed behavior is not interpreted as consumer-contract incompatibility.
+The merged receiver contract at the compatibility SHA is authoritative for transport, validation,
+status vocabulary, acknowledgement, idempotency, and failure behavior. `portfolio-tasks` MUST NOT
+redesign or locally replace it and MUST NOT interpret transport acknowledgement as execution
+success.
 
 After receiver validation, `portfolio-tasks` owns source-issue projection as specified in the MVP
 release baseline. Identical duplicate results are no-ops; conflicting duplicates are quarantined;

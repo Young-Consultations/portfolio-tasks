@@ -16,20 +16,20 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 
 The one selected interface is organization release `2.2.0`, payload
 `ai-sdlc-contract/v2`, pinned at
-`f2491872976a4dcc1633997954c03c07cbc4fced`. Organization schemas, fixtures, registry, router,
-and result receiver remain organization-owned and are not copied into this repository.
+`c6090e5bbadcc2102a1cb91875466e9decdada1e`. Organization schemas, fixtures, target capabilities,
+router, and result receiver remain organization-owned and are not copied into this repository.
 
-No live routing or target-execution workflow is enabled in this repository yet. The former
-workflows used a pre-baseline tag, an undocumented package/checkout transport, mutable live-label
-authorization, and local result publication. Keeping those workflows active could cause a second
-execution or publication outside the selected contract, so they were removed rather than described
-as supported. A conforming implementation must use the pinned router and separate result receiver,
-consume schemas directly at the compatibility SHA, accept only the documented v2 interface, and
-fail closed while the organization receiver remains unable to accept successful live results.
+The sole reusable target adapter is [`.github/workflows/codex-execute.yml`](.github/workflows/codex-execute.yml).
+It accepts only `execution_input_json` and the router's `concurrency_group`, consumes immutable
+schemas and target capabilities directly at the compatibility SHA, independently gates the
+organization caller, and keeps
+Codex isolated from publication and result credentials. The prior dispatch, artifact-input,
+mutable-label, and local-result paths remain removed; there is no supported alias.
 
-The retained Python code is limited to deterministic intake parsing and target-side implementation
-utilities (prompt rendering, trusted validation, and the Codex subprocess boundary). These
-utilities are not an alternate router, contract, approval mechanism, or publication path.
+The target policy core validates local admission, derives publication ownership solely from
+`delivery_id`, binds that identity to the canonical payload digest, and fails closed on ambiguous
+draft ownership or conflicting result replay. It is not an alternate router, contract owner,
+approval mechanism, or sibling publication path.
 
 GitHub Projects synchronization and Slugger issue mirroring are not part of the selected MVP:
 `FR-PRJ-01` and `FR-PRJ-02` are deferred, and direct sibling synchronization conflicts with the
@@ -52,13 +52,14 @@ git diff --check
 ```
 
 CI uses deterministic local tests and does not invoke Codex, create a branch, publish a pull
-request, route cross-repository work, or require organization-owned fixtures that have not been
-published.
+request, or route cross-repository work. The complete organization-owned `TC-MVP-CI-001` fixture
+oracle at the compatibility SHA is the required shared conformance source.
 
 ## External blockers
 
-Live next-MVP enablement remains blocked by the organization-owned result receiver's approved
-fail-closed skeleton, publication of complete executable `TC-MVP-CI-001` fixtures, and any required
-target enablement. The declared release tag is also not yet created; consumers must use the full
-compatibility SHA regardless. These dependencies must be resolved by their owners and must not be
-reimplemented locally.
+The merged result receiver contract and complete executable `TC-MVP-CI-001` oracle are consumed
+from the compatibility SHA. Current target activation is separate mutable `.github` control-plane
+state enforced by the router; this repository neither pins nor changes it. Administrators must
+configure the router actor allowlist and separately scoped contract, Codex, publication, and result
+credentials before a live call. Operational readiness and activation remain owner decisions and
+must not be inferred from, or reimplemented alongside, immutable compatibility artifacts.
