@@ -25,6 +25,14 @@ jobs:
           ruff format --check portfolio_tasks tests
           mypy portfolio_tasks
       - run: python -m pytest
+      - name: Regenerate deterministic conformance evidence
+        run: |
+          python -m portfolio_tasks.conformance
+          git diff --exit-code -- conformance/reports/tc-mvp-ci-001-v1.json
+      - name: Repository security and effect-trap checks
+        run: |
+          python -m pytest tests/test_conformance.py tests/test_workflow_contract.py
+          git diff --check
 
   actionlint:
     name: actionlint
