@@ -7,9 +7,9 @@ scenario names are the portfolio/target projections selected by the approved loc
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from collections.abc import Callable
 
 from portfolio_tasks.source_lifecycle import (
     Approval,
