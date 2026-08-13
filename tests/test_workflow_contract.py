@@ -146,6 +146,8 @@ def test_one_active_target_workflow_is_pinned_and_credential_separated() -> None
     assert workflows == (
         Path(".github/workflows/ci.yml"),
         Path(".github/workflows/codex-execute.yml"),
+        Path(".github/workflows/project-execution-result.yml"),
+        Path(".github/workflows/route-approved-task.yml"),
     )
     text = workflows[1].read_text(encoding="utf-8")
     assert "execution_input_json:" in text and "execution_input:" not in text
