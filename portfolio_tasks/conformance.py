@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 from portfolio_tasks.source_lifecycle import (
     Approval,
