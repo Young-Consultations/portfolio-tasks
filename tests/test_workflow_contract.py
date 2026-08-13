@@ -177,3 +177,33 @@ def test_normal_ci_has_no_codex_or_publication_effect() -> None:
     text = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
     for forbidden in ("OPENAI_API_KEY", "git push", "gh pr create", "codex exec"):
         assert forbidden not in text
+
+
+def test_admission_rereads_and_revision_binds_authoritative_issue() -> None:
+    text = Path(".github/workflows/route-approved-task.yml").read_text(encoding="utf-8")
+    construct = text[text.index("      - name: Construct current canonical approved revision") :]
+    assert 'gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE"' in construct
+    assert "current-issue.json" in construct
+    assert 'issue.get("updated_at") != os.environ["EVENT_UPDATED_AT"]' in construct
+    assert '"status:approved" not in labels' in construct
+    assert 'form.value("Execution status") != "approved"' in construct
+    assert "toJSON(github.event.issue)" not in construct
+
+
+def test_receiver_validation_is_followed_by_portfolio_projection() -> None:
+    target = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
+    assert "  project-result:" in target
+    projection = target[target.index("  project-result:") :]
+    assert "needs.result.outputs.accepted == 'true'" in projection
+    assert "uses: ./.github/workflows/project-execution-result.yml" in projection
+    assert "needs.prepare-result.outputs.execution_result" in projection
+    assert "PORTFOLIO_RESULT_TOKEN: ${{ secrets.PORTFOLIO_RESULT_TOKEN }}" in projection
+
+
+def test_projection_mutates_only_the_portfolio_repository() -> None:
+    text = Path(".github/workflows/project-execution-result.yml").read_text(encoding="utf-8")
+    assert "repository: Young-Consultations/portfolio-tasks" in text
+    assert "PORTFOLIO_REPOSITORY: Young-Consultations/portfolio-tasks" in text
+    apply = text[text.index("      - name: Apply once") :]
+    assert "repos/$GITHUB_REPOSITORY/issues/" not in apply
+    assert "repos/$PORTFOLIO_REPOSITORY/issues/" in apply

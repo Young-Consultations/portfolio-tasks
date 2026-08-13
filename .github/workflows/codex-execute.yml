@@ -20,6 +20,8 @@ on:
         required: true
       CODEX_RESULT_TOKEN:
         required: true
+      PORTFOLIO_RESULT_TOKEN:
+        required: true
 
 permissions: {}
 
@@ -332,3 +334,14 @@ jobs:
       source_issue: ${{ fromJSON(inputs.execution_input_json).source_issue }}
     secrets:
       CODEX_RESULT_TOKEN: ${{ secrets.CODEX_RESULT_TOKEN }}
+
+  project-result:
+    if: needs.result.outputs.accepted == 'true'
+    needs: [prepare-result, result]
+    uses: ./.github/workflows/project-execution-result.yml
+    with:
+      execution_result: ${{ needs.prepare-result.outputs.execution_result }}
+      source_issue: ${{ fromJSON(inputs.execution_input_json).source_issue }}
+      receiver_accepted: ${{ needs.result.outputs.accepted == 'true' }}
+    secrets:
+      PORTFOLIO_RESULT_TOKEN: ${{ secrets.PORTFOLIO_RESULT_TOKEN }}

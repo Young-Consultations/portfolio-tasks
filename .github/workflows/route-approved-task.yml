@@ -56,16 +56,29 @@ jobs:
       - name: Construct current canonical approved revision
         id: task
         env:
-          ISSUE_JSON: ${{ toJSON(github.event.issue) }}
+          GH_TOKEN: ${{ secrets.PORTFOLIO_ISSUE_TOKEN }}
+          EVENT_UPDATED_AT: ${{ github.event.issue.updated_at }}
+          ISSUE: ${{ github.event.issue.number }}
         run: |
-          set -euo pipefail
+          set -euo pipefail; set +x
+          # The webhook payload is only the event snapshot. Fetch the authoritative issue at the
+          # point of use so a delayed/redelivered approval cannot route an edited revision.
+          gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" > "$RUNNER_TEMP/current-issue.json"
           python - <<'PY'
           import json, os
           from portfolio_tasks.issue_parser import IssueFormParser, TargetRepositoryParser
           from portfolio_tasks.source_lifecycle import Approval, SourceRevision, canonical_task
 
-          issue = json.loads(os.environ["ISSUE_JSON"])
+          with open(os.environ["RUNNER_TEMP"] + "/current-issue.json", encoding="utf-8") as stream:
+              issue = json.load(stream)
+          labels = {label["name"] for label in issue.get("labels", [])}
+          if issue.get("state") != "open" or "status:approved" not in labels:
+              raise SystemExit("current issue is not open and approved")
+          if issue.get("updated_at") != os.environ["EVENT_UPDATED_AT"]:
+              raise SystemExit("approval event does not match the current issue revision")
           form = IssueFormParser(issue.get("body") or "")
+          if form.value("Execution status") != "approved":
+              raise SystemExit("current issue body is not approved")
           source = f'{os.environ["GITHUB_REPOSITORY"]}#{issue["number"]}'
           target = TargetRepositoryParser.parse(form.value("Target repository")) or ""
           mode = form.value("Execution mode")
