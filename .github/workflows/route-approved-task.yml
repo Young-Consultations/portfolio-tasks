@@ -1,0 +1,140 @@
+name: Admit approved portfolio task
+
+on:
+  issues:
+    types: [labeled, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: portfolio-admission-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  # An edit can never reuse the earlier approval. Removing the projection label is not the audit
+  # record; issue history retains the edit and approval events and a later approval produces a new
+  # content-derived task identity.
+  invalidate-material-edit:
+    if: github.event.action == 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invalidate approval projection before any new effect
+        env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_ISSUE_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail; set +x
+          gh api --method DELETE \
+            "repos/$GITHUB_REPOSITORY/issues/$ISSUE/labels/status%3Aapproved" --silent || true
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$ISSUE/labels" \
+            -f 'labels[]=status:proposed' >/dev/null
+
+  prepare:
+    if: github.event.action == 'labeled' && github.event.label.name == 'status:approved'
+    runs-on: ubuntu-latest
+    outputs:
+      task_payload: ${{ steps.task.outputs.task_payload }}
+      execution_mode: ${{ steps.task.outputs.execution_mode }}
+      issue: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: {python-version: "3.12", cache: pip}
+      - run: python -m pip install --disable-pip-version-check .
+      - name: Require an explicitly authorized human approver
+        env:
+          ACTOR: ${{ github.actor }}
+          AUTHORIZED_APPROVERS: ${{ vars.PORTFOLIO_APPROVERS }}
+        run: |
+          set -euo pipefail
+          [[ -n "$ACTOR" && -n "$AUTHORIZED_APPROVERS" ]]
+          tr ',' '\n' <<< "$AUTHORIZED_APPROVERS" | sed 's/^ *//;s/ *$//' | grep -Fx -- "$ACTOR" >/dev/null
+          [[ "$ACTOR" != *'[bot]' ]]
+      - name: Construct current canonical approved revision
+        id: task
+        env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_ISSUE_TOKEN }}
+          EVENT_UPDATED_AT: ${{ github.event.issue.updated_at }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail; set +x
+          # The webhook payload is only the event snapshot. Fetch the authoritative issue at the
+          # point of use so a delayed/redelivered approval cannot route an edited revision.
+          gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" > "$RUNNER_TEMP/current-issue.json"
+          python - <<'PY'
+          import json, os
+          from portfolio_tasks.issue_parser import IssueFormParser, TargetRepositoryParser
+          from portfolio_tasks.source_lifecycle import Approval, SourceRevision, canonical_task
+
+          with open(os.environ["RUNNER_TEMP"] + "/current-issue.json", encoding="utf-8") as stream:
+              issue = json.load(stream)
+          labels = {label["name"] for label in issue.get("labels", [])}
+          if issue.get("state") != "open" or "status:approved" not in labels:
+              raise SystemExit("current issue is not open and approved")
+          if issue.get("updated_at") != os.environ["EVENT_UPDATED_AT"]:
+              raise SystemExit("approval event does not match the current issue revision")
+          form = IssueFormParser(issue.get("body") or "")
+          if form.value("Execution status") != "approved":
+              raise SystemExit("current issue body is not approved")
+          source = f'{os.environ["GITHUB_REPOSITORY"]}#{issue["number"]}'
+          target = TargetRepositoryParser.parse(form.value("Target repository")) or ""
+          mode = form.value("Execution mode")
+          material = {
+              "priority": form.value("Priority"),
+              "project": form.value("Project"),
+              "parallel_safe": form.value("Parallel-safe") == "yes",
+              "task_type": form.value("Task type").lower().replace("/", "-").replace(" ", "-"),
+              "instructions": issue.get("body") or "",
+          }
+          revision = SourceRevision(
+              source, material, form.value("Execution status"), target, mode,
+              executor=form.value("Executor"),
+              dependencies=() if form.value("Dependency issue references").lower() == "none" else ("unresolved",),
+              sensitivity=form.value("Sensitivity declaration"),
+          )
+          task = canonical_task(revision, Approval(revision.task_id, os.environ["GITHUB_ACTOR"], True))
+          output = os.environ["GITHUB_OUTPUT"]
+          with open(output, "a", encoding="utf-8") as stream:
+              stream.write("task_payload=" + json.dumps(task, separators=(",", ":")) + "\n")
+              stream.write("execution_mode=" + mode + "\n")
+          PY
+
+  route:
+    needs: prepare
+    uses: Young-Consultations/.github/.github/workflows/codex-router.yml@c6090e5bbadcc2102a1cb91875466e9decdada1e
+    with:
+      task_payload: ${{ needs.prepare.outputs.task_payload }}
+      execution_mode: ${{ needs.prepare.outputs.execution_mode }}
+    secrets:
+      CODEX_ROUTER_TOKEN: ${{ secrets.CODEX_ROUTER_TOKEN }}
+
+  project-admission:
+    needs: [prepare, route]
+    if: needs.route.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Project queued only after router admission
+        env:
+          GH_TOKEN: ${{ secrets.PORTFOLIO_ISSUE_TOKEN }}
+          ISSUE: ${{ needs.prepare.outputs.issue }}
+          TASK_PAYLOAD: ${{ needs.prepare.outputs.task_payload }}
+          DELIVERY_ID: ${{ needs.route.outputs.delivery_id }}
+          CORRELATION_ID: ${{ needs.route.outputs.correlation_id }}
+        run: |
+          set -euo pipefail; set +x
+          task_id="$(jq -er '.task_id' <<< "$TASK_PAYLOAD")"
+          target="$(jq -er '.target_repository' <<< "$TASK_PAYLOAD")"
+          marker="<!-- ai-sdlc-admission: task=$task_id; delivery=$DELIVERY_ID; correlation=$CORRELATION_ID; target=$target -->"
+          comments="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments?per_page=100")"
+          if ! jq -e --arg marker "$marker" 'any(.[]; (.body // "") | contains($marker))' \
+              <<< "$comments" >/dev/null; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" \
+              -f body="$marker" >/dev/null
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$ISSUE/labels" \
+            -f 'labels[]=status:queued' >/dev/null
+          gh api --method DELETE \
+            "repos/$GITHUB_REPOSITORY/issues/$ISSUE/labels/status%3Aapproved" --silent || true

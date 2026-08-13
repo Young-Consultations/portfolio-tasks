@@ -73,6 +73,29 @@ body:
       required: true
 
   - type: dropdown
+    id: execution_mode
+    attributes:
+      label: Execution mode
+      description: Select the explicit operation requested from the organization router.
+      options:
+        - verify
+        - implement
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sensitivity
+    attributes:
+      label: Sensitivity declaration
+      description: Automation is allowed only when an authorized reviewer can classify the task as not sensitive.
+      options:
+        - review-required
+        - not-sensitive
+        - sensitive
+    validations:
+      required: true
+
+  - type: dropdown
     id: parallel_safe
     attributes:
       label: Parallel-safe

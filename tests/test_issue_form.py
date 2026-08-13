@@ -11,6 +11,8 @@ def test_chatgpt_issue_form_contract() -> None:
         "executor",
         "execution_status",
         "target_repository",
+        "execution_mode",
+        "sensitivity",
         "parallel_safe",
         "dependency_issue_references",
         "risk",
