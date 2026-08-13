@@ -10,9 +10,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any
 
 CONTRACT = "ai-sdlc-contract/v2"
 SUPPORTED_TARGETS = frozenset(
