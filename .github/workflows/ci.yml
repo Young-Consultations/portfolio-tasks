@@ -27,8 +27,7 @@ jobs:
       - run: python -m pytest
       - name: Regenerate deterministic conformance evidence
         run: |
-          python -m portfolio_tasks.conformance
-          git diff --exit-code -- conformance/reports/tc-mvp-ci-001-v1.json
+          python -m portfolio_tasks.conformance --check
       - name: Repository security and effect-trap checks
         run: |
           python -m pytest tests/test_conformance.py tests/test_workflow_contract.py

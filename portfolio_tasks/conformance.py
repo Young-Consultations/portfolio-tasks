@@ -32,8 +32,12 @@ from portfolio_tasks.target_adapter import (
 
 COMPATIBILITY_SHA = "c6090e5bbadcc2102a1cb91875466e9decdada1e"
 FIXTURE_SET = "TC-MVP-CI-001"
-ADAPTER_REVISION = "portfolio-tasks-conformance/v1"
+ADAPTER_REVISION = "portfolio-tasks-conformance/v2"
 REPOSITORY = "Young-Consultations/portfolio-tasks"
+
+
+class ConformanceFailure(RuntimeError):
+    """A deterministic adapter expectation was not met."""
 
 
 class _Validator:
@@ -52,7 +56,9 @@ class Effects:
     secret_outputs: int = 0
 
     def assert_trapped(self) -> None:
-        assert all(value == 0 for value in asdict(self).values())
+        observed = {name: value for name, value in asdict(self).items() if value != 0}
+        if observed:
+            raise ConformanceFailure(f"trapped effects were invoked: {sorted(observed)}")
 
 
 def _revision(**changes: object) -> SourceRevision:
@@ -100,16 +106,15 @@ def _expect_error(error: type[Exception], operation: Callable[[], object]) -> No
         operation()
     except error:
         return
-    raise AssertionError(f"expected {error.__name__}")
+    raise ConformanceFailure(f"expected {error.__name__}")
 
 
-def run_scenarios() -> dict[str, str]:
-    """Execute local adapter projections of every applicable TC-MVP-CI-001 concern."""
-    results: dict[str, str] = {}
+def _scenario_checks() -> list[tuple[str, Callable[[], None]]]:
+    """Build independent local checks aligned to applicable baseline concerns."""
+    checks: list[tuple[str, Callable[[], None]]] = []
 
     def scenario(name: str, check: Callable[[], None]) -> None:
-        check()
-        results[name] = "passed"
+        checks.append((name, check))
 
     revision = _revision()
     task = canonical_task(revision, _approval(revision))
@@ -263,39 +268,76 @@ def run_scenarios() -> dict[str, str]:
         lambda: assert_equal(record.router_outcome("unknown").state, "reconciliation"),
     )
     scenario("normal-ci-effect-traps", Effects().assert_trapped)
-    return results
+    return checks
+
+
+def run_scenarios() -> tuple[dict[str, str], list[dict[str, str]]]:
+    """Run every check, retaining safe failure details instead of stopping at the first failure."""
+    results: dict[str, str] = {}
+    failures: list[dict[str, str]] = []
+    for name, check in _scenario_checks():
+        try:
+            check()
+        except (
+            ConformanceFailure,
+            AdmissionError,
+            LifecycleError,
+            OwnershipError,
+            ValueError,
+        ) as exc:
+            results[name] = "failed"
+            failures.append({"scenario": name, "type": type(exc).__name__})
+        else:
+            results[name] = "passed"
+    return results, failures
 
 
 def assert_equal(actual: object, expected: object) -> None:
-    assert actual == expected, f"expected {expected!r}, got {actual!r}"
+    if actual != expected:
+        raise ConformanceFailure(f"expected {expected!r}, got {actual!r}")
 
 
 def report() -> dict[str, object]:
-    failures: list[dict[str, str]] = []
-    try:
-        scenarios = run_scenarios()
-    except Exception as exc:
-        failures.append({"type": type(exc).__name__, "message": str(exc)})
-        scenarios = {}
+    scenarios, failures = run_scenarios()
     return {
-        "report_version": "1",
+        "report_version": "2",
         "repository": REPOSITORY,
         "adapter_revision": ADAPTER_REVISION,
         "compatibility_sha": COMPATIBILITY_SHA,
         "fixture_set": FIXTURE_SET,
-        "scope": "deterministic repository-local conformance evidence; not production readiness",
+        "evidence_kind": "repository-local adapter projections",
+        "canonical_oracle_executed": False,
+        "scope": "deterministic repository-local evidence; not production readiness",
         "scenario_results": scenarios,
         "failures": failures,
         "activation_requested": False,
-        "activation_evidence_sufficient": not failures and bool(scenarios),
+        # Local projections cannot substitute for direct execution of the organization oracle.
+        "activation_evidence_sufficient": False,
     }
 
 
 def main() -> int:
-    destination = Path("conformance/reports/tc-mvp-ci-001-v1.json")
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="fail if the versioned report drifts")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("conformance/reports/tc-mvp-ci-001-v2.json"),
+    )
+    arguments = parser.parse_args()
     evidence = report()
-    destination.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    rendered = json.dumps(evidence, indent=2, sort_keys=True) + "\n"
+    if arguments.check:
+        if (
+            not arguments.output.is_file()
+            or arguments.output.read_text(encoding="utf-8") != rendered
+        ):
+            return 3
+    else:
+        arguments.output.parent.mkdir(parents=True, exist_ok=True)
+        arguments.output.write_text(rendered, encoding="utf-8")
     return 1 if evidence["failures"] else 0
 
 

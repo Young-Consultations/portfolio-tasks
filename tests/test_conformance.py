@@ -1,29 +1,26 @@
 import json
 from pathlib import Path
 
-from portfolio_tasks.conformance import (
-    COMPATIBILITY_SHA,
-    Effects,
-    report,
-    run_scenarios,
-)
+from portfolio_tasks.conformance import COMPATIBILITY_SHA, Effects, report, run_scenarios
 
 
-def test_complete_applicable_conformance_matrix_passes_without_effects() -> None:
-    results = run_scenarios()
-    assert len(results) == 23
+def test_applicable_local_projection_matrix_passes_without_effects() -> None:
+    results, failures = run_scenarios()
+    assert results
     assert set(results.values()) == {"passed"}
+    assert failures == []
     Effects().assert_trapped()
 
 
-def test_versioned_report_is_current_and_does_not_claim_production_readiness() -> None:
-    expected = report()
+def test_versioned_report_is_current_and_does_not_overclaim_evidence() -> None:
     checked_in = json.loads(
-        Path("conformance/reports/tc-mvp-ci-001-v1.json").read_text(encoding="utf-8")
+        Path("conformance/reports/tc-mvp-ci-001-v2.json").read_text(encoding="utf-8")
     )
-    assert checked_in == expected
+    assert checked_in == report()
     assert checked_in["compatibility_sha"] == COMPATIBILITY_SHA
     assert "not production readiness" in checked_in["scope"]
+    assert checked_in["canonical_oracle_executed"] is False
+    assert checked_in["activation_evidence_sufficient"] is False
     assert checked_in["activation_requested"] is False
 
 

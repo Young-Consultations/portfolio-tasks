@@ -1,11 +1,13 @@
 {
-  "activation_evidence_sufficient": true,
+  "activation_evidence_sufficient": false,
   "activation_requested": false,
-  "adapter_revision": "portfolio-tasks-conformance/v1",
+  "adapter_revision": "portfolio-tasks-conformance/v2",
+  "canonical_oracle_executed": false,
   "compatibility_sha": "c6090e5bbadcc2102a1cb91875466e9decdada1e",
+  "evidence_kind": "repository-local adapter projections",
   "failures": [],
   "fixture_set": "TC-MVP-CI-001",
-  "report_version": "1",
+  "report_version": "2",
   "repository": "Young-Consultations/portfolio-tasks",
   "scenario_results": {
     "canonical-result-creation": "passed",
@@ -32,5 +34,5 @@
     "target-validation-test-failure": "passed",
     "target-verify": "passed"
   },
-  "scope": "deterministic repository-local conformance evidence; not production readiness"
+  "scope": "deterministic repository-local evidence; not production readiness"
 }
