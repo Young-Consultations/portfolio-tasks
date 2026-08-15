@@ -22,12 +22,15 @@ jobs:
       - name: Lint and formatting validation
         run: |
           ruff check .
-          ruff format --check portfolio_tasks tests
+          ruff format --check portfolio_tasks scripts tests
           mypy portfolio_tasks
       - run: python -m pytest
-      - name: Regenerate deterministic conformance evidence
+      - name: Validate canonical target contract
+        run: python scripts/test_codex_execute_contract.py
+      - name: Regenerate complete shared-oracle evidence
         run: |
-          python -m portfolio_tasks.conformance --check
+          python scripts/run_tc_mvp_ci_001.py
+          git diff --exit-code -- .ai-sdlc/conformance/tc-mvp-ci-001.json
       - name: Repository security and effect-trap checks
         run: |
           python -m pytest tests/test_conformance.py tests/test_workflow_contract.py

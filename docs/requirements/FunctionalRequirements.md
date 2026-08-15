@@ -193,6 +193,8 @@ snapshot. **Outputs:** canonical task or validation failure. **Preconditions:** 
 * **AC-FR-RTE-01-1:** An authorized reviewer can verify each task value against its source revision.
 * **AC-FR-RTE-01-2:** Removing target access to sibling repositories does not make supplied task
   context incomplete.
+* **AC-FR-RTE-01-3:** Construction emits exactly the closed v2 task fields; the schema-safe task
+  identity changes when material, target, mode, executor, dependencies, or sensitivity changes.
 
 **Related vision goals:** canonical task construction, self-sufficient boundary.
 
@@ -261,6 +263,9 @@ provenance and validation result retained.
 * **AC-FR-OUT-01-1:** Forged, unknown, incompatible, stale, or out-of-order terminal input cannot
   advance portfolio state and is visible for review.
 * **AC-FR-OUT-01-2:** A valid result links source issue, target, attempt, evidence, and any draft PR.
+* **AC-FR-OUT-01-3:** Only an authenticated organization-receiver `repository_dispatch` with the
+  exact source/result shape and a unique admitted delivery binding can reach source projection;
+  identical replay is a no-op and conflicting replay is quarantined.
 
 **Related vision goals:** result ingestion, traceability, contract validation.
 
@@ -353,6 +358,8 @@ source changes.
 * **AC-FR-TGT-01-1:** Wrong target, unapproved source, prohibited executor, sensitive work, or
   non-draft publication request fails closed.
 * **AC-FR-TGT-01-2:** Shared validation and target-policy validation are separately evidenced.
+* **AC-FR-TGT-01-3:** The target exposes only the two-input `workflow_dispatch` interface and does
+  not receive or define organization journal-author trust policy.
 
 **Related vision goals:** target ownership, least privilege, fail closed.
 
@@ -370,5 +377,7 @@ accepted. **Postconditions:** result correlates to source and identifies success
 * **AC-FR-TGT-02-2:** Repeated publication updates or reports the same draft outcome and never
   creates a second conflicting PR.
 * **AC-FR-TGT-02-3:** No automated path reaches ready, merged, released, or deployed state.
+* **AC-FR-TGT-02-4:** Preflight and create-race reconciliation jointly validate canonical branch
+  existence and managed draft ownership before another Codex or publication effect.
 
 **Related vision goals:** draft-only publication, target validation, execution evidence.

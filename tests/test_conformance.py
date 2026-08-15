@@ -1,45 +1,38 @@
 import json
 from pathlib import Path
 
-from portfolio_tasks.conformance import COMPATIBILITY_SHA, Effects, report, run_scenarios
+from scripts.run_tc_mvp_ci_001 import (
+    EXPECTED_COMPATIBILITY_BLOBS,
+    git_blob_sha1,
+    run,
+    validate_pin,
+)
 
 
-def test_applicable_local_projection_matrix_passes_without_effects() -> None:
-    results, failures = run_scenarios()
-    assert results
-    assert set(results.values()) == {"passed"}
-    assert failures == []
-    Effects().assert_trapped()
+def test_complete_shared_oracle_passes_through_real_adapter_seam() -> None:
+    assert run() == []
+    report = json.loads(Path(".ai-sdlc/conformance/tc-mvp-ci-001.json").read_text(encoding="utf-8"))
+    assert len(report["scenario_results"]) == 29
+    assert sum(row["adapter_invoked"] for row in report["scenario_results"]) == 22
+    assert all(row["result"] == "pass" for row in report["scenario_results"])
+    assert report["failures"] == []
+    assert all(value == 0 for value in report["effect_traps"].values())
 
 
-def test_versioned_report_is_current_and_does_not_overclaim_evidence() -> None:
-    checked_in = json.loads(
-        Path("conformance/reports/tc-mvp-ci-001-v2.json").read_text(encoding="utf-8")
-    )
-    assert checked_in == report()
-    assert checked_in["compatibility_sha"] == COMPATIBILITY_SHA
-    assert "not production readiness" in checked_in["scope"]
-    assert checked_in["canonical_oracle_executed"] is False
-    assert checked_in["activation_evidence_sufficient"] is False
-    assert checked_in["activation_requested"] is False
+def test_evidence_pin_binds_exact_shared_and_target_files() -> None:
+    pin = json.loads(Path("config/mvp-conformance-pin.json").read_text(encoding="utf-8"))
+    assert validate_pin(pin) == []
+    for relative, expected in EXPECTED_COMPATIBILITY_BLOBS.items():
+        assert git_blob_sha1(Path(relative).read_bytes()) == expected
+    report = json.loads(Path(".ai-sdlc/conformance/tc-mvp-ci-001.json").read_text(encoding="utf-8"))
+    assert report["adapter_revision"] == pin["adapter_revision"]
+    assert report["compatibility_sha"] == pin["compatibility_sha"]
 
 
-def test_normal_ci_cannot_reach_external_or_privileged_effects_or_emit_secrets() -> None:
-    workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8").lower()
-    forbidden = (
-        "openai_api_key",
-        "codex exec",
-        "git checkout -b",
-        "git switch -c",
-        "git commit",
-        "git push",
-        "gh pr create",
-        "gh pr merge",
-        "gh release",
-        "deploy",
-        "environment:",
-        "secrets.",
-        "set -x",
-    )
-    assert not {token for token in forbidden if token in workflow}
-    assert "permissions:\n  contents: read" in workflow
+def test_evidence_does_not_claim_activation_or_production_readiness() -> None:
+    report = json.loads(Path(".ai-sdlc/conformance/tc-mvp-ci-001.json").read_text(encoding="utf-8"))
+    assert report["production_readiness_claim"] is False
+    assert report["activation_requested"] is False
+    assert report["activation_evidence_sufficient"] is True
+    assert report["adapter_tag_published"] is False
+    assert report["receiver_live_verification"] == "pending-ai-sdlc-v2.3.1-tag"

@@ -1,347 +1,62 @@
-name: Canonical v2 Codex target
+name: Execute admitted portfolio-tasks task
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       execution_input_json:
-        description: Complete canonical execution-input/v2 JSON
+        description: Complete canonical execution-input/v2 JSON string (serialized JSON, not an object).
         required: true
         type: string
       concurrency_group:
-        description: Router transport concurrency identity
+        description: Transport concurrency identity; must exactly match the canonical payload.
         required: true
         type: string
-    secrets:
-      CONTRACT_READ_TOKEN:
-        required: true
-      OPENAI_API_KEY:
-        required: true
-      TARGET_PUBLICATION_TOKEN:
-        required: true
-      CODEX_RESULT_TOKEN:
-        required: true
-      PORTFOLIO_RESULT_TOKEN:
-        required: true
 
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ inputs.concurrency_group }}
   cancel-in-progress: false
 
-env:
-  COMPATIBILITY_SHA: c6090e5bbadcc2102a1cb91875466e9decdada1e
-  TARGET_REPOSITORY: Young-Consultations/portfolio-tasks
-
 jobs:
-  admission:
+  execute:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
+    timeout-minutes: 360
+    environment: portfolio-tasks-codex-production
     outputs:
-      mode: ${{ steps.admit.outputs.mode }}
-      delivery_id: ${{ steps.admit.outputs.delivery_id }}
-      payload_digest: ${{ steps.admit.outputs.payload_digest }}
-      branch: ${{ steps.admit.outputs.branch }}
-      correlation_id: ${{ steps.admit.outputs.correlation_id }}
-      ownership_marker: ${{ steps.admit.outputs.ownership_marker }}
+      execution_result: ${{ steps.execute.outputs.execution_result }}
+      source_issue: ${{ steps.execute.outputs.source_issue }}
     steps:
-      - name: Authenticate and authorize organization router caller
-        env:
-          CALLER_REPOSITORY: ${{ github.repository }}
-          CALLER_ACTOR: ${{ github.actor }}
-          AUTHORIZED_ACTORS: ${{ vars.CODEX_ROUTER_ACTORS }}
-        run: |
-          set -euo pipefail
-          [[ "$CALLER_REPOSITORY" == "Young-Consultations/.github" ]]
-          [[ -n "$AUTHORIZED_ACTORS" && -n "$CALLER_ACTOR" ]]
-          authorized=false
-          IFS=',' read -ra actors <<< "$AUTHORIZED_ACTORS"
-          for actor in "${actors[@]}"; do
-            actor="${actor#"${actor%%[![:space:]]*}"}"
-            actor="${actor%"${actor##*[![:space:]]}"}"
-            if [[ -n "$actor" && "$actor" == "$CALLER_ACTOR" ]]; then
-              authorized=true
-              break
-            fi
-          done
-          [[ "$authorized" == true ]]
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: Young-Consultations/portfolio-tasks
           persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with: {python-version: "3.12", cache: pip}
-      - name: Fetch exact closed schemas and registry
-        env:
-          GH_TOKEN: ${{ secrets.CONTRACT_READ_TOKEN }}
-        run: |
-          set -euo pipefail; set +x
-          mkdir -p "$RUNNER_TEMP/contracts"
-          for path in contracts/execution-input.schema.json contracts/execution-result.schema.json config/codex-repositories.json; do
-            curl --fail --silent --show-error \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H 'Accept: application/vnd.github.raw+json' \
-              "https://api.github.com/repos/Young-Consultations/.github/contents/$path?ref=$COMPATIBILITY_SHA" \
-              > "$RUNNER_TEMP/contracts/$(basename "$path")"
-          done
-      - name: Validate schema, formats, registry, and local policy
-        id: admit
+          fetch-depth: 0
+      - name: Install Codex CLI
+        run: npm install --global @openai/codex@0.63.0
+      - name: Install repository validation dependencies
+        run: python -m pip install --disable-pip-version-check --no-input '.[dev]'
+      - name: Install pinned actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - id: execute
         env:
           EXECUTION_INPUT_JSON: ${{ inputs.execution_input_json }}
           CONCURRENCY_GROUP: ${{ inputs.concurrency_group }}
-        run: |
-          set -euo pipefail; set +x
-          python -m pip install --disable-pip-version-check .
-          printf '%s' "$EXECUTION_INPUT_JSON" > "$RUNNER_TEMP/execution-input.json"
-          python -m portfolio_tasks.target_adapter admit \
-            "$RUNNER_TEMP/execution-input.json" \
-            "$RUNNER_TEMP/contracts/execution-input.schema.json" \
-            "$CONCURRENCY_GROUP" > "$RUNNER_TEMP/admitted.json"
-          # This immutable registry supplies capabilities only. Current activation is mutable
-          # control-plane state already enforced by the organization router before dispatch.
-          jq -e --arg repo "$TARGET_REPOSITORY" \
-            '.repositories[] | select(.repository == $repo and .draft_pr_only == true)' \
-            "$RUNNER_TEMP/contracts/codex-repositories.json" >/dev/null
-          jq -r '"mode=" + .mode, "delivery_id=" + .delivery_id, "payload_digest=" + .digest,
-            "branch=" + .branch, "correlation_id=" + .correlation_id,
-            "ownership_marker=" + .ownership_marker' \
-            "$RUNNER_TEMP/admitted.json" >> "$GITHUB_OUTPUT"
+          CALLER_LOGIN: ${{ github.actor }}
+          TRUSTED_CALLERS: ${{ secrets.CODEX_TARGET_TRUSTED_CALLERS }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TARGET_PUBLICATION_TOKEN: ${{ secrets.TARGET_PUBLICATION_TOKEN }}
+        run: python3 scripts/codex_target_adapter.py
 
-  # Verify deliberately ends after complete admission and repository validation.  It has no
-  # publication permission and never receives the OpenAI credential.
-  verify:
-    if: needs.admission.outputs.mode == 'verify'
-    needs: admission
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  report:
+    needs: execute
+    if: ${{ always() && needs.execute.outputs.execution_result != '' && needs.execute.outputs.source_issue != '' }}
     permissions:
       contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: Young-Consultations/portfolio-tasks
-          persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with: {python-version: "3.12", cache: pip}
-      - run: python -m pip install '.[dev]'
-      - name: Authoritative target validation
-        run: |
-          ruff check .
-          ruff format --check portfolio_tasks tests
-          mypy portfolio_tasks
-          python -m pytest
-          git diff --check
-
-  implement:
-    if: needs.admission.outputs.mode == 'implement'
-    needs: admission
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: Young-Consultations/portfolio-tasks
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with: {python-version: "3.12", cache: pip}
-      - run: python -m pip install '.[dev]'
-      - name: Install pinned actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-      - name: Execute Codex without publication or result credentials
-        env:
-          CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          EXECUTION_INPUT_JSON: ${{ inputs.execution_input_json }}
-        run: |
-          set -euo pipefail; set +x
-          npm install --global @openai/codex@0.63.0
-          python - <<'PY' > "$RUNNER_TEMP/execution-prompt.md"
-          import json
-          import os
-          from pathlib import Path
-
-          from portfolio_tasks.prompts import render_execution_prompt
-
-          task = json.loads(os.environ["EXECUTION_INPUT_JSON"])
-          print(render_execution_prompt(
-              task_instructions=task["instructions"],
-              repository_context=Path("AI_CONTEXT.md").read_text(encoding="utf-8"),
-              validation_commands=[
-                  "ruff check .",
-                  "ruff format --check portfolio_tasks tests",
-                  "mypy portfolio_tasks",
-                  "python -m pytest",
-                  "git diff --check",
-                  '"$(go env GOPATH)/bin/actionlint" -shellcheck=',
-              ],
-          ))
-          PY
-          python -m portfolio_tasks.run_codex --working-directory "$GITHUB_WORKSPACE" \
-            < "$RUNNER_TEMP/execution-prompt.md"
-      - name: Validate candidate before publication handoff
-        run: |
-          ruff check .
-          ruff format --check portfolio_tasks tests
-          mypy portfolio_tasks
-          python -m pytest
-          git diff --check
-          "$(go env GOPATH)/bin/actionlint" -shellcheck=
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
-        with:
-          name: candidate-${{ needs.admission.outputs.delivery_id }}
-          path: |
-            .
-            !.git
-          include-hidden-files: true
-          retention-days: 1
-
-  publish:
-    if: needs.implement.result == 'success'
-    needs: [admission, implement]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    outputs:
-      branch_name: ${{ steps.publish.outputs.branch_name }}
-      pull_request_url: ${{ steps.publish.outputs.pull_request_url }}
-      execution_status: ${{ steps.publish.outputs.execution_status }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: Young-Consultations/portfolio-tasks
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: candidate-${{ needs.admission.outputs.delivery_id }}
-          path: .
-      - name: Reconcile and publish one managed draft
-        id: publish
-        env:
-          GH_TOKEN: ${{ secrets.TARGET_PUBLICATION_TOKEN }}
-          BRANCH: ${{ needs.admission.outputs.branch }}
-          DELIVERY_ID: ${{ needs.admission.outputs.delivery_id }}
-          OWNERSHIP_MARKER: ${{ needs.admission.outputs.ownership_marker }}
-          REPOSITORY: ${{ env.TARGET_REPOSITORY }}
-        run: |
-          set -euo pipefail; set +x
-          marker="$OWNERSHIP_MARKER"
-
-          reconcile() {
-            gh api --paginate --slurp "repos/$REPOSITORY/pulls?state=open&per_page=100" \
-              | jq 'add' > "$RUNNER_TEMP/pulls.json"
-            jq --arg branch "$BRANCH" --arg marker "$marker" \
-              '[.[] | select(.head.ref == $branch or (.body // "" | contains($marker)))]' \
-              "$RUNNER_TEMP/pulls.json" > "$RUNNER_TEMP/candidates.json"
-            count="$(jq length "$RUNNER_TEMP/candidates.json")"
-            [[ "$count" -le 1 ]] || { echo 'ambiguous managed draft ownership' >&2; return 2; }
-            [[ "$count" -eq 1 ]] || return 1
-            jq -e --arg branch "$BRANCH" --arg marker "$marker" \
-              '.[0] | select(.head.ref == $branch and .draft == true and (.body // "" | contains($marker)))' \
-              "$RUNNER_TEMP/candidates.json" >/dev/null || {
-                echo 'conflicting managed draft ownership' >&2; return 2;
-              }
-            jq -r '.[0].html_url' "$RUNNER_TEMP/candidates.json"
-          }
-
-          if pull_url="$(reconcile)"; then
-            status=duplicate-reused
-          else
-            rc=$?
-            [[ "$rc" -eq 1 ]] || exit "$rc"
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git switch -C "$BRANCH"
-            rm -f codex-result.json codex-trace.log git-diff.patch
-            git add --all
-            git commit -m "codex: implement delivery $DELIVERY_ID"
-            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
-            if ! git push --set-upstream origin "HEAD:$BRANCH"; then
-              pull_url="$(reconcile)" || exit $?
-              status=duplicate-reused
-            else
-              if ! pull_url="$(gh pr create --repo "$REPOSITORY" --head "$BRANCH" \
-                --title "Codex delivery $DELIVERY_ID" --body "$marker" --draft)"; then
-                pull_url="$(reconcile)" || exit $?
-                status=duplicate-reused
-              else
-                status=published
-              fi
-            fi
-          fi
-          printf 'branch_name=%s\npull_request_url=%s\nexecution_status=%s\n' \
-            "$BRANCH" "$pull_url" "$status" >> "$GITHUB_OUTPUT"
-
-  prepare-result:
-    if: ${{ always() && needs.admission.result != 'cancelled' }}
-    needs: [admission, verify, implement, publish]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    outputs:
-      execution_result: ${{ steps.result.outputs.execution_result }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: Young-Consultations/portfolio-tasks
-          persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with: {python-version: "3.12", cache: pip}
-      - name: Fetch the pinned result schema
-        env:
-          GH_TOKEN: ${{ secrets.CONTRACT_READ_TOKEN }}
-        run: |
-          set -euo pipefail; set +x
-          curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github.raw+json' \
-            "https://api.github.com/repos/Young-Consultations/.github/contents/contracts/execution-result.schema.json?ref=$COMPATIBILITY_SHA" \
-            > "$RUNNER_TEMP/execution-result.schema.json"
-      - name: Build and validate canonical execution-result/v2
-        id: result
-        env:
-          EXECUTION_INPUT_JSON: ${{ inputs.execution_input_json }}
-          VERIFY_RESULT: ${{ needs.verify.result }}
-          IMPLEMENT_RESULT: ${{ needs.implement.result }}
-          PUBLISH_RESULT: ${{ needs.publish.result }}
-          PUBLICATION_STATUS: ${{ needs.publish.outputs.execution_status }}
-          BRANCH_NAME: ${{ needs.publish.outputs.branch_name }}
-          PULL_REQUEST_URL: ${{ needs.publish.outputs.pull_request_url }}
-          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          python -m pip install --disable-pip-version-check .
-          python -m portfolio_tasks.target_adapter result \
-            "$RUNNER_TEMP/execution-result.schema.json" > "$RUNNER_TEMP/execution-result.json"
-          {
-            printf 'execution_result<<RESULT_EOF\n'
-            jq -c . "$RUNNER_TEMP/execution-result.json"
-            printf 'RESULT_EOF\n'
-          } >> "$GITHUB_OUTPUT"
-
-  # Publication and result transport are intentionally separate credential domains.
-  result:
-    if: ${{ always() && needs.admission.result != 'cancelled' }}
-    needs: [admission, prepare-result]
-    uses: Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@c6090e5bbadcc2102a1cb91875466e9decdada1e
+    # The target remains disabled until the coordinated 2.3.1 release exists.
+    uses: Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@ai-sdlc-v2.3.1
     with:
-      execution_result: ${{ needs.prepare-result.outputs.execution_result }}
-      source_issue: ${{ fromJSON(inputs.execution_input_json).source_issue }}
+      execution_result: ${{ needs.execute.outputs.execution_result }}
+      source_issue: ${{ needs.execute.outputs.source_issue }}
     secrets:
       CODEX_RESULT_TOKEN: ${{ secrets.CODEX_RESULT_TOKEN }}
-
-  project-result:
-    if: needs.result.outputs.accepted == 'true'
-    needs: [prepare-result, result]
-    uses: ./.github/workflows/project-execution-result.yml
-    with:
-      execution_result: ${{ needs.prepare-result.outputs.execution_result }}
-      source_issue: ${{ fromJSON(inputs.execution_input_json).source_issue }}
-      receiver_accepted: ${{ needs.result.outputs.accepted == 'true' }}
-    secrets:
-      PORTFOLIO_RESULT_TOKEN: ${{ secrets.PORTFOLIO_RESULT_TOKEN }}

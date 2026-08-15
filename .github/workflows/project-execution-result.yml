@@ -1,25 +1,14 @@
 name: Project receiver-validated execution result
 
 on:
-  workflow_call:
-    inputs:
-      execution_result:
-        description: Canonical result already accepted by the pinned organization receiver
-        required: true
-        type: string
-      source_issue:
-        description: Exact owner/repository#number binding
-        required: true
-        type: string
-      receiver_accepted:
-        description: Organization receiver validation decision
-        required: true
-        type: boolean
-    secrets:
-      PORTFOLIO_RESULT_TOKEN:
-        required: true
+  repository_dispatch:
+    types: [ai-sdlc-execution-result-v2]
 
 permissions: {}
+
+concurrency:
+  group: portfolio-result-${{ github.event.client_payload.source_issue }}
+  cancel-in-progress: false
 
 env:
   PORTFOLIO_REPOSITORY: Young-Consultations/portfolio-tasks
@@ -30,86 +19,128 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      issues: write
     steps:
-      - name: Authenticate the target-to-portfolio caller
+      - name: Authenticate the organization receiver dispatch identity
         env:
-          CALLER: ${{ github.repository }}
-          AUTHORIZED_TARGETS: ${{ vars.PORTFOLIO_RESULT_TARGETS }}
-          RECEIVER_ACCEPTED: ${{ inputs.receiver_accepted }}
+          ACTOR: ${{ github.actor }}
+          AUTHORIZED_SENDERS: ${{ vars.PORTFOLIO_RESULT_SENDERS }}
         run: |
           set -euo pipefail
-          [[ "$RECEIVER_ACCEPTED" == true && -n "$AUTHORIZED_TARGETS" ]]
-          tr ',' '\n' <<< "$AUTHORIZED_TARGETS" | sed 's/^ *//;s/ *$//' | grep -Fx -- "$CALLER" >/dev/null
+          [[ -n "$ACTOR" && -n "$AUTHORIZED_SENDERS" ]]
+          tr ',' '\n' <<< "$AUTHORIZED_SENDERS" | sed 's/^ *//;s/ *$//' | grep -Fx -- "$ACTOR" >/dev/null
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: Young-Consultations/portfolio-tasks
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with: {python-version: "3.12", cache: pip}
-      - run: python -m pip install --disable-pip-version-check .
-      - name: Validate binding and prepare sanitized terminal projection
+      - run: python -m pip install --disable-pip-version-check --no-input .
+      - name: Validate exact dispatch shape, result schema, and source binding
         env:
-          RESULT: ${{ inputs.execution_result }}
-          SOURCE: ${{ inputs.source_issue }}
+          CLIENT_PAYLOAD: ${{ toJSON(github.event.client_payload) }}
         run: |
           set -euo pipefail
           python - <<'PY'
-          import hashlib, json, os, re
+          import hashlib
+          import json
+          import os
+          import re
+
+          from jsonschema import Draft202012Validator, FormatChecker
+
           from portfolio_tasks.source_lifecycle import CONTRACT, TERMINAL_STATUSES
 
-          result = json.loads(os.environ["RESULT"])
-          source = os.environ["SOURCE"]
-          if not re.fullmatch(r"Young-Consultations/portfolio-tasks#[1-9][0-9]*", source):
+          payload = json.loads(os.environ["CLIENT_PAYLOAD"])
+          if set(payload) != {"source_issue", "execution_result"}:
+              raise SystemExit("receiver dispatch has an unexpected shape")
+          source = payload["source_issue"]
+          result = payload["execution_result"]
+          if not isinstance(source, str) or re.fullmatch(
+              r"Young-Consultations/portfolio-tasks#[1-9][0-9]*", source
+          ) is None:
               raise SystemExit("result is not bound to this portfolio")
-          required = ("delivery_id", "correlation_id", "target_repository")
-          if result.get("contract_version") != CONTRACT or any(not result.get(k) for k in required):
-              raise SystemExit("result identity binding is incomplete")
-          if result.get("source_issue", source) != source:
-              raise SystemExit("result source binding conflicts")
-          if result.get("execution_status") not in TERMINAL_STATUSES:
-              raise SystemExit("result is not a supported terminal outcome")
+          if not isinstance(result, dict):
+              raise SystemExit("execution_result is not an object")
+          with open("contracts/execution-result.schema.json", encoding="utf-8") as stream:
+              schema = json.load(stream)
+          errors = sorted(
+              Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(result),
+              key=lambda error: list(error.absolute_path),
+          )
+          if errors:
+              raise SystemExit("execution_result failed exact execution-result/v2 validation")
+          if result["contract_version"] != CONTRACT:
+              raise SystemExit("execution_result uses an unsupported contract")
+          if result["execution_status"] not in TERMINAL_STATUSES:
+              raise SystemExit("execution_result is not terminal")
+
+          binding = {
+              "contract_version": result["contract_version"],
+              "delivery_id": result["delivery_id"],
+              "correlation_id": result["correlation_id"],
+              "source_issue": source,
+              "target_repository": result["target_repository"],
+          }
           canonical = json.dumps(result, sort_keys=True, separators=(",", ":"))
           digest = hashlib.sha256(canonical.encode()).hexdigest()
-          safe = {
-              key: result.get(key) for key in (
-                  "task_id", "delivery_id", "correlation_id", "target_repository",
-                  "execution_status", "validation_result", "test_result", "failure_category",
-                  "diagnostic_summary", "pull_request_url", "workflow_url", "completed_at",
-              )
+          result_marker = {
+              "delivery_id": result["delivery_id"],
+              "result_sha256": digest,
           }
-          marker = f"<!-- ai-sdlc-result: {result['delivery_id']}; sha256: {digest} -->"
+          issue_number = source.rsplit("#", 1)[1]
           with open(os.environ["RUNNER_TEMP"] + "/projection.md", "w", encoding="utf-8") as stream:
-              stream.write(marker + "\n### Receiver-validated execution result\n```json\n")
-              stream.write(json.dumps(safe, indent=2, sort_keys=True) + "\n```\n")
+              stream.write(
+                  "<!-- ai-sdlc-source-result:v2 "
+                  + json.dumps(result_marker, sort_keys=True, separators=(",", ":"))
+                  + " -->\n"
+              )
+              stream.write("### Receiver-validated execution result\n\n```json\n")
+              stream.write(json.dumps(result, indent=2, sort_keys=True) + "\n```\n")
+          values = {
+              "ISSUE_NUMBER": issue_number,
+              "DELIVERY_ID": result["delivery_id"],
+              "ADMISSION_MARKER": (
+                  "<!-- ai-sdlc-admission:v2 "
+                  + json.dumps(binding, sort_keys=True, separators=(",", ":"))
+                  + " -->"
+              ),
+              "RESULT_MARKER": (
+                  "<!-- ai-sdlc-source-result:v2 "
+                  + json.dumps(result_marker, sort_keys=True, separators=(",", ":"))
+                  + " -->"
+              ),
+          }
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
-              stream.write(f"ISSUE_NUMBER={source.rsplit('#', 1)[1]}\n")
-              stream.write(f"RESULT_DELIVERY={result['delivery_id']}\nRESULT_CORRELATION={result['correlation_id']}\n")
-              stream.write(f"RESULT_TARGET={result['target_repository']}\nRESULT_DIGEST={digest}\n")
+              for key, value in values.items():
+                  stream.write(f"{key}={value}\n")
           PY
       - name: Apply once or visibly quarantine conflicting evidence
         env:
-          GH_TOKEN: ${{ secrets.PORTFOLIO_RESULT_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail; set +x
-          comments="$(gh api --paginate "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100")"
-          delivery_binding="delivery=$RESULT_DELIVERY; correlation=$RESULT_CORRELATION; target=$RESULT_TARGET"
-          admission_count="$(jq --arg binding "$delivery_binding" \
-            '[.[] | select((.body // "") | contains("ai-sdlc-admission: task=") and contains($binding))] | length' <<< "$comments")"
-          if [[ "$admission_count" -ne 1 ]]; then
+          comments="$(gh api --paginate \
+            "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100")"
+          admission_count="$(jq --arg marker "$ADMISSION_MARKER" \
+            '[.[] | select((.body // "") | contains($marker))] | length' <<< "$comments")"
+          if [[ "$admission_count" -lt 1 ]]; then
             gh api --method POST "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/labels" \
               -f 'labels[]=status:result-quarantined' >/dev/null
             exit 1
           fi
-          matches="$(jq --arg id "ai-sdlc-result: $RESULT_DELIVERY;" '[.[] | select((.body // "") | contains($id))]' <<< "$comments")"
+
+          delivery_prefix="<!-- ai-sdlc-source-result:v2 {\"delivery_id\":\"$DELIVERY_ID\""
+          matches="$(jq --arg prefix "$delivery_prefix" \
+            '[.[] | select((.body // "") | contains($prefix))]' <<< "$comments")"
           count="$(jq length <<< "$matches")"
-          if [[ "$count" -eq 1 ]] && jq -e --arg digest "sha256: $RESULT_DIGEST" \
-              '.[0].body | contains($digest)' <<< "$matches" >/dev/null; then
+          if [[ "$count" -gt 0 ]] && jq -e --arg marker "$RESULT_MARKER" \
+              'all(.[]; (.body // "") | contains($marker))' <<< "$matches" >/dev/null; then
             exit 0
           fi
           if [[ "$count" -ne 0 ]]; then
             gh api --method POST "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/labels" \
               -f 'labels[]=status:result-quarantined' >/dev/null
-            echo 'Conflicting or ambiguous terminal result quarantined; existing result was not overwritten.' \
+            echo 'Conflicting terminal result quarantined; existing evidence was not overwritten.' \
               > "$RUNNER_TEMP/quarantine.md"
             gh api --method POST "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/comments" \
               -F body=@"$RUNNER_TEMP/quarantine.md" >/dev/null

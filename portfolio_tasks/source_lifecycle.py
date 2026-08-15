@@ -1,8 +1,8 @@
 """Fail-closed portfolio-side policies for the v2 execution lifecycle.
 
-This module deliberately contains no GitHub or router client.  It constructs the payload owned by
-the portfolio and returns decisions which adapters can persist before/after the external boundary.
-The organization-owned schema remains the final validator at dispatch.
+This module contains no GitHub or router client. It constructs the exact task
+payload owned by the portfolio and returns decisions that workflow adapters can
+persist before and after the organization control-plane boundary.
 """
 
 from __future__ import annotations
@@ -25,9 +25,56 @@ SUPPORTED_TARGETS = frozenset(
     }
 )
 SUPPORTED_MODES = frozenset({"verify", "implement"})
-TERMINAL_STATUSES = frozenset({"verified", "published", "duplicate-reused", "failed"})
-_ISSUE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*$")
-_IDENTITY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/#-]{7,160}$")
+TASK_TYPES = frozenset(
+    {
+        "automation",
+        "backlog-governance",
+        "ci-cd",
+        "documentation",
+        "repository-maintenance",
+        "feature",
+        "bug-fix",
+        "testing",
+        "security",
+    }
+)
+TASK_TYPE_LABELS = {
+    "automation": "automation",
+    "backlog governance": "backlog-governance",
+    "bug fix": "bug-fix",
+    "ci/cd": "ci-cd",
+    "documentation": "documentation",
+    "feature": "feature",
+    "repository maintenance": "repository-maintenance",
+    "security": "security",
+    "testing": "testing",
+}
+TASK_MATERIAL_FIELDS = frozenset(
+    {
+        "project",
+        "priority",
+        "task_type",
+        "parallel_safe",
+        "risk",
+        "scope",
+        "instructions",
+        "created_by",
+    }
+)
+TERMINAL_STATUSES = frozenset(
+    {
+        "rejected",
+        "verified",
+        "no-changes",
+        "draft-pr-created",
+        "blocked",
+        "failed",
+        "duplicate-reused",
+        "ambiguous-rejected",
+    }
+)
+_ISSUE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}#[1-9][0-9]*$")
+_IDENTITY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 class LifecycleError(ValueError):
@@ -45,19 +92,31 @@ def canonical_digest(value: object) -> str:
     return hashlib.sha256(encoded.encode()).hexdigest()
 
 
-def task_id(source_issue: str, material: Mapping[str, object]) -> str:
-    """Create one stable identity for one source issue material revision."""
+def normalize_task_type(label: str) -> str:
+    """Map the issue-form display vocabulary to the exact contract vocabulary."""
+    normalized = TASK_TYPE_LABELS.get(" ".join(label.split()).casefold())
+    if normalized is None:
+        raise LifecycleError("task type is unsupported")
+    return normalized
+
+
+def task_id(source_issue: str, authority: Mapping[str, object]) -> str:
+    """Create a schema-safe identity for one complete authoritative source revision."""
     if _ISSUE.fullmatch(source_issue) is None:
         raise LifecycleError("invalid source issue binding")
-    return f"{source_issue}@{canonical_digest(material)[:20]}"
+    return f"task-{canonical_digest({'source_issue': source_issue, 'authority': authority})[:32]}"
 
 
 def delivery_id(current_task_id: str) -> str:
-    """Derive the logical delivery; retry/transport attempt data is intentionally excluded."""
+    """Derive the logical delivery; retry and transport attempts are excluded."""
+    if _IDENTITY.fullmatch(current_task_id) is None:
+        raise LifecycleError("invalid canonical task identity")
     return f"delivery-{hashlib.sha256(current_task_id.encode()).hexdigest()[:32]}"
 
 
 def correlation_id(current_task_id: str) -> str:
+    if _IDENTITY.fullmatch(current_task_id) is None:
+        raise LifecycleError("invalid canonical task identity")
     return f"correlation-{hashlib.sha256(('correlation:' + current_task_id).encode()).hexdigest()[:32]}"
 
 
@@ -81,13 +140,48 @@ class SourceRevision:
     sensitivity: str = "not-sensitive"
 
     @property
+    def authority(self) -> dict[str, object]:
+        return {
+            "material": dict(self.material),
+            "target_repository": self.target_repository,
+            "execution_mode": self.execution_mode,
+            "executor": self.executor,
+            "dependencies": list(self.dependencies),
+            "sensitivity": self.sensitivity,
+        }
+
+    @property
     def task_id(self) -> str:
-        return task_id(self.source_issue, self.material)
+        return task_id(self.source_issue, self.authority)
+
+
+def _validate_material(material: Mapping[str, object]) -> list[str]:
+    violations: list[str] = []
+    if set(material) != TASK_MATERIAL_FIELDS:
+        violations.append("task material does not match the closed contract")
+        return violations
+    if not isinstance(material["project"], str) or not str(material["project"]).strip():
+        violations.append("project is missing")
+    if material["priority"] not in {"p0", "p1", "p2", "p3"}:
+        violations.append("priority is unsupported")
+    if material["task_type"] not in TASK_TYPES:
+        violations.append("task type is unsupported")
+    if type(material["parallel_safe"]) is not bool:
+        violations.append("parallel-safe must be boolean")
+    if material["risk"] not in {"low", "medium", "high"}:
+        violations.append("risk is unsupported")
+    if material["scope"] not in {"small", "medium", "large"}:
+        violations.append("scope is unsupported")
+    if not isinstance(material["instructions"], str) or not str(material["instructions"]).strip():
+        violations.append("instructions are missing")
+    if not isinstance(material["created_by"], str) or not str(material["created_by"]).strip():
+        violations.append("creator is missing")
+    return violations
 
 
 def canonical_task(revision: SourceRevision, approval: Approval) -> dict[str, object]:
-    """Build the closed-contract candidate; admission still validates it with the pinned schema."""
-    violations: list[str] = []
+    """Build the exact task-contract/v2 object after validating current authority."""
+    violations = _validate_material(revision.material)
     if revision.status != "approved":
         violations.append("only approved is admissible")
     if revision.executor != "codex":
@@ -100,27 +194,48 @@ def canonical_task(revision: SourceRevision, approval: Approval) -> dict[str, ob
         violations.append("dependencies are unresolved")
     if revision.sensitivity != "not-sensitive":
         violations.append("sensitivity is not safely classified")
-    if not approval.human_authorized or approval.revoked:
+    if not approval.actor.strip() or not approval.human_authorized or approval.revoked:
         violations.append("current human approval is absent or revoked")
     if approval.task_id != revision.task_id:
-        violations.append("approval is stale for the material revision")
+        violations.append("approval is stale for the authoritative revision")
     if violations:
         raise LifecycleError("; ".join(violations))
 
-    # These are the repository-owned fields of task-contract/v2. Rich approval evidence and
-    # delivery/attempt transport fields must not be added to the closed task payload.
-    payload = dict(revision.material)
-    payload.update(
-        {
-            "contract_version": CONTRACT,
-            "task_id": revision.task_id,
-            "source_issue": revision.source_issue,
-            "status": "approved",
-            "executor": "codex",
-            "target_repository": revision.target_repository,
-            "dependencies": [],
-        }
-    )
+    payload = {
+        "contract_version": CONTRACT,
+        "task_id": revision.task_id,
+        "source_issue": revision.source_issue,
+        "status": "approved",
+        "executor": "codex",
+        "project": revision.material["project"],
+        "priority": revision.material["priority"],
+        "task_type": revision.material["task_type"],
+        "target_repository": revision.target_repository,
+        "parallel_safe": revision.material["parallel_safe"],
+        "dependencies": [],
+        "risk": revision.material["risk"],
+        "scope": revision.material["scope"],
+        "instructions": revision.material["instructions"],
+        "created_by": revision.material["created_by"],
+    }
+    if set(payload) != {
+        "contract_version",
+        "task_id",
+        "source_issue",
+        "status",
+        "executor",
+        "project",
+        "priority",
+        "task_type",
+        "target_repository",
+        "parallel_safe",
+        "dependencies",
+        "risk",
+        "scope",
+        "instructions",
+        "created_by",
+    }:
+        raise LifecycleError("canonical task construction is incomplete")
     return payload
 
 
@@ -138,12 +253,14 @@ class RoutingRecord:
     @classmethod
     def reserve(cls, task: Mapping[str, object]) -> RoutingRecord:
         identity = task.get("task_id")
-        if not isinstance(identity, str):
-            raise LifecycleError("canonical task identity is missing")
         source = task.get("source_issue")
         target = task.get("target_repository")
-        if not isinstance(source, str) or not isinstance(target, str):
-            raise LifecycleError("canonical source or target binding is missing")
+        if not isinstance(identity, str) or _IDENTITY.fullmatch(identity) is None:
+            raise LifecycleError("canonical task identity is missing or invalid")
+        if not isinstance(source, str) or _ISSUE.fullmatch(source) is None:
+            raise LifecycleError("canonical source binding is missing or invalid")
+        if not isinstance(target, str) or target not in SUPPORTED_TARGETS:
+            raise LifecycleError("canonical target binding is missing or invalid")
         return cls(
             identity,
             delivery_id(identity),
@@ -184,10 +301,8 @@ class ResultProjection:
             return replace(self, quarantined=True), ProjectionDecision.QUARANTINED
         bindings = (
             result.get("contract_version") == CONTRACT
-            and result.get("task_id", self.record.task_id) == self.record.task_id
             and result.get("delivery_id") == self.record.delivery_id
             and result.get("correlation_id") == self.record.correlation_id
-            and result.get("source_issue") == expected_source
             and expected_source == self.record.source_issue
             and result.get("target_repository") == self.record.target_repository
         )

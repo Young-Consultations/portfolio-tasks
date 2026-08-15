@@ -45,6 +45,20 @@ scope by repository/operation/environment, rotate and revoke, prevent fork/untru
 exposure, and audit use. Portfolio, projection, router consumer and local target identities should
 be distinct.
 
+The recovered target separates credentials by effect:
+
+| Boundary | Credential/policy | Prohibited authority |
+| --- | --- | --- |
+| source → router | `CODEX_ROUTER_TOKEN` plus caller `actions: read` | no target publication or result projection |
+| target AI runtime | `OPENAI_API_KEY` | no push, PR, receiver, source, merge, release, or deploy |
+| target publication adapter | `TARGET_PUBLICATION_TOKEN` | no AI or result/source authority; draft only |
+| target → receiver | `CODEX_RESULT_TOKEN` | no target publication, merge, release, or deploy |
+| receiver journal trust | immutable organization policy | target cannot define or supply authors |
+| receiver → source | authenticated `repository_dispatch` identity | no target-controlled source token |
+
+The source accepts only the exact two-field receiver dispatch shape, validates the canonical result
+again, requires the admitted delivery binding on the issue, and quarantines divergent replay.
+
 ## Threat considerations
 
 | Threat | Controls |
@@ -53,6 +67,7 @@ be distinct.
 | Prompt/instruction injection in issue or result | data/instruction separation, allowlisted tools/effects, sandbox, output validation |
 | Replay/duplicate PR | delivery/event IDs, payload digest, durable idempotency and publish-once guard |
 | Tampered/out-of-order result | producer authentication, integrity, correlation and state ordering |
+| Target controls receiver/source trust | immutable receiver policy, bounded result token, authenticated receiver dispatch, source revalidation |
 | Secret/data exfiltration | classification, minimization, egress/tool controls, redaction and artifact scanning |
 | Dependency/supply-chain compromise | pinned/verified automation, least privilege, target validation and provenance |
 | Project/mirror used as authority | one-way authority mapping and independent routing gates |
@@ -72,4 +87,3 @@ contract fuzzing and incident exercises are release evidence.
 Data classes, privacy/client/regulatory obligations, approver registry, separation of duties,
 retention/deletion/legal hold, incident response, authentication protocol and platform audit
 capability require owner approval. Affected automation remains disabled rather than assuming them.
-

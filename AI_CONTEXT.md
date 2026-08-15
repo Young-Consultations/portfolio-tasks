@@ -64,6 +64,10 @@ consulting-playbook are documented dependencies or optional collaborators whose 
 conformance are not presumed. The project is pre-production with one current user; this does not
 relax any security or approval boundary.
 
+Exact organization schemas and fixture files may be vendored solely as byte-for-byte,
+digest-pinned offline compatibility inputs. Their presence never transfers contract ownership,
+permits local extension, proves a release/tag exists, or authorizes activation.
+
 ## Architecture
 
 Follow this ordered reading path after the vision:
@@ -128,9 +132,11 @@ sources.
   code, workflows, schemas, tests, fixtures, packages, and examples. Git history is the recovery
   mechanism for removed implementation and historical behavior.
 - The repository must converge on **one supported MVP contract and one active implementation path
-  for each responsibility**. The local next-MVP record identifies release `2.2.0`, payload
-  `ai-sdlc-contract/v2`, at the immutable full SHA in the [release baseline](docs/releases/next-mvp.md).
-  Repository-local interfaces must conform to this single contract as described locally.
+  for each responsibility**. The local recovery baseline selects payload
+  `ai-sdlc-contract/v2` and the corrected `2.3.1` candidate at
+  `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`.
+  Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0
+  evidence and must never be amended or retagged.
 - Do not preserve backward compatibility, deprecated execution paths, duplicate contracts,
   wrappers, aliases, transitional structures, migration layers, dual-schema validation, obsolete
   workflow inputs, or fallbacks unless an authoritative requirement explicitly requires them. A
@@ -143,16 +149,17 @@ sources.
   invent the missing requirement or architecture.
 - Legacy-looking files are not automatically disposable; trace their disposition during the
   relevant implementation task.
-- This documentation task authorizes no deletion, implementation, workflow, or contract change.
+- Recovery changes must preserve one active source path, one active target path, and one result
+  projection path; Git history is the recovery mechanism for removed duplicate implementations.
 
 ## MVP boundaries
 
 The exact [next-MVP inclusion list](docs/releases/next-mvp.md) is authoritative. In summary: one
-revision-bound human-approved issue; canonical construction/routing to exactly one currently
-activated target;
-idempotent initiation/reconciliation; local authorization when this repository is the target; at
-most one created or reused draft PR; correlated result projection; and deterministic no-Codex local
-conformance validation.
+revision-bound human-approved issue; exact closed task construction and routing to exactly one
+router-activated target; idempotent initiation/reconciliation; local authorization when this
+repository is the target; at most one created or reused draft PR; authenticated receiver-to-source
+result projection; and complete deterministic shared-oracle validation through the real adapter
+seam with all external effects trapped.
 
 `FR-CLS-04`, `FR-GOV-01`, `FR-OUT-02`, `FR-OUT-03`, `FR-PRJ-01`, `FR-PRJ-02`, and `FR-RPT-01` are
 deferred. Unlisted NFRs are later-release constraints, not waived or satisfied. Merge, release,
@@ -172,11 +179,11 @@ iterating and run the full applicable suite before completion:
 
 ```bash
 ruff check .
-ruff format --check portfolio_tasks tests
+ruff format --check portfolio_tasks scripts tests
 mypy portfolio_tasks
 python -m pytest
-python -m pytest tests/test_workflow_contract.py
-python -m pytest tests/test_run_codex.py
+python scripts/test_codex_execute_contract.py
+python scripts/run_tc_mvp_ci_001.py
 $(go env GOPATH)/bin/actionlint -shellcheck=
 git diff --check
 ```
@@ -210,11 +217,14 @@ No material contradiction among approved repository-owned next-MVP sources was i
 these statuses and gaps rather than inventing solutions:
 
 - [ADR.md](docs/architecture/ADR.md) remains **Proposed normative architecture**, not approved.
-- The result receiver contract and complete executable `TC-MVP-CI-001` fixture oracle are available
-  at the pinned organization compatibility SHA. Local conformance still requires implementation
-  and deterministic evidence; live operational readiness is not inferred from artifact presence.
+- The portfolio adapter has complete local `TC-MVP-CI-001` evidence: 29 scenarios pass, 22 invoke
+  the real adapter seam, and all prohibited-effect counters are zero. This does not prove the
+  planned `ai-sdlc-v2.3.1` tag exists, the receiver trust policy is deployed, or live forwarding
+  works.
 - Current target activation is mutable organization control-plane state. This repository neither
   records it as immutable compatibility nor changes or bypasses it.
+- The portfolio target remains disabled; adapter-tag publication, corrected 2.3.1 release
+  publication, reviewed receiver identities, and live receiver verification are external gates.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or
