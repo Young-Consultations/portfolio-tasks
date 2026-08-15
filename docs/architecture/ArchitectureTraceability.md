@@ -32,7 +32,8 @@ claims about current code.
 | VG-06,07 / BO-02,03,04 | FR-OUT-02,03 | ADR-007; draft is not done; disposition and historical lifecycle | Outcomes, Reporting; Target Execution/Event ingress | disposition matrix, no automated merge, close/reopen/supersession |
 | VG-03,08 / BO-02,05 | FR-PRJ-01,02 | ADR-001; issue-to-Project authority and drift states | Projector; Project Projection | mapping, Project-cannot-approve, outage/drift/freshness tests |
 | VG-02,07 / BO-03,05 | FR-RPT-01 | Defined accessible measures with drill-down/freshness | Reporting Query/Export | definition, unknown-vs-zero, accessible drill-down tests |
-| VG-06,09,10 / BO-02,04,06 | FR-TGT-01,02 | ADR-007/008/009; independent local gate, isolated executor, evidence and draft-only guard | Local Target Gateway; Target Execution/Local Target Workflow | wrong-boundary/injection, validation evidence, draft idempotency, prohibited state and model evaluation |
+| VG-06,09,10 / BO-02,04,06 | FR-TGT-01,02 | ADR-007/008/009/013/014; independent local gate, isolated executor, exact dispatch, receiver trust boundary and draft-only guard | Local Target Gateway; Target Execution/Local Target Workflow | exact wrapper, branch+PR ownership, create-race, credential separation, canonical result and prohibited-effect evidence |
+| VG-03,04,05,06,07,09 / BO-02,03,04,06 | FR-CIV-01 | ADR-012/015; non-recursive exact-file pin and complete shared oracle through the real adapter seam | Conformance harness; target adapter effect port | 29 scenario report, 22 adapter invocations, exact shared/target blobs and ten zero-effect counters |
 
 ## Cross-cutting traceability
 
@@ -56,11 +57,11 @@ Changes to Vision or Requirements update this matrix before architecture or impl
 
 ## Next-MVP decision status
 
-The pinned interfaces, v2 approval semantics, material-change identity rule, registry states,
-source projection, and local validation plan resolve the repository-owned decisions required to
-begin implementation. Receiver implementation, complete executable organization fixtures, release
-tag creation, and disabled-target enablement remain external dependencies and do not block local
-consumer implementation or documentation alignment.
+The v2 source, target, receiver, and conformance decisions are implemented locally against the
+corrected 2.3.1 candidate. The portfolio target report passes all 29 shared scenarios with all
+effects trapped. Immutable adapter-tag creation, reviewed receiver deployment identities, live
+receiver verification, corrected compatibility release publication, registry binding, and
+disabled-target activation remain external gates.
 
 ## Next-MVP architecture trace
 

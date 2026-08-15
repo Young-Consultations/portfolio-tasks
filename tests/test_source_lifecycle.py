@@ -1,6 +1,11 @@
+import json
+from pathlib import Path
+
 import pytest
+from jsonschema import Draft202012Validator, FormatChecker
 
 from portfolio_tasks.source_lifecycle import (
+    TASK_MATERIAL_FIELDS,
     Approval,
     LifecycleError,
     ProjectionDecision,
@@ -8,13 +13,28 @@ from portfolio_tasks.source_lifecycle import (
     RoutingRecord,
     SourceRevision,
     canonical_task,
+    normalize_task_type,
 )
+
+
+def material(**changes: object) -> dict[str, object]:
+    values: dict[str, object] = {
+        "project": "portfolio-tasks",
+        "priority": "p0",
+        "task_type": "automation",
+        "parallel_safe": False,
+        "risk": "medium",
+        "scope": "small",
+        "instructions": "Make one bounded repository change.",
+        "created_by": "octocat",
+    }
+    return values | changes
 
 
 def revision(**changes: object) -> SourceRevision:
     values: dict[str, object] = {
         "source_issue": "Young-Consultations/portfolio-tasks#42",
-        "material": {"objective": "bounded change", "task_type": "automation"},
+        "material": material(),
         "status": "approved",
         "target_repository": "Young-Consultations/portfolio-tasks",
         "execution_mode": "implement",
@@ -23,13 +43,33 @@ def revision(**changes: object) -> SourceRevision:
 
 
 def approved(value: SourceRevision) -> Approval:
-    return Approval(value.task_id, "octocat", True)
+    return Approval(value.task_id, "human-reviewer", True)
 
 
-def test_approved_admission_and_material_edit_requires_reapproval() -> None:
+def test_approved_task_is_exact_schema_valid_and_uses_safe_identity() -> None:
+    value = revision()
+    task = canonical_task(value, approved(value))
+    schema = json.loads(Path("contracts/task-contract.schema.json").read_text(encoding="utf-8"))
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(task)
+    assert set(value.material) == TASK_MATERIAL_FIELDS
+    assert task["status"] == "approved"
+    assert str(task["task_id"]).startswith("task-")
+    assert "/" not in str(task["task_id"]) and "#" not in str(task["task_id"])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"material": material(instructions="materially changed")},
+        {"target_repository": "Young-Consultations/slugger"},
+        {"execution_mode": "verify"},
+        {"sensitivity": "sensitive"},
+        {"dependencies": ("Young-Consultations/portfolio-tasks#1",)},
+    ],
+)
+def test_every_authoritative_change_requires_fresh_approval(change: dict[str, object]) -> None:
     first = revision()
-    assert canonical_task(first, approved(first))["status"] == "approved"
-    edited = revision(material={"objective": "materially changed", "task_type": "automation"})
+    edited = revision(**change)
     assert edited.task_id != first.task_id
     with pytest.raises(LifecycleError, match="stale"):
         canonical_task(edited, approved(first))
@@ -63,6 +103,47 @@ def test_unknown_or_malformed_target_fails_closed(target: str) -> None:
         canonical_task(value, approved(value))
 
 
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        ("Automation", "automation"),
+        ("Backlog governance", "backlog-governance"),
+        ("Bug fix", "bug-fix"),
+        ("CI/CD", "ci-cd"),
+        ("Documentation", "documentation"),
+        ("Feature", "feature"),
+        ("Repository maintenance", "repository-maintenance"),
+        ("Security", "security"),
+        ("Testing", "testing"),
+    ],
+)
+def test_issue_form_task_type_vocabulary_is_explicit(label: str, expected: str) -> None:
+    assert normalize_task_type(label) == expected
+
+
+@pytest.mark.parametrize("label", ["Refactor", "Repository governance", "Investigation", ""])
+def test_obsolete_or_unknown_task_type_fails_closed(label: str) -> None:
+    with pytest.raises(LifecycleError, match="task type"):
+        normalize_task_type(label)
+
+
+@pytest.mark.parametrize(
+    "bad_material",
+    [
+        material(scope=None),
+        material(task_type="refactor"),
+        material(extra="not-closed"),
+        {key: value for key, value in material().items() if key != "risk"},
+    ],
+)
+def test_incomplete_or_open_ended_task_material_fails_closed(
+    bad_material: dict[str, object],
+) -> None:
+    value = revision(material=bad_material)
+    with pytest.raises(LifecycleError, match="contract|scope|task type"):
+        canonical_task(value, approved(value))
+
+
 def test_retry_preserves_delivery_and_rejects_blind_or_conflicting_retry() -> None:
     value = revision()
     task = canonical_task(value, approved(value))
@@ -74,22 +155,25 @@ def test_retry_preserves_delivery_and_rejects_blind_or_conflicting_retry() -> No
     assert retried.delivery_id == record.delivery_id
     assert retried.correlation_id == record.correlation_id
     with pytest.raises(LifecycleError, match="different content"):
-        uncertain.retry(task | {"objective": "conflict"})
+        uncertain.retry(task | {"instructions": "conflict"})
 
 
-def result(record: RoutingRecord, source: str, **changes: object) -> dict[str, object]:
+def result(record: RoutingRecord, **changes: object) -> dict[str, object]:
     return {
         "contract_version": "ai-sdlc-contract/v2",
-        "task_id": record.task_id,
         "delivery_id": record.delivery_id,
         "correlation_id": record.correlation_id,
-        "source_issue": source,
         "target_repository": "Young-Consultations/portfolio-tasks",
-        "execution_status": "published",
+        "execution_status": "draft-pr-created",
         "validation_result": "passed",
-        "failure_category": None,
-        "diagnostic_summary": None,
+        "test_result": "passed",
+        "failure_category": "none",
+        "failure_message": None,
+        "branch_name": f"codex/{record.delivery_id}",
         "pull_request_url": "https://github.com/Young-Consultations/portfolio-tasks/pull/1",
+        "workflow_url": "https://github.com/Young-Consultations/portfolio-tasks/actions/runs/1",
+        "started_at": "2026-08-14T00:00:00Z",
+        "completed_at": "2026-08-14T00:01:00Z",
     } | changes
 
 
@@ -101,20 +185,27 @@ def test_valid_duplicate_conflicting_and_receiver_rejected_result_projection() -
     )
     projection = ResultProjection(record)
     applied, decision = projection.apply(
-        result(record, source), receiver_accepted=True, expected_source=source
+        result(record), receiver_accepted=True, expected_source=source
     )
     assert decision is ProjectionDecision.APPLIED
     assert (
-        applied.apply(result(record, source), receiver_accepted=True, expected_source=source)[1]
+        applied.apply(result(record), receiver_accepted=True, expected_source=source)[1]
         is ProjectionDecision.NO_OP
     )
-    conflict = result(record, source, execution_status="failed")
+    conflict = result(
+        record,
+        execution_status="failed",
+        failure_category="tests",
+        failure_message="Tests failed.",
+        branch_name=None,
+        pull_request_url=None,
+    )
     assert (
         applied.apply(conflict, receiver_accepted=True, expected_source=source)[1]
         is ProjectionDecision.QUARANTINED
     )
     assert (
-        projection.apply(result(record, source), receiver_accepted=False, expected_source=source)[1]
+        projection.apply(result(record), receiver_accepted=False, expected_source=source)[1]
         is ProjectionDecision.QUARANTINED
     )
 
@@ -125,12 +216,17 @@ def test_result_binding_and_terminal_transition_fail_closed() -> None:
     pending = RoutingRecord.reserve(canonical_task(value, approved(value)))
     projection = ResultProjection(pending)
     assert (
-        projection.apply(result(pending, source), receiver_accepted=True, expected_source=source)[1]
+        projection.apply(result(pending), receiver_accepted=True, expected_source=source)[1]
         is ProjectionDecision.QUARANTINED
     )
     queued = ResultProjection(pending.router_outcome("accepted"))
-    wrong = result(queued.record, source, correlation_id="correlation-wrong")
+    wrong = result(queued.record, correlation_id="correlation-wrong")
     assert (
         queued.apply(wrong, receiver_accepted=True, expected_source=source)[1]
+        is ProjectionDecision.QUARANTINED
+    )
+    nonterminal = result(queued.record, execution_status="running")
+    assert (
+        queued.apply(nonterminal, receiver_accepted=True, expected_source=source)[1]
         is ProjectionDecision.QUARANTINED
     )

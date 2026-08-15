@@ -2,8 +2,8 @@
 
 `portfolio-tasks` is Young Consultations' governed portfolio front door for AI-assisted software
 delivery. GitHub Issues are the authoritative executable portfolio records; Projects are
-projections only, and this repository does not own organization contracts, shared routing, or
-sibling-repository execution.
+projections only. This repository owns portfolio approval and source projection, not the
+organization router or sibling-repository execution.
 
 Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 
@@ -12,29 +12,48 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 3. approved architecture and interface documents
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
-## Current next-MVP path
+## Issue 135 recovery state
 
-The one selected interface is organization release `2.2.0`, payload
-`ai-sdlc-contract/v2`, pinned at
-`c6090e5bbadcc2102a1cb91875466e9decdada1e`. Organization schemas, fixtures, target capabilities,
-router, and result receiver remain organization-owned and are not copied into this repository.
+The corrected compatibility candidate is `Young-Consultations/.github` commit
+`e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned for release `2.3.1`. Historical commit
+`c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0 evidence and is never
+amended or retagged.
 
-The sole reusable target adapter is [`.github/workflows/codex-execute.yml`](.github/workflows/codex-execute.yml).
-It accepts only `execution_input_json` and the router's `concurrency_group`, consumes immutable
-schemas and target capabilities directly at the compatibility SHA, independently gates the
-organization caller, and keeps
-Codex isolated from publication and result credentials. The prior dispatch, artifact-input,
-mutable-label, and local-result paths remain removed; there is no supported alias.
+The exact shared v2 schemas and `TC-MVP-CI-001` fixture files are vendored only for deterministic,
+offline compatibility validation. Their approved Git blob identities are bound in
+[`config/mvp-conformance-pin.json`](config/mvp-conformance-pin.json); they are not
+repository-owned extensions or alternate contracts.
 
-The target policy core validates local admission, derives publication ownership solely from
-`delivery_id`, binds that identity to the canonical payload digest, and fails closed on ambiguous
-draft ownership or conflicting result replay. It is not an alternate router, contract owner,
-approval mechanism, or sibling publication path.
+The one target entry point is
+[`.github/workflows/codex-execute.yml`](.github/workflows/codex-execute.yml). It exposes
+`workflow_dispatch` with exactly `execution_input_json` and `concurrency_group`, validates the
+closed execution schema and portfolio target policy, reconciles the canonical branch and managed
+draft before Codex, and sends a canonical result through the planned
+`ai-sdlc-v2.3.1` organization receiver. Codex receives neither publication nor result credentials.
+Only the workflow may create one delivery-owned branch and draft PR; it cannot merge, release, or
+deploy.
 
-GitHub Projects synchronization and Slugger issue mirroring are not part of the selected MVP:
-`FR-PRJ-01` and `FR-PRJ-02` are deferred, and direct sibling synchronization conflicts with the
-control-plane and target ownership boundaries. No workflow in this repository currently mutates a
-Project or a sibling repository.
+The portfolio source path constructs the exact closed task schema, binds approval to every
+authoritative routing field, and grants the reusable router its required `actions: read`
+permission. Successful router admission writes the receiver-compatible
+`ai-sdlc-admission:v2` journal marker. Receiver-validated results return through authenticated
+`repository_dispatch`; the target never directly invokes source projection or supplies a source
+write token.
+
+## Evidence and safety state
+
+[`.ai-sdlc/conformance/tc-mvp-ci-001.json`](.ai-sdlc/conformance/tc-mvp-ci-001.json) records all
+29 shared scenarios passing through the real portfolio adapter seam, including 22 adapter
+invocations, with all prohibited Codex, branch, commit, push, PR, merge, release, deployment,
+production, and secret-output counters at zero.
+
+This evidence is compatibility evidence, not activation or production readiness. The portfolio
+target remains disabled. No adapter tag or 2.3.1 compatibility release is published by this change,
+the organization receiver remains deny-all until reviewed deployment identities are configured,
+and live receiver verification is still required.
+
+GitHub Projects synchronization and Slugger issue mirroring remain outside the selected MVP. No
+workflow here mutates a Project or a sibling repository.
 
 ## Development
 
@@ -45,21 +64,14 @@ python3.12 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e '.[dev]'
 ruff check .
+ruff format --check portfolio_tasks scripts tests
 mypy portfolio_tasks
 python -m pytest
+python scripts/test_codex_execute_contract.py
+python scripts/run_tc_mvp_ci_001.py
 $(go env GOPATH)/bin/actionlint -shellcheck=
 git diff --check
 ```
 
-CI uses deterministic local tests and does not invoke Codex, create a branch, publish a pull
-request, or route cross-repository work. The complete organization-owned `TC-MVP-CI-001` fixture
-oracle at the compatibility SHA is the required shared conformance source.
-
-## External blockers
-
-The merged result receiver contract and complete executable `TC-MVP-CI-001` oracle are consumed
-from the compatibility SHA. Current target activation is separate mutable `.github` control-plane
-state enforced by the router; this repository neither pins nor changes it. Administrators must
-configure the router actor allowlist and separately scoped contract, Codex, publication, and result
-credentials before a live call. Operational readiness and activation remain owner decisions and
-must not be inferred from, or reimplemented alongside, immutable compatibility artifacts.
+Normal CI is deterministic and has no Codex, routing, branch, push, PR, receiver, tag, release,
+deployment, or production effect.

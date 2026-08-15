@@ -163,15 +163,15 @@ body:
       label: Task type
       description: Select the primary category so automation can route and filter consistently.
       options:
+        - Automation
+        - Backlog governance
         - Bug fix
-        - Feature
-        - Refactor
         - CI/CD
         - Documentation
+        - Feature
+        - Repository maintenance
         - Security
-        - Repository governance
-        - Automation
-        - Investigation
+        - Testing
     validations:
       required: true
 

@@ -33,22 +33,26 @@ exception is a contract.
 | Operations/Admin / portfolio | Reconcile, activate config, inspect quarantine without bypassing policy | authorized command + reason → auditable outcome | privileged, separation-of-duty configurable; repeat operation idempotent |
 | Local Target Workflow / portfolio-tasks target owner | Apply shared plus local policy for this repository | control-plane task → status/result/draft reference | logically separate credentials; never implies portfolio approval |
 
-## Frozen next-MVP interface profile
+## Recovered next-MVP interface profile
 
-The authoritative schemas and workflows are consumed directly from
-`Young-Consultations/.github@c6090e5bbadcc2102a1cb91875466e9decdada1e` as detailed in
+The corrected compatibility candidate is
+`Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned as release
+`2.3.1`, as detailed in
 [`../requirements/Interface-OrganizationControlPlane.md`](../requirements/Interface-OrganizationControlPlane.md).
-The router accepts required `task_payload`, explicitly supplied `execution_mode`, and
-`CODEX_ROUTER_TOKEN`; its outputs are `execution_result`, `correlation_id`, `delivery_id`,
-`failure_category`, `diagnostic_summary`, and `concurrency_group`. The target adapter accepts only
-`execution_input_json` and `concurrency_group`. The separate result receiver accepts
-`execution_result`, `source_issue`, and `CODEX_RESULT_TOKEN`, and exposes `accepted`, `delivery_id`,
-`correlation_id`, `execution_status`, `failure_category`, and `diagnostic_summary`.
+Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0 evidence.
 
-Canonical field completeness is defined only by the three pinned closed schemas. Architecture
-summaries do not recreate or extend them. Only `status: approved` can cross router admission;
-`queued` is a post-admission projection. Rich approval provenance stays internal. Material edits
-create a new `task_id` and require new approval.
+The router accepts required `task_payload`, explicitly supplied `execution_mode`, and
+`CODEX_ROUTER_TOKEN`. The target entry point is `workflow_dispatch` with exactly
+`execution_input_json` and `concurrency_group`. The separate receiver accepts
+`execution_result`, `source_issue`, and only `CODEX_RESULT_TOKEN`; journal-author trust is
+organization-owned immutable policy.
+
+Canonical field completeness is defined only by the three pinned closed schemas. Exact local
+copies support offline validation but do not transfer ownership. Only `status: approved` can cross
+router admission; `queued` is a post-admission projection. The source writes the canonical v2
+admission binding, the receiver validates and forwards through `repository_dispatch`, and the
+source independently validates before projecting a terminal result. Targets never call source
+projection directly.
 
 ## Event/result minimum contract
 
@@ -60,9 +64,8 @@ draft publication reference. Missing evidence is `not supplied`, never success.
 
 ## Ownership and validation register
 
-Release `2.2.0`, payload version `ai-sdlc-contract/v2`, target capability semantics, workflow
-signatures, schema locations, result-receiver contract, and complete executable fixture oracle are
-frozen at the compatibility SHA. Current target activation is separate mutable control-plane state
-that the router enforces before dispatch; it is not target-side compatibility policy. Normal CI
-uses the organization fixtures with deterministic local doubles and asserts no Codex call, real
-branch, or real PR.
+Payload `ai-sdlc-contract/v2`, the 2.3.1 candidate semantics, target workflow signature, exact
+schema/fixture blob identities, receiver boundary, and executable adapter files are bound by the
+non-recursive conformance pin. Current target activation is separate mutable control-plane state
+that the router enforces before dispatch. Normal CI executes all 29 shared scenarios through the
+real portfolio adapter seam and requires every prohibited-effect counter to remain zero.

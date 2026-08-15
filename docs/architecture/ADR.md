@@ -116,3 +116,40 @@ smoke tests; exactly-once claims. **Tradeoffs:** fixtures require owner-pinned m
 drift safe and reproducible. **Consequences:** Provider-fixture drift fails CI; normal CI remains side-effect-free. Receiver
 implementation, complete executable fixture publication, release-tag creation, and disabled-target
 enablement remain external dependencies, not repository-owned design questions.
+
+## ADR-013 — Dynamic target invocation is exact two-input dispatch
+
+**Context:** The organization router selects a target dynamically with `gh workflow run`, which
+requires `workflow_dispatch`; three historical target wrappers exposed only `workflow_call`.
+**Decision:** The sole target entry point is `workflow_dispatch` with exactly
+`execution_input_json` and `concurrency_group`. Old artifact/run-ID inputs, aliases, and
+parallel adapters are removed rather than preserved. **Alternatives:** add a second dispatch
+wrapper; change the router to reusable-workflow calls; keep both interfaces. **Tradeoffs:** One
+small transport surface and one adapter eliminate drift but require coordinated patch recovery.
+**Consequences:** Static checks verify the wrapper signature while executable conformance proves
+the pinned adapter behavior.
+
+## ADR-014 — Receiver trust is organization-owned; source projection is receiver-dispatched
+
+**Context:** Historical targets supplied or omitted trusted-journal-author policy and directly
+called source projection with target-held source tokens. That confused target, receiver, and source
+authority. **Decision:** Journal-author trust is immutable `.github` configuration. A target
+passes only the canonical result, source issue, and result-delivery token to the receiver. After
+validation, the receiver forwards a bounded `repository_dispatch` payload; the source
+authenticates the receiver and independently projects or quarantines it. **Alternatives:** target
+supplies trust allowlist; target calls source workflow; source polls target. **Tradeoffs:** Requires
+reviewed receiver deployment identities, but removes target authority over receiver trust and
+source writes. **Consequences:** The source admission marker is an exact v2 JSON binding and
+identical terminal results are idempotent.
+
+## ADR-015 — Patch recovery preserves history and uses non-recursive evidence pins
+
+**Context:** The 2.3.0 compatibility commit is internally incompatible, and an early recovery
+design required a report to contain the commit that contained the report, which is impossible to
+construct. **Decision:** Preserve `c6090e5bbadcc2102a1cb91875466e9decdada1e` as historical
+evidence; publish a reviewed 2.3.1 patch; bind exact shared and target Git blob identities in a
+canonical pin whose revision is calculated with its own revision field null. **Alternatives:**
+rewrite or retag history; accept mutable target refs; retain commit self-reference. **Tradeoffs:**
+More explicit tag/commit/report verification, with constructible and reviewable evidence.
+**Consequences:** Local conformance cannot claim tag existence, release publication, receiver
+deployment, activation, or production readiness.

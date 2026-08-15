@@ -34,9 +34,11 @@ and traceability in the same change set.
 [`../releases/next-mvp.md`](../releases/next-mvp.md) is the repository-level release selection. It
 lists the exact included and deferred requirement IDs, lifecycle/authorization decisions,
 continuous interface-validation requirement `FR-CIV-01`, acceptance scenario, external blockers,
-and exit criteria. The external organization compatibility unit is release `2.2.0`, payload version
-`ai-sdlc-contract/v2`, pinned to `c6090e5bbadcc2102a1cb91875466e9decdada1e`. The release baseline
-records its exact interfaces, immutable target capabilities, complete shared fixture oracle, and
-result-receiver contract. Mutable target activation is separately owned and enforced by the
-organization router. A `Must` priority outside the selected list is not automatically MVP
-scope.
+and exit criteria. The selected payload is `ai-sdlc-contract/v2`; issue 135 recovers the
+incompatible historical 2.3.0 commit
+`c6090e5bbadcc2102a1cb91875466e9decdada1e` through the corrected 2.3.1 candidate
+`e27b8a541afbd27b4be5606a19ffa43637ad312a`. The release baseline records exact interfaces,
+schema/fixture blob identities, immutable target capabilities, complete shared-oracle evidence,
+and the organization-owned receiver trust boundary. Mutable target activation remains separately
+owned and enforced by the organization router. A `Must` priority outside the selected list is not
+automatically MVP scope.

@@ -1,209 +1,140 @@
-"""Contract and security tests for the sole canonical target adapter."""
+"""Workflow, source-boundary, and single-path security regression tests."""
 
-import inspect
-import json
 import re
 from pathlib import Path
 
-import pytest
-
-from portfolio_tasks.target_adapter import (
-    AdmissionError,
-    OwnershipError,
-    Pull,
-    admit,
-    branch_for,
-    canonical_digest,
-    ownership_marker,
-    reconcile,
-    verify_result,
-)
+WORKFLOWS = Path(".github/workflows")
+TARGET = WORKFLOWS / "codex-execute.yml"
+ROUTE = WORKFLOWS / "route-approved-task.yml"
+PROJECTION = WORKFLOWS / "project-execution-result.yml"
 
 
-class Validator:
-    def validate(self, instance: object) -> None:
-        if not isinstance(instance, dict) or instance.get("malformed"):
-            raise ValueError("schema")
-
-
-def payload(**changes: object) -> dict[str, object]:
-    value: dict[str, object] = {
-        "contract_version": "ai-sdlc-contract/v2",
-        "delivery_id": "delivery-fixture-0001",
-        "correlation_id": "correlation-fixture-0001",
-        "source_issue": "Young-Consultations/portfolio-tasks#123",
-        "target_repository": "Young-Consultations/portfolio-tasks",
-        "executor": "codex",
-        "draft_pr_only": True,
-        "execution_mode": "implement",
-        "task_type": "automation",
-        "instructions": "Make one bounded change.",
-    }
-    return value | changes
-
-
-def accepted(**changes: object):  # type: ignore[no-untyped-def]
-    return admit(
-        json.dumps(payload(**changes)),
-        "transport-group-0001",
-        Validator(),
-        caller_authenticated=True,
-        caller_authorized=True,
-    )
-
-
-@pytest.mark.parametrize("mode", ["verify", "implement"])
-def test_valid_modes(mode: str) -> None:
-    assert accepted(execution_mode=mode).mode == mode
-
-
-def test_admission_has_no_target_activation_gate() -> None:
-    """Mutable activation belongs to the router, not the immutable target adapter."""
-    assert "enabled" not in inspect.signature(admit).parameters
-    assert accepted().payload["target_repository"] == "Young-Consultations/portfolio-tasks"
-
-
-@pytest.mark.parametrize(
-    ("change", "kwargs"),
-    [
-        ({"target_repository": "Young-Consultations/slugger"}, {}),
-        ({"contract_version": "ai-sdlc-contract/v1"}, {}),
-        ({"malformed": True}, {}),
-        ({"task_type": "feature"}, {}),
-        ({"draft_pr_only": False}, {}),
-        ({}, {"caller_authorized": False}),
-    ],
-)
-def test_admission_failures(change: dict[str, object], kwargs: dict[str, object]) -> None:
-    options = {"caller_authenticated": True, "caller_authorized": True} | kwargs
-    with pytest.raises(AdmissionError):
-        admit(json.dumps(payload(**change)), "transport-group-0001", Validator(), **options)  # type: ignore[arg-type]
-
-
-@pytest.mark.parametrize("raw,group", [("{", "transport-group-0001"), ("{}", "bad group")])
-def test_malformed_input_and_invalid_concurrency(raw: str, group: str) -> None:
-    with pytest.raises(AdmissionError):
-        admit(raw, group, Validator(), caller_authenticated=True, caller_authorized=True)
-
-
-def test_delivery_not_transport_identity_drives_branch_and_digest() -> None:
-    first = accepted()
-    second = admit(
-        json.dumps(payload()),
-        "entirely-different-transport-group",
-        Validator(),
-        caller_authenticated=True,
-        caller_authorized=True,
-    )
-    assert first.branch == second.branch == branch_for(first.delivery_id)
-    assert first.digest == second.digest
-    assert first.branch != branch_for(first.correlation_id)
-
-
-def test_duplicate_and_changed_payload_ownership() -> None:
-    delivery = accepted()
-    managed = Pull("https://example.test/pr/1", delivery.branch, ownership_marker(delivery))
-    assert reconcile(delivery, [managed]) == managed
-    changed = accepted(instructions="changed under the same delivery")
-    with pytest.raises(OwnershipError):
-        reconcile(changed, [managed])
-
-
-def test_matching_ambiguous_and_conflicting_draft_ownership() -> None:
-    delivery = accepted()
-    managed = Pull("https://example.test/pr/1", delivery.branch, ownership_marker(delivery))
-    assert reconcile(delivery, []) is None
-    assert reconcile(delivery, [managed]) == managed
-    with pytest.raises(OwnershipError):
-        reconcile(delivery, [managed, managed])
-    with pytest.raises(OwnershipError):
-        reconcile(delivery, [Pull(managed.url, managed.branch, managed.body, draft=False)])
-
-
-def test_create_race_requery_converges_only_to_unique_managed_draft() -> None:
-    delivery = accepted()
-    winner = Pull("https://example.test/pr/1", delivery.branch, ownership_marker(delivery))
-    assert reconcile(delivery, [winner]).url == winner.url  # type: ignore[union-attr]
-    with pytest.raises(OwnershipError):
-        reconcile(delivery, [winner, winner])
-
-
-def test_verify_result_is_side_effect_free_and_preserves_identity() -> None:
-    delivery = accepted(execution_mode="verify")
-    result = verify_result(delivery, workflow_url="https://example.test/runs/1")
-    assert result["branch_name"] is None and result["pull_request_url"] is None
-    assert result["delivery_id"] == delivery.delivery_id
-    assert result["correlation_id"] == delivery.correlation_id
-    assert result["target_repository"] == delivery.payload["target_repository"]
-
-
-def test_digest_is_canonical_and_diagnostics_are_not_identity() -> None:
-    assert canonical_digest({"b": 2, "a": 1}) == canonical_digest({"a": 1, "b": 2})
-
-
-def test_one_active_target_workflow_is_pinned_and_credential_separated() -> None:
-    workflows = tuple(sorted(Path(".github/workflows").glob("*.yml")))
+def test_exactly_one_active_target_path_and_four_expected_workflows() -> None:
+    workflows = tuple(sorted(WORKFLOWS.glob("*.yml")))
     assert workflows == (
-        Path(".github/workflows/ci.yml"),
-        Path(".github/workflows/codex-execute.yml"),
-        Path(".github/workflows/project-execution-result.yml"),
-        Path(".github/workflows/route-approved-task.yml"),
+        WORKFLOWS / "ci.yml",
+        TARGET,
+        PROJECTION,
+        ROUTE,
     )
-    text = workflows[1].read_text(encoding="utf-8")
-    assert "execution_input_json:" in text and "execution_input:" not in text
-    assert "concurrency_group:" in text
-    assert "c6090e5bbadcc2102a1cb91875466e9decdada1e" in text
-    assert "f2491872976a4dcc1633997954c03c07cbc4fced" not in text
-    assert ".enabled == true" not in text
-    assert "timeout-minutes:" in text
-    assert "ai-sdlc-delivery-id" not in text  # trusted Python owns marker semantics
-    assert "pull_request_target" not in text
-    references = re.findall(r"(?:uses: )[^\s]+@([^\s]+)", text)
-    assert references and all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in references)
-    codex_job = text[text.index("  implement:") : text.index("  publish:")]
-    assert "TARGET_PUBLICATION_TOKEN" not in codex_job
-    assert "CODEX_RESULT_TOKEN" not in codex_job
-    publish_job = text[text.index("  publish:") : text.index("  prepare-result:")]
-    assert "TARGET_PUBLICATION_TOKEN" in publish_job
-    assert "CODEX_API_KEY" not in publish_job
-    assert "CODEX_RESULT_TOKEN" not in publish_job
-    assert "gh pr create" in publish_job and "--draft" in publish_job
-    assert "render_execution_prompt" in codex_job
-    assert "actionlint/cmd/actionlint@v1.7.7" in codex_job
-    assert "toJSON(needs)" not in text
+    for obsolete in (
+        Path("portfolio_tasks/target_adapter.py"),
+        Path("portfolio_tasks/conformance.py"),
+        Path("portfolio_tasks/runtime_validation.py"),
+        Path("portfolio_tasks/codex_subprocess.py"),
+        Path("conformance/reports/tc-mvp-ci-001-v2.json"),
+    ):
+        assert not obsolete.exists()
 
 
-def test_normal_ci_has_no_codex_or_publication_effect() -> None:
-    text = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
-    for forbidden in ("OPENAI_API_KEY", "git push", "gh pr create", "codex exec"):
-        assert forbidden not in text
+def test_target_exposes_exact_two_input_dispatch_and_pinned_receiver() -> None:
+    text = TARGET.read_text(encoding="utf-8")
+    trigger = text.split("on:", 1)[1].split("permissions:", 1)[0]
+    inputs = trigger.split("inputs:", 1)[1]
+    assert "workflow_dispatch:" in trigger
+    assert "workflow_call:" not in text
+    assert inputs.count("execution_input_json:") == 1
+    assert inputs.count("concurrency_group:") == 1
+    assert re.findall(r"^      ([a-z_]+):$", inputs, re.MULTILINE) == [
+        "execution_input_json",
+        "concurrency_group",
+    ]
+    assert "codex-result-receiver.yml@ai-sdlc-v2.3.1" in text
+    assert "CODEX_TRUSTED_JOURNAL_AUTHORS" not in text
+    assert "secrets: inherit" not in text
+    receiver = text.split("  report:", 1)[1]
+    assert receiver.count("CODEX_RESULT_TOKEN:") == 1
 
 
-def test_admission_rereads_and_revision_binds_authoritative_issue() -> None:
-    text = Path(".github/workflows/route-approved-task.yml").read_text(encoding="utf-8")
-    construct = text[text.index("      - name: Construct current canonical approved revision") :]
+def test_target_has_least_privilege_and_credential_separation() -> None:
+    text = TARGET.read_text(encoding="utf-8")
+    assert "permissions:\n  contents: read" in text
+    assert "persist-credentials: false" in text
+    assert "fetch-depth: 0" in text
+    assert "environment: portfolio-tasks-codex-production" in text
+    assert "@openai/codex@0.63.0" in text
+    assert "CODEX_TARGET_TRUSTED_CALLERS" in text
+    assert "TARGET_PUBLICATION_TOKEN" in text
+    assert "OPENAI_API_KEY" in text
+    assert "gh pr merge" not in text
+    assert "git push origin main" not in text
+    references = re.findall(r"(?:uses: )\S+@(\S+)", text)
+    commit_references = [ref for ref in references if not ref.startswith("ai-sdlc-")]
+    assert commit_references and all(
+        re.fullmatch(r"[0-9a-f]{40}", ref) for ref in commit_references
+    )
+
+
+def test_source_route_has_required_caller_permission_and_exact_construction() -> None:
+    text = ROUTE.read_text(encoding="utf-8")
+    assert "permissions:\n  actions: read\n  contents: read\n  issues: write" in text
+    assert "codex-router.yml@ai-sdlc-v2.3.1" in text
+    assert "contracts/task-contract.schema.json" in text
+    assert "Draft202012Validator" in text
+    assert "normalize_task_type" in text
+    for field in (
+        '"project"',
+        '"priority"',
+        '"task_type"',
+        '"parallel_safe"',
+        '"risk"',
+        '"scope"',
+        '"instructions"',
+        '"created_by"',
+    ):
+        assert field in text
+    assert "lower().replace" not in text
+    assert "c6090e5bbadcc2102a1cb91875466e9decdada1e" not in text
+
+
+def test_admission_rereads_current_revision_and_journals_receiver_binding() -> None:
+    text = ROUTE.read_text(encoding="utf-8")
+    construct = text[text.index("      - name: Construct and validate") :]
     assert 'gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE"' in construct
     assert "current-issue.json" in construct
     assert 'issue.get("updated_at") != os.environ["EVENT_UPDATED_AT"]' in construct
     assert '"status:approved" not in labels' in construct
     assert 'form.value("Execution status") != "approved"' in construct
     assert "toJSON(github.event.issue)" not in construct
+    assert "<!-- ai-sdlc-admission:v2 " in text
+    assert "contract_version" in text
+    assert "delivery_id" in text
+    assert "correlation_id" in text
+    assert "source_issue" in text
+    assert "target_repository" in text
+    assert "ai-sdlc-admission: task=" not in text
 
 
-def test_receiver_validation_is_followed_by_portfolio_projection() -> None:
-    target = Path(".github/workflows/codex-execute.yml").read_text(encoding="utf-8")
-    assert "  project-result:" in target
-    projection = target[target.index("  project-result:") :]
-    assert "needs.result.outputs.accepted == 'true'" in projection
-    assert "uses: ./.github/workflows/project-execution-result.yml" in projection
-    assert "needs.prepare-result.outputs.execution_result" in projection
-    assert "PORTFOLIO_RESULT_TOKEN: ${{ secrets.PORTFOLIO_RESULT_TOKEN }}" in projection
+def test_result_projection_accepts_only_authenticated_receiver_dispatch() -> None:
+    text = PROJECTION.read_text(encoding="utf-8")
+    assert "repository_dispatch:" in text
+    assert "types: [ai-sdlc-execution-result-v2]" in text
+    assert "workflow_call:" not in text
+    assert "PORTFOLIO_RESULT_SENDERS" in text
+    assert "secrets:" not in text
+    assert 'set(payload) != {"source_issue", "execution_result"}' in text
+    assert "contracts/execution-result.schema.json" in text
+    assert "Draft202012Validator" in text
+    assert "TERMINAL_STATUSES" in text
+    assert "<!-- ai-sdlc-admission:v2 " in text
+    assert "<!-- ai-sdlc-source-result:v2 " in text
+    assert "status:result-quarantined" in text
 
 
-def test_projection_mutates_only_the_portfolio_repository() -> None:
-    text = Path(".github/workflows/project-execution-result.yml").read_text(encoding="utf-8")
-    assert "repository: Young-Consultations/portfolio-tasks" in text
-    assert "PORTFOLIO_REPOSITORY: Young-Consultations/portfolio-tasks" in text
-    apply = text[text.index("      - name: Apply once") :]
-    assert "repos/$GITHUB_REPOSITORY/issues/" not in apply
-    assert "repos/$PORTFOLIO_REPOSITORY/issues/" in apply
+def test_normal_ci_has_no_codex_or_publication_effect() -> None:
+    text = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8").lower()
+    for forbidden in (
+        "openai_api_key",
+        "target_publication_token",
+        "codex exec",
+        "git checkout -b",
+        "git push",
+        "gh pr create",
+        "gh pr merge",
+        "gh release",
+        "environment:",
+        "secrets.",
+    ):
+        assert forbidden not in text
+    assert "python scripts/run_tc_mvp_ci_001.py" in text
+    assert "git diff --exit-code -- .ai-sdlc/conformance/tc-mvp-ci-001.json" in text

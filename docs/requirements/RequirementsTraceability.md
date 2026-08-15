@@ -70,11 +70,11 @@ evidence is reproducible and all dependent external contracts have been validate
 
 | Vision / business | Requirement and acceptance | Architecture / interface | Evidence |
 | --- | --- | --- | --- |
-| VG-03, VG-04, VG-05, VG-06, VG-07, VG-09 / BO-02, BO-03, BO-04, BO-06 | FR-CIV-01 / AC-FR-CIV-01-1..5 | ADR-011..012; control-plane, target and GitHub interfaces; state and sequence models | repository-local `PT-MVP-*` cases in `docs/releases/next-mvp.md`, aligned to `TC-MVP-CI-001` |
+| VG-03, VG-04, VG-05, VG-06, VG-07, VG-09 / BO-02, BO-03, BO-04, BO-06 | FR-CIV-01 / AC-FR-CIV-01-1..5 | ADR-011..015; control-plane, target and GitHub interfaces; state and sequence models | 29-case `TC-MVP-CI-001` report through the real adapter seam, 22 adapter invocations, exact pin bindings and ten zero-effect counters |
 
 Reverse trace: `TC-MVP-E2E-001` proves the selected `FR-INT`, `FR-CLS`, `FR-GOV`, `FR-RTE`,
 `FR-OUT`, and `FR-TGT` path; `TC-MVP-NEG-001` proves human authority and fail-closed gates;
 `TC-MVP-REC-001` proves `FR-RTE-03..04` and `FR-OUT-01` replay/reconciliation; and
 `TC-MVP-NOEFFECT-001` proves `FR-CIV-01`, `NFR-TST-02`, and `NFR-AI-02` without Codex, a real
-branch, or a real PR. The exact included/deferred set is release-controlled in
+branch, commit, push, PR, merge, release, deployment, production action, or secret output. The exact included/deferred set is release-controlled in
 `docs/releases/next-mvp.md`.

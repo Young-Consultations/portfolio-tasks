@@ -1,32 +1,40 @@
 # Next-MVP implementation-path inventory
 
-This inventory records the reconciliation against the approved requirements and the next-MVP
-release selection. Git history, rather than active files, preserves removed blueprints.
+This inventory records the issue 135 reconciliation against the approved requirements and recovery
+baseline. Git history, rather than active aliases, preserves removed blueprints.
 
 | Candidate | Decision | Disposition and authority |
 | --- | --- | --- |
-| Structured GitHub issue intake and deterministic parser | KEEP | `FR-INT-01..03` and `FR-CLS-01..03` are selected. Issues remain authoritative; intake does not approve or execute. |
-| Codex subprocess, prompt renderer, and deterministic repository validation utilities | KEEP | They are target-side utilities supporting `FR-TGT-01..02`, `NFR-AI-01..02`, and `NFR-TST-01..02`; without a workflow they cannot route, execute, or publish. |
-| `route-approved-task.yml` | REMOVE | The release baseline explicitly identifies its tag/package consumption, live-label recheck, and result handling as nonconforming. Its event trigger could initiate an obsolete second execution path. |
-| `codex-execute.yml` | REMOVE | Its artifact input, control-plane package checkout, queued-label authorization alias, local source update, and artifact result path conflict with the one v2 target interface and separate receiver. |
-| Slugger issue synchronization workflow and Python mirror stack | REMOVE | Direct sibling mirroring is not a selected MVP responsibility; Slugger is disabled, and target/control-plane ownership must not be absorbed here. |
-| GitHub Projects intake/synchronization workflows, implementation, tests, and operating contracts | REMOVE | `FR-PRJ-01` and `FR-PRJ-02` are expressly deferred. Projects cannot become an execution authority. |
-| Legacy dispatch validator, router gate, marker implementation, publication scripts, and tests | REMOVE | These existed only for the removed pre-baseline workflows and encoded local aliases/transport not required by the closed v2 contract. |
-| Organization schemas, registry, and shared fixtures | REMOVE / do not add | The control plane owns them. The release baseline requires direct immutable consumption and forbids a duplicate local authority. None is checked in. |
-| Proposed ADR collection | KEEP | It remains architectural guidance with its recorded **Proposed normative architecture** status; it is not represented as approved. |
-| Reporting, automated Project projection, merge/release/deploy, and target activation | DEFER | These are deferred, later-release, human-controlled, or organization control-plane responsibilities and are not implemented by this cleanup. |
+| Structured issue intake and deterministic parser | KEEP / CORRECT | Issues remain authoritative. Task-type options now map explicitly to the exact v2 vocabulary; intake alone never approves or executes. |
+| Source lifecycle policy | KEEP / CORRECT | Exact closed task construction, schema-safe identity, complete authority binding, current-issue reread, and fresh human approval implement `FR-GOV-03..04` and `FR-RTE-01`. |
+| `route-approved-task.yml` | KEEP / REPLACE | One source route remains. It grants the router-required `actions: read`, uses the planned 2.3.1 router, validates the exact task schema, and writes the canonical v2 admission journal. |
+| `codex-execute.yml` | KEEP / REPLACE | One exact two-input `workflow_dispatch` wrapper remains. Artifact/run-ID transport, `workflow_call`-only entry, local activation, and direct source projection are removed. |
+| `scripts/codex_target_adapter.py` | ADD AS SOLE ADAPTER | It owns target admission, branch+PR reconciliation, bounded AI execution, validation, draft publication, canonical results, and receiver handoff. |
+| Codex runtime and prompt renderer | KEEP AS ADAPTER DEPENDENCIES | They provide autonomous workspace execution and structured completion without publication or result credentials. |
+| Historical `portfolio_tasks.target_adapter` and local conformance module | REMOVE | They were parallel contract/adapter paths with obsolete shapes and incomplete evidence. |
+| Historical runtime-validation and subprocess helper modules | REMOVE | They were unreferenced after consolidation and would preserve a second orchestration policy. |
+| `project-execution-result.yml` | KEEP / REPLACE | It now consumes only authenticated organization-receiver `repository_dispatch`, repeats exact schema/binding checks, and idempotently projects or quarantines. |
+| Exact organization schemas and shared fixtures | ADD AS PINNED INPUTS | The control plane remains owner. Byte-exact Git blob identities allow deterministic offline validation and cannot be extended locally. |
+| Executable `TC-MVP-CI-001` harness and report | ADD | All 29 shared scenarios run through the real adapter seam with ten explicit prohibited-effect traps. |
+| Slugger mirroring and GitHub Projects synchronization | DEFER / ABSENT | These remain outside the selected MVP and cannot become execution authority. |
+| Merge, release, deploy, target activation, and receiver trust configuration | DEFER / EXTERNAL | These are human or organization control-plane decisions and are not effects of this recovery change. |
 
 ## Supported state after migration
 
-There is one documented contract selection: release `2.2.0`, payload `ai-sdlc-contract/v2`, at
-`c6090e5bbadcc2102a1cb91875466e9decdada1e`. The sole replacement target workflow is
-`.github/workflows/codex-execute.yml`; the removed aliases and transports remain unsupported. Normal
-CI and retained source-side utilities have no Codex, branch, pull-request, Project, sibling-write,
-router, or result-publication side effect.
+There is one selected payload, one source route, one target adapter, and one source result
+projection. The corrected candidate is
+`Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned as
+`ai-sdlc-v2.3.1`. Historical
+`c6090e5bbadcc2102a1cb91875466e9decdada1e` remains preserved evidence, not an active consumer
+pin.
 
-## External dependencies
+Normal CI executes exact schema tests, source/target boundary tests, and all 29 shared oracle
+scenarios. It has no real Codex, branch, commit, push, PR, receiver, merge, tag, release, deployment,
+production, or secret-output effect.
 
-The result receiver contract and complete executable `TC-MVP-CI-001` fixture oracle are available
-at the compatibility SHA. Current activation, credentials, and live operational readiness remain
-organization-owned external state and decisions. They do not authorize a local contract copy,
-activation check, result receiver, or substitute workflow.
+## External gates
+
+The portfolio adapter report is sufficient local compatibility evidence but not activation
+evidence. The immutable adapter tag, corrected 2.3.1 release, reviewed receiver deployment
+identities, live receiver verification, registry binding, and one-at-a-time review-state activation
+must be completed by their owners before issue 117 resumes.

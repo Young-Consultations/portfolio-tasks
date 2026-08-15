@@ -1,154 +1,127 @@
-# portfolio-tasks next-MVP baseline
+# portfolio-tasks next-MVP recovery baseline
 
-**Status:** documentation and interface baseline; ready for repository implementation planning.
+**Status:** issue 135 implementation baseline. Local source, target, and zero-effect conformance
+work is complete; immutable publication, receiver deployment identity, and activation remain gated.
 
-## Immutable organization compatibility unit
+## Immutable compatibility recovery
 
-This repository consumes release `2.2.0` and payload version `ai-sdlc-contract/v2` from
-`Young-Consultations/.github` at the immutable reference
-`c6090e5bbadcc2102a1cb91875466e9decdada1e` (the **compatibility SHA**). The compatibility unit is:
+The selected payload is `ai-sdlc-contract/v2`. The corrected organization compatibility candidate
+is `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned as patch
+release `2.3.1`. The incompatible reviewed baseline
+`c6090e5bbadcc2102a1cb91875466e9decdada1e` is preserved as historical 2.3.0 evidence; it MUST
+NOT be amended or retagged.
 
-* `release/release-manifest.json`
-* `docs/interfaces/mvp-v2-compatibility.md`
-* `docs/releases/next-mvp.md`
-* `config/codex-repositories.json` as the immutable target capability registry, excluding mutable
-  operational activation
-* `contracts/task-contract.schema.json`
-* `contracts/execution-input.schema.json`
-* `contracts/execution-result.schema.json`
-* `tests/fixtures/mvp-v2/manifest.json` (fixture set `TC-MVP-CI-001`)
-* `.github/workflows/codex-router.yml`
-* `.github/workflows/codex-result-receiver.yml`
+The local non-recursive conformance pin binds:
 
-Every workflow reference and direct schema-file fetch MUST use the full compatibility SHA. Mutable
-`main`, the uncreated `ai-sdlc-v2.2.0` tag, an assumed `ai-sdlc-contracts` package, and local copies
-or extensions of the closed schemas are not dependencies. Direct immutable schema-file consumption
-is the MVP dependency unless publication of an artifact is independently confirmed.
+- the candidate compatibility commit and fixture identity;
+- exact Git blob identities for the three closed schemas and three shared fixture files;
+- exact Git blob identities for the target workflow, real adapter, and executable harness; and
+- an adapter revision derived from the canonical pin with `adapter_revision` set to null.
 
-This consumer alignment does not establish sibling-repository conformance or executable
-cross-repository conformance.
+The authoritative record is
+[`config/mvp-conformance-pin.json`](../../config/mvp-conformance-pin.json). Vendored schemas and
+fixtures are byte-for-byte compatibility inputs for offline CI, not local contract ownership,
+extensions, or alternate truth.
 
-## Outcome and responsibility boundary
+References to the organization router and receiver use the planned immutable tag
+`ai-sdlc-v2.3.1`. That tag and the corrected compatibility release do not yet exist; this
+repository MUST stay disabled until reviewed evidence permits their publication and live
+verification.
 
-The MVP ends with one validated draft PR and one correlated canonical result projected on its
-source issue. Merge, release, deployment, production operation, and production-readiness decisions
-remain human-controlled.
+## Included and deferred requirements
 
-`portfolio-tasks` owns source issue identity, intake and eligibility, human approval truth,
-material-change detection, creation of a new `task_id` after a material change, exactly-one-target
-selection, canonical task construction, explicit execution-mode selection, router invocation,
-post-admission lifecycle projection, and result consumption/presentation. It is also one possible
-execution target through the separately bounded `.github/workflows/codex-execute.yml` adapter.
-That target role applies only target policy: it cannot approve its own work, bypass the router, or
-gain portfolio authority.
-
-## Exact included and deferred requirements
-
-MVP inclusion is deliberate; a `Must` priority alone does not imply inclusion.
-
-**Included:** `FR-INT-01`, `FR-INT-02`, `FR-INT-03`, `FR-CLS-01`, `FR-CLS-02`, `FR-CLS-03`,
-`FR-GOV-02`, `FR-GOV-03`, `FR-GOV-04`, `FR-RTE-01`, `FR-RTE-02`, `FR-RTE-03`, `FR-RTE-04`,
-`FR-OUT-01`, `FR-TGT-01`, `FR-TGT-02`, `FR-CIV-01`, `NFR-REL-01`, `NFR-REL-02`,
-`NFR-REL-03`, `NFR-SEC-01`, `NFR-SEC-02`, `NFR-SEC-05`, `NFR-AUD-01`, `NFR-OBS-02`,
-`NFR-MNT-01`, `NFR-MNT-02`, `NFR-INT-01`, `NFR-INT-02`, `NFR-USA-02`, `NFR-TST-01`,
-`NFR-TST-02`, `NFR-AUT-01`, `NFR-AI-01`, and `NFR-AI-02`.
+**Included:** `FR-INT-01`, `FR-INT-02`, `FR-INT-03`, `FR-CLS-01`, `FR-CLS-02`,
+`FR-CLS-03`, `FR-GOV-02`, `FR-GOV-03`, `FR-GOV-04`, `FR-RTE-01`, `FR-RTE-02`,
+`FR-RTE-03`, `FR-RTE-04`, `FR-OUT-01`, `FR-TGT-01`, `FR-TGT-02`, `FR-CIV-01`,
+`NFR-REL-01`, `NFR-REL-02`, `NFR-REL-03`, `NFR-SEC-01`, `NFR-SEC-02`,
+`NFR-SEC-05`, `NFR-AUD-01`, `NFR-OBS-02`, `NFR-MNT-01`, `NFR-MNT-02`,
+`NFR-INT-01`, `NFR-INT-02`, `NFR-USA-02`, `NFR-TST-01`, `NFR-TST-02`,
+`NFR-AUT-01`, `NFR-AI-01`, and `NFR-AI-02`.
 
 **Deferred:** `FR-CLS-04`, `FR-GOV-01`, `FR-OUT-02`, `FR-OUT-03`, `FR-PRJ-01`,
-`FR-PRJ-02`, and `FR-RPT-01`. Unlisted NFRs remain later-release quality constraints and are not
-claimed satisfied or waived.
+`FR-PRJ-02`, and `FR-RPT-01`. Unlisted NFRs remain later-release constraints and are not
+waived or claimed satisfied.
 
-## Canonical task and approval lifecycle
+## Source-owned approval and admission
 
-The complete field set and validation rules come only from
-`contracts/task-contract.schema.json@c6090e5bbadcc2102a1cb91875466e9decdada1e`. The subordinate
-MVP dispatch summary is: `contract_version` is `ai-sdlc-contract/v2`, `status` is `approved`,
-`executor` is `codex`, `dependencies` is `[]`, and `target_repository` is exactly one target whose
-current activation the organization router authorizes before dispatch.
+`portfolio-tasks` owns source issue identity, intake, human approval truth, material-change
+invalidation, exact canonical task construction, explicit mode selection, routing initiation,
+admission journaling, result projection, and reconciliation.
 
-1. A human approves the current material task content.
-2. `portfolio-tasks` constructs the canonical task with `status: approved`.
-3. It explicitly selects `verify` or `implement`.
-4. It calls the router pinned to the compatibility SHA.
-5. Only successful router admission permits the source projection `queued`.
-6. `queued` is never submitted as authorization.
-7. A material edit invalidates the executable identity, creates a new `task_id`, and requires new
-   human approval.
-8. Duplicate dispatch of the same logical delivery preserves `delivery_id`.
-9. Missing, delayed, rejected, or ambiguous results enter reconciliation; they do not authorize a
-   blind redispatch.
-10. Withdrawal before execution prevents new side effects; cancellation after execution begins is
-    best effort.
-11. A transport acknowledgement is never presented as execution success.
+The source constructs exactly the fields declared by `task-contract/v2`:
+`contract_version`, `task_id`, `source_issue`, `status`, `executor`, `project`,
+`priority`, `task_type`, `target_repository`, `parallel_safe`, `dependencies`, `risk`,
+`scope`, `instructions`, and `created_by`. Unknown, missing, or extra fields fail closed.
 
-Approval ID, revision digest, approver, approval timestamp, revocation record, and freshness
-metadata are deferred to v3. Repository-internal audit records MAY retain richer approval
-information, but it MUST NOT be added as undeclared v2 inter-repository payload fields.
+The schema-safe `task_id` binds the source issue and the complete authoritative revision:
+task material, target, execution mode, executor, dependencies, and sensitivity. Therefore any
+material routing-authority change requires a new task identity and fresh human approval.
+Only `status: approved`, `executor: codex`, no unresolved dependencies, and
+`not-sensitive` are admissible. Issue-form task types are explicitly mapped to the canonical
+vocabulary; obsolete or inferred values fail closed.
 
-## Target capabilities and operational activation
+The source workflow grants `actions: read` because the called organization router requests that
+permission. A successful router result is journaled as exactly one unique
+`ai-sdlc-admission:v2` JSON binding containing contract, delivery, correlation, source issue, and
+target. Only after that durable record is the source projected to queued.
 
-The compatibility unit freezes target capability semantics, including supported contract version,
-target workflow interface, permitted task types and modes, `draft_pr_only: true`, concurrency
-semantics, `delivery_id` branch and ownership semantics, and result behavior. Those immutable
-capabilities are consumer requirements and target-side defense-in-depth gates.
+## Target-owned execution
 
-Current enabled or disabled state is not part of the immutable compatibility unit. It is mutable
-organization control-plane activation state owned and enforced by the `.github` router before
-dispatch. A target adapter MUST NOT read historical activation from the pinned capability revision,
-reject a routed request because that revision predates activation, or change activation. It still
-fails closed on an unauthenticated or unauthorized caller, wrong target identity, incompatible
-contract or schema, unsupported capability, invalid concurrency or delivery identity, non-draft
-publication request, replay conflict, or ambiguous ownership.
+The sole target entry point is `workflow_dispatch` with exactly two string inputs:
+`execution_input_json` and `concurrency_group`. `workflow_call`, artifact/run-ID transport,
+old aliases, and the former duplicate Python adapter/conformance paths are not supported.
 
-## Result projection
+The target independently validates the exact execution schema, authenticated caller, portfolio
+repository identity, allowed task types, mode, draft-only policy, concurrency, delivery branch, and
+payload digest. It reconciles both the canonical branch and matching managed pull requests before
+Codex and after any create race. Only exactly one matching open draft can be reused; an orphan
+branch, mismatched digest, non-draft PR, multiple owners, or uncertain race is rejected as
+ambiguous before paid execution or another publication.
 
-After organization receiver validation, the source-issue projection records source issue, task ID
-or locally bound approved-task identity, correlation ID, delivery ID, target, execution status,
-validation result, test result, draft-PR URL when present, sanitized failure category/message,
-safe workflow URL, completion time, duplicate-reuse status, and ambiguous-result status. It
-distinguishes router admission, delivery acceptance, target execution, result transport, receiver
-validation, and final execution outcome.
+The AI runtime receives only task instructions, repository context, and validation policy. It has
+no publication or result credential. The workflow validates the candidate, then separately uses a
+publication credential to create at most one branch and draft PR. It cannot approve, mark ready,
+merge, release, deploy, or perform production operations.
 
-## `FR-CIV-01` — repository-local, no-Codex conformance plan
+## Receiver and source projection
 
-Normal interface CI SHALL use deterministic local doubles and no organization-owned fixture files
-beyond those actually published. Planned cases are:
+The target passes only `execution_result`, `source_issue`, and `CODEX_RESULT_TOKEN` to the
+organization receiver. Trusted journal-author policy is immutable organization configuration and
+MUST NOT be supplied by a target.
 
-| Local case | Required assertion | Trace |
-| --- | --- | --- |
-| `PT-MVP-APPROVED`, `PT-MVP-NONAPPROVED`, `PT-MVP-QUEUED` | construct an approved canonical task; reject every non-approved status; specifically reject queued admission | FR-GOV-03, FR-RTE-01/02 |
-| `PT-MVP-MATERIAL-EDIT` | material edit produces a new task ID and requires new approval | FR-GOV-04 |
-| `PT-MVP-VERIFY`, `PT-MVP-IMPLEMENT` | router call explicitly supplies each execution mode | FR-RTE-02 |
-| `PT-MVP-TARGETS` | exercise target selections; the router enforces current activation and a dispatched target validates its exact identity and immutable capabilities | FR-CLS-03, FR-RTE-02 |
-| `PT-MVP-DISABLED`, `PT-MVP-UNKNOWN` | router-side inactive and unknown selections fail closed without dispatch; target tests do not recreate activation policy | FR-RTE-02, NFR-INT-02 |
-| `PT-MVP-DUP-DISPATCH`, `PT-MVP-RETRY-ID` | duplicate has one visible effect and retry preserves delivery ID | FR-RTE-03/04, NFR-REL-01/03 |
-| `PT-MVP-OWNERSHIP`, `PT-MVP-CREATE-RACE` | lookup uses deterministic branch identity plus `ai-sdlc-delivery-id`; a create conflict requeries and uniquely reuses one owned open draft PR | FR-TGT-02, FR-RTE-03, NFR-REL-01/03 |
-| `PT-MVP-CREATE-RACE-NONE`, `PT-MVP-CREATE-RACE-AMBIGUOUS` | post-conflict requery with no conclusive owner enters reconciliation; multiple/conflicting owners quarantine without another create or mutation | FR-TGT-02, FR-RTE-03/04, NFR-REL-01/03 |
-| `PT-MVP-RESULT`, `PT-MVP-RESULT-DUP`, `PT-MVP-RESULT-CONFLICT` | valid projection; identical duplicate no-op; conflicting duplicate quarantined | FR-OUT-01 |
-| `PT-MVP-RESULT-DELAY`, `PT-MVP-ROUTER-REJECT`, `PT-MVP-RECEIVER-FAILURE` | reconcile missing/delayed result; safely project router rejection and receiver transport failure without treating acknowledgement as execution success | FR-RTE-04, FR-OUT-01 |
-| `PT-MVP-NOEFFECT` | no Codex call, real branch, or real pull request | FR-CIV-01, NFR-TST-02, NFR-AI-02 |
+After schema, caller, admission, and replay validation, the organization receiver forwards
+`{"source_issue": ..., "execution_result": ...}` to the source repository using
+`repository_dispatch` event `ai-sdlc-execution-result-v2`. The source authenticates that
+dispatch identity, repeats exact result-schema and admission-binding validation, projects an
+identical result once, and quarantines conflicting evidence. The target never directly invokes the
+source projection workflow and never receives a portfolio result-write credential. Receiver
+acceptance is transport evidence, not execution success.
 
-The cases align to the scenario list in
-`tests/fixtures/mvp-v2/manifest.json@c6090e5bbadcc2102a1cb91875466e9decdada1e` (`TC-MVP-CI-001`).
-That compatibility baseline contains the complete executable input and expected-output fixture
-oracle. Consumer CI must execute it without locally redefining its schema, status vocabulary,
-activation behavior, result semantics, or expected outcomes and without real Codex or GitHub
-publication effects.
+## Deterministic evidence
 
-## External dependencies and readiness
+`scripts/run_tc_mvp_ci_001.py` executes the complete organization-owned 2.3.0 fixture oracle
+against the real repository adapter seam. The checked report records:
 
-The result receiver contract and complete executable `TC-MVP-CI-001` oracle are organization-owned
-parts of the merged compatibility baseline. They are consumed directly and are not redesigned or
-reimplemented here. Mutable target activation, credentials, and any live operational readiness
-decision remain organization-owned external concerns; documentation or compatibility pinning does
-not enable a target. None blocks implementation or deterministic conformance testing of this
-repository's local consumer responsibilities.
+- 29 of 29 scenarios passing;
+- 22 scenarios invoking the portfolio adapter;
+- exact compatibility and target-file pin bindings; and
+- zero real Codex, branch, commit, push, pull-request, merge, release, deployment, production, or
+  secret-output effects.
 
-No new repository-owned requirement or architecture decision remains before implementation can
-begin. Cross-repository compatibility and successful live result return remain unproven.
+The report is
+[`.ai-sdlc/conformance/tc-mvp-ci-001.json`](../../.ai-sdlc/conformance/tc-mvp-ci-001.json).
+Normal CI regenerates it and fails on drift. This establishes deterministic adapter compatibility,
+not tag existence, receiver deployment, activation, or production readiness.
 
-The checked-in `route-approved-task.yml` and `codex-execute.yml` predate this baseline and are
-nonconforming implementation inputs to the first implementation issue, not normative compatibility
-evidence. In particular, their legacy tag/package consumption, artifact transport inputs, live
-label recheck, and result handling MUST NOT be copied forward. Readiness here means the replacement
-can be implemented without choosing a new interface or lifecycle rule; it does not claim that the
-current workflows already conform.
+## Remaining gated sequence
+
+1. Review and merge this portfolio recovery without enabling the target.
+2. Apply and review the same canonical adapter and complete oracle evidence in Slugger.
+3. Record reviewed receiver deployment identities and prove live receiver forwarding.
+4. Publish one immutable adapter tag for each conforming target.
+5. Bind exact tag-to-commit and report-to-pin identities in the corrected registry.
+6. Publish the corrected 2.3.1 compatibility release.
+7. Run one-at-a-time review-state compatibility checks.
+8. Only then return to issue 117 and change mutable activation for one low-blast-radius target.
+
+No local green check may skip or replace these gates.
