@@ -123,7 +123,7 @@ jobs:
             "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100")"
           admission_count="$(jq --arg marker "$ADMISSION_MARKER" \
             '[.[] | select((.body // "") | contains($marker))] | length' <<< "$comments")"
-          if [[ "$admission_count" -lt 1 ]]; then
+          if [[ "$admission_count" -ne 1 ]]; then
             gh api --method POST "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/labels" \
               -f 'labels[]=status:result-quarantined' >/dev/null
             exit 1

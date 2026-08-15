@@ -59,12 +59,10 @@ def main() -> None:
 
     content = added_content(run("git", "diff", "--no-ext-diff"))
     content += "\n" + added_content(run("git", "diff", "--cached", "--no-ext-diff"))
+    untracked_files = set(run("git", "ls-files", "--others", "--exclude-standard").splitlines())
     for name in files:
         path = Path(name)
-        if (
-            path.is_file()
-            and name in run("git", "ls-files", "--others", "--exclude-standard").splitlines()
-        ):
+        if path.is_file() and name in untracked_files:
             content += path.read_text(encoding="utf-8", errors="replace")
     if SECRET_VALUE.search(content):
         raise SystemExit("a credential-like value was detected in generated content")

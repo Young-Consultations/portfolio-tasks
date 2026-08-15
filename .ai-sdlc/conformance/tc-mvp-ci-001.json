@@ -1,7 +1,7 @@
 {
   "report_version": "1.0",
   "repository": "Young-Consultations/portfolio-tasks",
-  "adapter_revision": "sha256:de71418de78bcfdfffb1f4fc02ccf0a0da2fcc9eaf68a8d580526f4c89c4078c",
+  "adapter_revision": "sha256:9b16b9a7ab3342d941b6fe72c0c319ea3d166cccb7a6ee4c6efd671ebeedf09f",
   "compatibility_sha": "e27b8a541afbd27b4be5606a19ffa43637ad312a",
   "fixture_set": "TC-MVP-CI-001",
   "fixture_version": "2.3.0",

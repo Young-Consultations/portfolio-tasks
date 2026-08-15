@@ -44,6 +44,12 @@ EXPECTED_COMPATIBILITY_BLOBS = {
     "tests/fixtures/mvp-v2/expected-results.json": "b45c6921f029220b2f3138d5cd2d9443499a3171",
 }
 COMPATIBILITY_FILES = set(EXPECTED_COMPATIBILITY_BLOBS)
+TARGET_FILES = {
+    ".github/workflows/codex-execute.yml",
+    "scripts/codex_target_adapter.py",
+    "scripts/validate_repository.py",
+    "scripts/test_codex_execute_contract.py",
+}
 ROUTER_REJECTIONS = {
     "unauthorized-approval",
     "stale-approval",
@@ -168,11 +174,7 @@ def validate_pin(pin: dict[str, Any]) -> list[str]:
     if not isinstance(compatibility_files, dict) or set(compatibility_files) != COMPATIBILITY_FILES:
         errors.append("compatibility pin has the wrong shared file set")
         compatibility_files = {}
-    if not isinstance(target_files, dict) or {
-        ".github/workflows/codex-execute.yml",
-        "scripts/codex_target_adapter.py",
-        "scripts/run_tc_mvp_ci_001.py",
-    } - set(target_files):
+    if not isinstance(target_files, dict) or set(target_files) != TARGET_FILES:
         errors.append("compatibility pin has the wrong target file set")
         target_files = {}
     expected_revision = pin_revision(pin)
