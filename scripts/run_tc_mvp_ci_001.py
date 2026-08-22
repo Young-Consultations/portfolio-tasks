@@ -47,6 +47,7 @@ COMPATIBILITY_FILES = set(EXPECTED_COMPATIBILITY_BLOBS)
 TARGET_FILES = {
     ".github/workflows/codex-execute.yml",
     "scripts/codex_target_adapter.py",
+    "scripts/run_tc_mvp_ci_001.py",
     "scripts/validate_repository.py",
     "scripts/test_codex_execute_contract.py",
 }
