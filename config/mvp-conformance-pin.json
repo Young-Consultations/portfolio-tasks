@@ -4,7 +4,7 @@
   "compatibility_sha": "e27b8a541afbd27b4be5606a19ffa43637ad312a",
   "fixture_set": "TC-MVP-CI-001",
   "fixture_version": "2.3.0",
-  "adapter_revision": "sha256:282273f97d27cd003305cbc3de936c759923b25ab5501bfcdebade499da1fe5c",
+  "adapter_revision": "sha256:18bd60aa1b624e0b1387d4cb040d031cf853c1dc98b1af956b1b75c9c0acc194",
   "compatibility_files": {
     "contracts/task-contract.schema.json": "d95673363eb7f825eb64b73ddb0468c787078ce4",
     "contracts/execution-input.schema.json": "b2b16cfda619c82d73a5e78ae34566feb6b83224",
@@ -14,10 +14,10 @@
     "tests/fixtures/mvp-v2/expected-results.json": "b45c6921f029220b2f3138d5cd2d9443499a3171"
   },
   "target_files": {
-    ".github/workflows/codex-execute.yml": "20b56890e326a7290ed2ea144c3e5eab25c4593f",
+    ".github/workflows/codex-execute.yml": "83867cc6fee420e4acfcc321d5d753cdf118b040",
     "scripts/codex_target_adapter.py": "8cf726820eebeaa5d53ff0fe2bb836cd33b42f7d",
-    "scripts/run_tc_mvp_ci_001.py": "6f553d154d1d829d26a17fb79f17bc33c668ce26",
+    "scripts/run_tc_mvp_ci_001.py": "66b6a3f2bcf54cc957dc65b04614fbe4a754849f",
     "scripts/validate_repository.py": "5640662175bc1b28e31c22163d4104e161a63a83",
-    "scripts/test_codex_execute_contract.py": "5b922e5ef173f261e2850818b5596e0e22afe9e5"
+    "scripts/test_codex_execute_contract.py": "5a1f088f49c3e881abc114272c7b7de606101cf2"
   }
 }

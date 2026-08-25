@@ -14,8 +14,10 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 
 ## Issue 135 recovery state
 
-The corrected compatibility candidate is `Young-Consultations/.github` commit
-`e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned for release `2.3.1`. Historical commit
+The current published compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`,
+pointing to immutable commit `5738ace3ee90dde11336f8f8099e64e5645f7139`. Its schema and fixture
+baseline derives from corrected recovery commit
+`e27b8a541afbd27b4be5606a19ffa43637ad312a`. Historical commit
 `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0 evidence and is never
 amended or retagged.
 
@@ -28,8 +30,8 @@ The one target entry point is
 [`.github/workflows/codex-execute.yml`](.github/workflows/codex-execute.yml). It exposes
 `workflow_dispatch` with exactly `execution_input_json` and `concurrency_group`, validates the
 closed execution schema and portfolio target policy, reconciles the canonical branch and managed
-draft before Codex, and sends a canonical result through the planned
-`ai-sdlc-v2.3.1` organization receiver. Codex receives neither publication nor result credentials.
+draft before Codex, and sends a canonical result through the published
+`ai-sdlc-v2.3.2` organization receiver. Codex receives neither publication nor result credentials.
 Only the workflow may create one delivery-owned branch and draft PR; it cannot merge, release, or
 deploy.
 
@@ -48,9 +50,9 @@ invocations, with all prohibited Codex, branch, commit, push, PR, merge, release
 production, and secret-output counters at zero.
 
 This evidence is compatibility evidence, not activation or production readiness. The portfolio
-target remains disabled. No adapter tag or 2.3.1 compatibility release is published by this change,
-the organization receiver remains deny-all until reviewed deployment identities are configured,
-and live receiver verification is still required.
+target remains disabled. The published `ai-sdlc-v2.3.2` unit and accepted immutable evidence cover all four core targets.
+Mutable activation remains disabled; reviewed receiver identities and a controlled live acceptance
+run are still required.
 
 GitHub Projects synchronization and Slugger issue mirroring remain outside the selected MVP. No
 workflow here mutates a Project or a sibling repository.

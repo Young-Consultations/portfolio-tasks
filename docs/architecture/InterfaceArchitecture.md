@@ -35,9 +35,9 @@ exception is a contract.
 
 ## Recovered next-MVP interface profile
 
-The corrected compatibility candidate is
-`Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned as release
-`2.3.1`, as detailed in
+The current published organization compatibility unit is `ai-sdlc-v2.3.2`. Its schema and fixture
+baseline derives from
+`Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, as detailed in
 [`../requirements/Interface-OrganizationControlPlane.md`](../requirements/Interface-OrganizationControlPlane.md).
 Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0 evidence.
 
@@ -64,7 +64,7 @@ draft publication reference. Missing evidence is `not supplied`, never success.
 
 ## Ownership and validation register
 
-Payload `ai-sdlc-contract/v2`, the 2.3.1 candidate semantics, target workflow signature, exact
+Payload `ai-sdlc-contract/v2`, the published 2.3.2 semantics, target workflow signature, exact
 schema/fixture blob identities, receiver boundary, and executable adapter files are bound by the
 non-recursive conformance pin. Current target activation is separate mutable control-plane state
 that the router enforces before dispatch. Normal CI executes all 29 shared scenarios through the

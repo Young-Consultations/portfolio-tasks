@@ -7,7 +7,7 @@ baseline. Git history, rather than active aliases, preserves removed blueprints.
 | --- | --- | --- |
 | Structured issue intake and deterministic parser | KEEP / CORRECT | Issues remain authoritative. Task-type options now map explicitly to the exact v2 vocabulary; intake alone never approves or executes. |
 | Source lifecycle policy | KEEP / CORRECT | Exact closed task construction, schema-safe identity, complete authority binding, current-issue reread, and fresh human approval implement `FR-GOV-03..04` and `FR-RTE-01`. |
-| `route-approved-task.yml` | KEEP / REPLACE | One source route remains. It grants the router-required `actions: read`, uses the planned 2.3.1 router, validates the exact task schema, and writes the canonical v2 admission journal. |
+| `route-approved-task.yml` | KEEP / REPLACE | One source route remains. It grants the router-required `actions: read`, uses the published 2.3.2 router, validates the exact task schema, and writes the canonical v2 admission journal. |
 | `codex-execute.yml` | KEEP / REPLACE | One exact two-input `workflow_dispatch` wrapper remains. Artifact/run-ID transport, `workflow_call`-only entry, local activation, and direct source projection are removed. |
 | `scripts/codex_target_adapter.py` | ADD AS SOLE ADAPTER | It owns target admission, branch+PR reconciliation, bounded AI execution, validation, draft publication, canonical results, and receiver handoff. |
 | Codex runtime and prompt renderer | KEEP AS ADAPTER DEPENDENCIES | They provide autonomous workspace execution and structured completion without publication or result credentials. |
@@ -22,9 +22,9 @@ baseline. Git history, rather than active aliases, preserves removed blueprints.
 ## Supported state after migration
 
 There is one selected payload, one source route, one target adapter, and one source result
-projection. The corrected candidate is
-`Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned as
-`ai-sdlc-v2.3.1`. Historical
+projection. The current organization compatibility unit is the published `ai-sdlc-v2.3.2`; its schema and
+fixture baseline derives from
+`Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`. Historical
 `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains preserved evidence, not an active consumer
 pin.
 
@@ -35,6 +35,6 @@ production, or secret-output effect.
 ## External gates
 
 The portfolio adapter report is sufficient local compatibility evidence but not activation
-evidence. The immutable adapter tag, corrected 2.3.1 release, reviewed receiver deployment
-identities, live receiver verification, registry binding, and one-at-a-time review-state activation
-must be completed by their owners before issue 117 resumes.
+evidence. The immutable adapter tags, release, registry bindings, and evidence are published for all four
+core targets. Reviewed receiver identities, controlled live verification, and one-at-a-time
+review-state activation remain owner-controlled gates for issues #117 and #119.

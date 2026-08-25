@@ -39,7 +39,7 @@ def test_target_exposes_exact_two_input_dispatch_and_pinned_receiver() -> None:
         "execution_input_json",
         "concurrency_group",
     ]
-    assert "codex-result-receiver.yml@ai-sdlc-v2.3.1" in text
+    assert "codex-result-receiver.yml@ai-sdlc-v2.3.2" in text
     assert "CODEX_TRUSTED_JOURNAL_AUTHORS" not in text
     assert "secrets: inherit" not in text
     receiver = text.split("  report:", 1)[1]
@@ -68,7 +68,7 @@ def test_target_has_least_privilege_and_credential_separation() -> None:
 def test_source_route_has_required_caller_permission_and_exact_construction() -> None:
     text = ROUTE.read_text(encoding="utf-8")
     assert "permissions:\n  actions: read\n  contents: read\n  issues: write" in text
-    assert "codex-router.yml@ai-sdlc-v2.3.1" in text
+    assert "codex-router.yml@ai-sdlc-v2.3.2" in text
     assert "contracts/task-contract.schema.json" in text
     assert "Draft202012Validator" in text
     assert "normalize_task_type" in text

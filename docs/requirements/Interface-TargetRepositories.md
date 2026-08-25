@@ -24,7 +24,7 @@ The entry point is `workflow_dispatch`, not `workflow_call`, and declares exactl
 
 No artifact ID, run ID, alternate input name, compatibility alias, or direct router-return value is
 supported. The target sends its result separately through
-`codex-result-receiver.yml@ai-sdlc-v2.3.1`.
+`codex-result-receiver.yml@ai-sdlc-v2.3.2`.
 
 ## Capability and activation boundary
 
@@ -66,5 +66,5 @@ adapter seam with explicit traps for Codex, branch, commit, push, PR, merge, rel
 production, and secret-output effects. Its report, pin, exact adapter files, and eventual immutable
 adapter tag must bind without a recursive commit self-reference.
 
-The portfolio report currently passes locally but does not claim the adapter tag, 2.3.1 release,
-live receiver deployment, mutable activation, or production readiness.
+The portfolio report is accepted immutable evidence for the published `ai-sdlc-v2.3.2` unit. It
+does not claim mutable activation, a successful controlled live receiver run, or production readiness.

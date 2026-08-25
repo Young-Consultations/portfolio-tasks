@@ -121,7 +121,7 @@ def test_exact_dispatch_and_receiver_boundary() -> None:
         "target inputs differ",
     )
     require(
-        "codex-result-receiver.yml@ai-sdlc-v2.3.1" in WORKFLOW, "receiver is not immutably pinned"
+        "codex-result-receiver.yml@ai-sdlc-v2.3.2" in WORKFLOW, "receiver is not immutably pinned"
     )
     require(
         "CODEX_TRUSTED_JOURNAL_AUTHORS" not in WORKFLOW,

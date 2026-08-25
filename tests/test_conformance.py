@@ -35,5 +35,5 @@ def test_evidence_does_not_claim_activation_or_production_readiness() -> None:
     assert report["production_readiness_claim"] is False
     assert report["activation_requested"] is False
     assert report["activation_evidence_sufficient"] is True
-    assert report["adapter_tag_published"] is False
-    assert report["receiver_live_verification"] == "pending-ai-sdlc-v2.3.1-tag"
+    assert report["adapter_tag_published"] is True
+    assert report["receiver_live_verification"] == "pending-controlled-live-receiver-run"
