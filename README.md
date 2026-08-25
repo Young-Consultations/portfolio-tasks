@@ -14,8 +14,9 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 
 ## Issue 135 recovery state
 
-The current published compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`.
-Its schema and fixture baseline derives from corrected recovery commit
+The current published compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`,
+pointing to immutable commit `5738ace3ee90dde11336f8f8099e64e5645f7139`. Its schema and fixture
+baseline derives from corrected recovery commit
 `e27b8a541afbd27b4be5606a19ffa43637ad312a`. Historical commit
 `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0 evidence and is never
 amended or retagged.

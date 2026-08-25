@@ -4,9 +4,9 @@
 
 ## Immutable compatibility baseline
 
-The selected payload remains `ai-sdlc-contract/v2`. The current published organization compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`.
+The selected payload remains `ai-sdlc-contract/v2`. The current published organization compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`, pointing to immutable commit `5738ace3ee90dde11336f8f8099e64e5645f7139`.
 
-The historical reviewed baseline `c6090e5bbadcc2102a1cb91875466e9decdada1e` is rejected 2.3.0-era evidence and MUST NOT be restored as the active baseline. The 2.3.1 recovery is also historical. The 2.3.2 patch is the current corrected compatibility release and records complete immutable evidence bindings for all four core repositories.
+The historical reviewed baseline `c6090e5bbadcc2102a1cb91875466e9decdada1e` is rejected 2.3.0-era evidence and MUST NOT be restored as the active baseline. The 2.3.1 recovery commit `e27b8a541afbd27b4be5606a19ffa43637ad312a` is also historical. The 2.3.2 patch is the current corrected compatibility release and records complete immutable evidence bindings for all four core repositories.
 
 The local non-recursive conformance pin binds:
 
