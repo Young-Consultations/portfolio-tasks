@@ -71,11 +71,10 @@ The report is [`.ai-sdlc/conformance/tc-mvp-ci-001.json`](../../.ai-sdlc/conform
 
 ## Remaining gated sequence
 
-1. Reconcile `AI_CONTEXT.md` and any remaining active portfolio documentation that still describes 2.3.1 publication or historical recovery gates as future/current work.
-2. Close issue #135 only after the documentation/context reconciliation and DEF-0030 capture are complete.
-3. Execute issue #117 against published `ai-sdlc-v2.3.2`, initially activating only `Young-Consultations/consulting-playbook` unless current evidence blocks it.
-4. Execute issue #119 and run one deliberately harmless human-controlled `TC-MVP-E2E-001` task through the enabled target.
-5. Run issue #120 independently in all four repositories to reconcile final requirements, architecture, implementation, tests, AI context, and acceptance evidence.
-6. Complete issue #121 and close epic #109 only after the real acceptance evidence is reviewed and no P0/P1 MVP blocker remains.
+1. Close issue #135 after the compatibility reconciliation and DEF-0030 capture are complete.
+2. Execute issue #117 against published `ai-sdlc-v2.3.2`, initially activating only `Young-Consultations/consulting-playbook` unless current evidence blocks it.
+3. Execute issue #119 and run one deliberately harmless human-controlled `TC-MVP-E2E-001` task through the enabled target.
+4. Run issue #120 independently in all four repositories to reconcile final requirements, architecture, implementation, tests, AI context, and acceptance evidence.
+5. Complete issue #121 and close epic #109 only after the real acceptance evidence is reviewed and no P0/P1 MVP blocker remains.
 
 No local green check may skip these gates. Historical 2.3.0/2.3.1 records remain evidence, not current execution instructions.

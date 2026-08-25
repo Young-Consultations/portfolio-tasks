@@ -133,7 +133,8 @@ sources.
   mechanism for removed implementation and historical behavior.
 - The repository must converge on **one supported MVP contract and one active implementation path
   for each responsibility**. The local recovery baseline selects payload
-  `ai-sdlc-contract/v2` and the corrected `2.3.1` candidate at
+  `ai-sdlc-contract/v2` and the published `ai-sdlc-v2.3.2` compatibility unit. Its
+  schema and fixture baseline derives from the corrected recovery commit
   `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`.
   Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0
   evidence and must never be amended or retagged.
@@ -217,14 +218,14 @@ No material contradiction among approved repository-owned next-MVP sources was i
 these statuses and gaps rather than inventing solutions:
 
 - [ADR.md](docs/architecture/ADR.md) remains **Proposed normative architecture**, not approved.
-- The portfolio adapter has complete local `TC-MVP-CI-001` evidence: 29 scenarios pass, 22 invoke
-  the real adapter seam, and all prohibited-effect counters are zero. This does not prove the
-  planned `ai-sdlc-v2.3.1` tag exists, the receiver trust policy is deployed, or live forwarding
-  works.
+- The portfolio adapter has complete accepted `TC-MVP-CI-001` evidence: 29 scenarios pass, 22
+  invoke the real adapter seam, and all prohibited-effect counters are zero. The published
+  `ai-sdlc-v2.3.2` compatibility unit and immutable registry evidence cover all four core targets;
+  this does not prove mutable activation or that a controlled live forwarding run succeeds.
 - Current target activation is mutable organization control-plane state. This repository neither
   records it as immutable compatibility nor changes or bypasses it.
-- The portfolio target remains disabled; adapter-tag publication, corrected 2.3.1 release
-  publication, reviewed receiver identities, and live receiver verification are external gates.
+- All four targets remain disabled. Issue #117 owns deliberate first-target activation; reviewed
+  receiver identities and the controlled live acceptance run remain external gates.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or

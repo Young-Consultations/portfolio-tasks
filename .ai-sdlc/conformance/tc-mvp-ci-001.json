@@ -1,7 +1,7 @@
 {
   "report_version": "1.0",
   "repository": "Young-Consultations/portfolio-tasks",
-  "adapter_revision": "sha256:282273f97d27cd003305cbc3de936c759923b25ab5501bfcdebade499da1fe5c",
+  "adapter_revision": "sha256:18bd60aa1b624e0b1387d4cb040d031cf853c1dc98b1af956b1b75c9c0acc194",
   "compatibility_sha": "e27b8a541afbd27b4be5606a19ffa43637ad312a",
   "fixture_set": "TC-MVP-CI-001",
   "fixture_version": "2.3.0",
@@ -9,8 +9,8 @@
   "activation_requested": false,
   "activation_evidence_sufficient": true,
   "activation_evidence_reason": "complete shared oracle executed through the repository adapter with deterministic effect traps",
-  "adapter_tag_published": false,
-  "receiver_live_verification": "pending-ai-sdlc-v2.3.1-tag",
+  "adapter_tag_published": true,
+  "receiver_live_verification": "pending-controlled-live-receiver-run",
   "effect_traps": {
     "codex_calls": 0,
     "real_branches_created": 0,

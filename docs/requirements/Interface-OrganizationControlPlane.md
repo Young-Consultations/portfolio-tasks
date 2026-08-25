@@ -3,20 +3,19 @@
 ## Compatibility recovery boundary
 
 The next MVP uses payload `ai-sdlc-contract/v2` and the corrected
-`Young-Consultations/.github` compatibility candidate
-`e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned as release `2.3.1`. Historical commit
+`Young-Consultations/.github` published compatibility unit `ai-sdlc-v2.3.2`. Its schema and fixture baseline derives from
+corrected recovery commit `e27b8a541afbd27b4be5606a19ffa43637ad312a`. Historical commit
 `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0 evidence and MUST NOT be
 amended or retagged.
 
 Exact closed schemas and shared fixtures are vendored here only for deterministic validation and
-bound by their approved Git blob identities. The organization remains their owner. Workflow
-references use the planned immutable `ai-sdlc-v2.3.1` tag; absence of that tag fails closed and
+bound by their approved Git blob identities. The organization remains their owner. Workflow references use the published immutable `ai-sdlc-v2.3.2` tag; absence of that tag fails closed and
 does not permit a mutable `main` fallback.
 
 ## Router
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.3.1`.
+`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.3.2`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |
@@ -54,7 +53,7 @@ immutable trusted-journal-author policy.
 ## Result receiver
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@ai-sdlc-v2.3.1`.
+`Young-Consultations/.github/.github/workflows/codex-result-receiver.yml@ai-sdlc-v2.3.2`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |

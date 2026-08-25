@@ -58,9 +58,9 @@ Changes to Vision or Requirements update this matrix before architecture or impl
 ## Next-MVP decision status
 
 The v2 source, target, receiver, and conformance decisions are implemented locally against the
-corrected 2.3.1 candidate. The portfolio target report passes all 29 shared scenarios with all
-effects trapped. Immutable adapter-tag creation, reviewed receiver deployment identities, live
-receiver verification, corrected compatibility release publication, registry binding, and
+published `ai-sdlc-v2.3.2` compatibility unit. The portfolio target report passes all 29 shared
+scenarios with all effects trapped, and immutable adapter tags and registry evidence are published
+for all four core targets. Reviewed receiver identities, the controlled live verification run, and
 disabled-target activation remain external gates.
 
 ## Next-MVP architecture trace
