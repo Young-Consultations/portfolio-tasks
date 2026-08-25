@@ -1,32 +1,25 @@
-# portfolio-tasks next-MVP recovery baseline
+# portfolio-tasks next-MVP baseline
 
-**Status:** issue 135 implementation baseline. Local source, target, and zero-effect conformance
-work is complete; immutable publication, receiver deployment identity, and activation remain gated.
+**Status:** issue 135 recovery implementation and compatibility publication are complete. Repository-local source, target, and zero-effect conformance work is complete. The published organization compatibility unit is `ai-sdlc-v2.3.2`; mutable target activation and the controlled real acceptance run remain gated.
 
-## Immutable compatibility recovery
+## Immutable compatibility baseline
 
-The selected payload is `ai-sdlc-contract/v2`. The corrected organization compatibility candidate
-is `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, planned as patch
-release `2.3.1`. The incompatible reviewed baseline
-`c6090e5bbadcc2102a1cb91875466e9decdada1e` is preserved as historical 2.3.0 evidence; it MUST
-NOT be amended or retagged.
+The selected payload remains `ai-sdlc-contract/v2`. The current published organization compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`.
+
+The historical reviewed baseline `c6090e5bbadcc2102a1cb91875466e9decdada1e` is rejected 2.3.0-era evidence and MUST NOT be restored as the active baseline. The 2.3.1 recovery is also historical. The 2.3.2 patch is the current corrected compatibility release and records complete immutable evidence bindings for all four core repositories.
 
 The local non-recursive conformance pin binds:
 
-- the candidate compatibility commit and fixture identity;
+- the approved compatibility and fixture identity;
 - exact Git blob identities for the three closed schemas and three shared fixture files;
-- exact Git blob identities for the target workflow, real adapter, and executable harness; and
-- an adapter revision derived from the canonical pin with `adapter_revision` set to null.
+- exact Git blob identities for the target workflow, real adapter, executable harness, validator, and required contract-test files; and
+- an adapter revision derived from the canonical pin without recursively embedding its containing commit SHA.
 
-The authoritative record is
-[`config/mvp-conformance-pin.json`](../../config/mvp-conformance-pin.json). Vendored schemas and
-fixtures are byte-for-byte compatibility inputs for offline CI, not local contract ownership,
-extensions, or alternate truth.
+The authoritative local record is [`config/mvp-conformance-pin.json`](../../config/mvp-conformance-pin.json). Vendored schemas and fixtures remain byte-for-byte, digest-pinned offline compatibility inputs only. Their presence does not transfer organization contract ownership or permit local extension.
 
-References to the organization router and receiver use the planned immutable tag
-`ai-sdlc-v2.3.1`. That tag and the corrected compatibility release do not yet exist; this
-repository MUST stay disabled until reviewed evidence permits their publication and live
-verification.
+The organization registry now records immutable adapter tags/commits and committed report digests for all four core targets with `status: pass` and `activation_evidence_sufficient: true`. Current enabled/disabled state remains separate mutable `.github` control-plane state and is not part of target-side compatibility semantics.
+
+All four targets remain disabled until issue #117 deliberately activates the first reviewed low-blast-radius target. Activation does not require repinning consumers solely because an enabled/disabled boolean changes.
 
 ## Included and deferred requirements
 
@@ -39,89 +32,50 @@ verification.
 `NFR-AUT-01`, `NFR-AI-01`, and `NFR-AI-02`.
 
 **Deferred:** `FR-CLS-04`, `FR-GOV-01`, `FR-OUT-02`, `FR-OUT-03`, `FR-PRJ-01`,
-`FR-PRJ-02`, and `FR-RPT-01`. Unlisted NFRs remain later-release constraints and are not
-waived or claimed satisfied.
+`FR-PRJ-02`, and `FR-RPT-01`. Unlisted NFRs remain later-release constraints and are not waived or claimed satisfied.
 
 ## Source-owned approval and admission
 
-`portfolio-tasks` owns source issue identity, intake, human approval truth, material-change
-invalidation, exact canonical task construction, explicit mode selection, routing initiation,
-admission journaling, result projection, and reconciliation.
+`portfolio-tasks` owns source issue identity, intake, human approval truth, material-change invalidation, exact canonical task construction, explicit mode selection, routing initiation, admission journaling, result projection, and reconciliation.
 
-The source constructs exactly the fields declared by `task-contract/v2`:
-`contract_version`, `task_id`, `source_issue`, `status`, `executor`, `project`,
-`priority`, `task_type`, `target_repository`, `parallel_safe`, `dependencies`, `risk`,
-`scope`, `instructions`, and `created_by`. Unknown, missing, or extra fields fail closed.
+The source constructs exactly the fields declared by `task-contract/v2`: `contract_version`, `task_id`, `source_issue`, `status`, `executor`, `project`, `priority`, `task_type`, `target_repository`, `parallel_safe`, `dependencies`, `risk`, `scope`, `instructions`, and `created_by`. Unknown, missing, or extra fields fail closed.
 
-The schema-safe `task_id` binds the source issue and the complete authoritative revision:
-task material, target, execution mode, executor, dependencies, and sensitivity. Therefore any
-material routing-authority change requires a new task identity and fresh human approval.
-Only `status: approved`, `executor: codex`, no unresolved dependencies, and
-`not-sensitive` are admissible. Issue-form task types are explicitly mapped to the canonical
-vocabulary; obsolete or inferred values fail closed.
+The schema-safe `task_id` binds the source issue and complete authoritative revision: task material, target, execution mode, executor, dependencies, and sensitivity. Any material routing-authority change requires a new task identity and fresh human approval. Only `status: approved`, `executor: codex`, no unresolved dependencies, and `not-sensitive` are admissible.
 
-The source workflow grants `actions: read` because the called organization router requests that
-permission. A successful router result is journaled as exactly one unique
-`ai-sdlc-admission:v2` JSON binding containing contract, delivery, correlation, source issue, and
-target. Only after that durable record is the source projected to queued.
+The source workflow grants the least privilege required by the pinned organization router. A successful router result is journaled as one unique `ai-sdlc-admission:v2` JSON binding containing contract, delivery, correlation, source issue, and target. Only after that durable record is the source projected to queued.
 
 ## Target-owned execution
 
-The sole target entry point is `workflow_dispatch` with exactly two string inputs:
-`execution_input_json` and `concurrency_group`. `workflow_call`, artifact/run-ID transport,
-old aliases, and the former duplicate Python adapter/conformance paths are not supported.
+The sole target entry point is `workflow_dispatch` with exactly two string inputs: `execution_input_json` and `concurrency_group`. `workflow_call`, artifact/run-ID transport, old aliases, and duplicate legacy adapter/conformance paths are not supported.
 
-The target independently validates the exact execution schema, authenticated caller, portfolio
-repository identity, allowed task types, mode, draft-only policy, concurrency, delivery branch, and
-payload digest. It reconciles both the canonical branch and matching managed pull requests before
-Codex and after any create race. Only exactly one matching open draft can be reused; an orphan
-branch, mismatched digest, non-draft PR, multiple owners, or uncertain race is rejected as
-ambiguous before paid execution or another publication.
+The target independently validates the exact execution schema, authenticated caller, portfolio repository identity, allowed task types, mode, draft-only policy, concurrency, delivery branch, and payload digest. It reconciles both the canonical branch and matching managed pull requests before Codex and after create races. Only exactly one matching owned open draft may be reused. Orphan branches, mismatched digests, non-draft PRs, multiple owners, or uncertain races fail closed before paid execution or a second publication effect.
 
-The AI runtime receives only task instructions, repository context, and validation policy. It has
-no publication or result credential. The workflow validates the candidate, then separately uses a
-publication credential to create at most one branch and draft PR. It cannot approve, mark ready,
-merge, release, deploy, or perform production operations.
+The AI runtime receives task instructions, repository context, and validation policy but no publication or result credential. Validation completes before a separately scoped publication credential can create at most one branch and draft PR. Automation cannot approve, mark ready, merge, release generated work, deploy, or perform production operations.
 
 ## Receiver and source projection
 
-The target passes only `execution_result`, `source_issue`, and `CODEX_RESULT_TOKEN` to the
-organization receiver. Trusted journal-author policy is immutable organization configuration and
-MUST NOT be supplied by a target.
+The target passes only the bounded result payload/source identity and result-delivery credential required by the organization receiver. Trusted journal-author policy is immutable organization-owned configuration and MUST NOT be supplied by a target.
 
-After schema, caller, admission, and replay validation, the organization receiver forwards
-`{"source_issue": ..., "execution_result": ...}` to the source repository using
-`repository_dispatch` event `ai-sdlc-execution-result-v2`. The source authenticates that
-dispatch identity, repeats exact result-schema and admission-binding validation, projects an
-identical result once, and quarantines conflicting evidence. The target never directly invokes the
-source projection workflow and never receives a portfolio result-write credential. Receiver
-acceptance is transport evidence, not execution success.
+After schema, caller, admission, and replay validation, the organization receiver forwards the bounded canonical result to the source repository. The source authenticates the receiver event, repeats exact result-schema and admission-binding validation, projects an identical result once, and quarantines conflicting evidence. Receiver acceptance is transport evidence, not execution success.
 
 ## Deterministic evidence
 
-`scripts/run_tc_mvp_ci_001.py` executes the complete organization-owned 2.3.0 fixture oracle
-against the real repository adapter seam. The checked report records:
+`scripts/run_tc_mvp_ci_001.py` executes the complete organization-owned `TC-MVP-CI-001` fixture oracle version `2.3.0` against the real repository adapter seam. The current accepted report records:
 
 - 29 of 29 scenarios passing;
 - 22 scenarios invoking the portfolio adapter;
-- exact compatibility and target-file pin bindings; and
-- zero real Codex, branch, commit, push, pull-request, merge, release, deployment, production, or
-  secret-output effects.
+- exact compatibility, shared-file, workflow, adapter, harness, validator, and required contract-test bindings; and
+- zero real Codex, branch, commit, push, pull-request, merge, release, deployment, production, or secret-output effects.
 
-The report is
-[`.ai-sdlc/conformance/tc-mvp-ci-001.json`](../../.ai-sdlc/conformance/tc-mvp-ci-001.json).
-Normal CI regenerates it and fails on drift. This establishes deterministic adapter compatibility,
-not tag existence, receiver deployment, activation, or production readiness.
+The report is [`.ai-sdlc/conformance/tc-mvp-ci-001.json`](../../.ai-sdlc/conformance/tc-mvp-ci-001.json). Normal CI regenerates/validates the evidence and fails on drift. This proves deterministic adapter compatibility, not target activation or organization MVP acceptance.
 
 ## Remaining gated sequence
 
-1. Review and merge this portfolio recovery without enabling the target.
-2. Apply and review the same canonical adapter and complete oracle evidence in Slugger.
-3. Record reviewed receiver deployment identities and prove live receiver forwarding.
-4. Publish one immutable adapter tag for each conforming target.
-5. Bind exact tag-to-commit and report-to-pin identities in the corrected registry.
-6. Publish the corrected 2.3.1 compatibility release.
-7. Run one-at-a-time review-state compatibility checks.
-8. Only then return to issue 117 and change mutable activation for one low-blast-radius target.
+1. Reconcile `AI_CONTEXT.md` and any remaining active portfolio documentation that still describes 2.3.1 publication or historical recovery gates as future/current work.
+2. Close issue #135 only after the documentation/context reconciliation and DEF-0030 capture are complete.
+3. Execute issue #117 against published `ai-sdlc-v2.3.2`, initially activating only `Young-Consultations/consulting-playbook` unless current evidence blocks it.
+4. Execute issue #119 and run one deliberately harmless human-controlled `TC-MVP-E2E-001` task through the enabled target.
+5. Run issue #120 independently in all four repositories to reconcile final requirements, architecture, implementation, tests, AI context, and acceptance evidence.
+6. Complete issue #121 and close epic #109 only after the real acceptance evidence is reviewed and no P0/P1 MVP blocker remains.
 
-No local green check may skip or replace these gates.
+No local green check may skip these gates. Historical 2.3.0/2.3.1 records remain evidence, not current execution instructions.
