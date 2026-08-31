@@ -57,13 +57,15 @@ jobs:
         id: task
         env:
           GH_TOKEN: ${{ secrets.PORTFOLIO_ISSUE_TOKEN }}
-          EVENT_ISSUE: ${{ toJSON(github.event.issue) }}
           ISSUE: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail; set +x
           # Re-read current authority, then compare its material identity with
           # the labeled event. Incidental updated_at changes are not authority.
           gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" > "$RUNNER_TEMP/current-issue.json"
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/issues/$ISSUE/events?per_page=100" \
+            > "$RUNNER_TEMP/issue-events.json"
           python - <<'PY'
           import json
           import os
@@ -104,12 +106,39 @@ jobs:
                   sensitivity=form.value("Sensitivity declaration"),
               )
 
-          event_issue = json.loads(os.environ["EVENT_ISSUE"])
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as stream:
+              event_payload = json.load(stream)
+          event_issue = event_payload["issue"]
           with open(os.environ["RUNNER_TEMP"] + "/current-issue.json", encoding="utf-8") as stream:
               current_issue = json.load(stream)
+          with open(os.environ["RUNNER_TEMP"] + "/issue-events.json", encoding="utf-8") as stream:
+              event_pages = json.load(stream)
+          issue_events = [
+              item for page in event_pages for item in page
+              if isinstance(page, list) and isinstance(item, dict)
+          ]
           labels = {label["name"] for label in current_issue.get("labels", [])}
           if current_issue.get("state") != "open" or "status:approved" not in labels:
               raise SystemExit("current issue is not open and approved")
+          approval_events = [
+              item for item in issue_events
+              if item.get("event") in {"labeled", "unlabeled"}
+              and isinstance(item.get("label"), dict)
+              and item["label"].get("name") == "status:approved"
+          ]
+          latest_approval = max(
+              approval_events,
+              key=lambda item: (str(item.get("created_at", "")), int(item.get("id", 0))),
+          ) if approval_events else None
+          latest_actor = latest_approval.get("actor") if isinstance(latest_approval, dict) else None
+          if (
+              not isinstance(latest_approval, dict)
+              or latest_approval.get("event") != "labeled"
+              or latest_approval.get("created_at") != event_issue.get("updated_at")
+              or not isinstance(latest_actor, dict)
+              or latest_actor.get("login") != os.environ["GITHUB_ACTOR"]
+          ):
+              raise SystemExit("approval event is not the current authorized label transition")
           event_revision = revision_from(event_issue)
           current_revision = revision_from(current_issue)
           if event_revision.task_id != current_revision.task_id:
