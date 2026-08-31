@@ -52,9 +52,10 @@ separately bounded adapter enforces target policy and draft-only publication; th
 approve work or bypass the router.
 
 GitHub Issues in `Young-Consultations/portfolio-tasks` are the source of truth for executable
-portfolio state. At the single current contract boundary, `Executor` must be `codex` and
-`Execution status` must be `approved`; those values do not replace the richer human-approval and
-material-revision checks required by the approved baseline.
+portfolio state. At the single current contract boundary, `Executor` must be `codex`; an
+authorized human adding `status:approved` is the only approval action. The workflow binds that
+event to the complete material revision, and any issue edit removes approval before another
+effect. The issue body contains no second execution-status authority.
 
 It does **not** own organization schemas, registry, compatibility, shared routing/result transport;
 other repositories' architecture, source, credentials, validation, PRs, or delivery; autonomous

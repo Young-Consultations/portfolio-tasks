@@ -12,6 +12,10 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 3. approved architecture and interface documents
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
+The current source-consumer change is the focused
+[`ai-sdlc-v2.4.1` stabilization patch](docs/releases/2.4.1.md). Older recovery
+sections below remain historical compatibility evidence.
+
 ## Issue 135 recovery state
 
 The current published compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`,
@@ -35,10 +39,12 @@ draft before Codex, and sends a canonical result through the published
 Only the workflow may create one delivery-owned branch and draft PR; it cannot merge, release, or
 deploy.
 
-The portfolio source path constructs the exact closed task schema, binds approval to every
-authoritative routing field, and grants the reusable router its required `actions: read`
-permission. Successful router admission writes the receiver-compatible
-`ai-sdlc-admission:v2` journal marker. Receiver-validated results return through authenticated
+The portfolio source path constructs the exact closed task schema, binds the one
+human `status:approved` action to every authoritative routing field, and grants
+the reusable router its required `actions: read` permission. The organization
+router is the sole writer of the receiver-compatible `ai-sdlc-admission:v2`
+journal marker; the source projects `queued` only after routing succeeds.
+Receiver-validated results return through authenticated
 `repository_dispatch`; the target never directly invokes source projection or supplies a source
 write token.
 

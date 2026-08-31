@@ -9,7 +9,6 @@ def test_chatgpt_issue_form_contract() -> None:
         "project",
         "priority",
         "executor",
-        "execution_status",
         "target_repository",
         "execution_mode",
         "sensitivity",
@@ -25,6 +24,8 @@ def test_chatgpt_issue_form_contract() -> None:
         "security_constraints",
     }
     assert required <= ids
+    assert "execution_status" not in ids
+    assert "Execution status" not in text
     assert re.search(r"^labels:\s*\n\s*-\s*chatgpt-task\s*$", text, re.MULTILINE)
     assert not re.search(r"^\s*-\s*codex-ready\s*$", text, re.MULTILINE)
     assert text.count("required: true") >= len(required)

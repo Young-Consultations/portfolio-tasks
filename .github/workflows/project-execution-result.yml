@@ -119,8 +119,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail; set +x
-          comments="$(gh api --paginate \
+          comment_pages="$(gh api --paginate --slurp \
             "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100")"
+          comments="$(jq -c 'add' <<< "$comment_pages")"
           admission_count="$(jq --arg marker "$ADMISSION_MARKER" \
             '[.[] | select((.body // "") | contains($marker))] | length' <<< "$comments")"
           if [[ "$admission_count" -ne 1 ]]; then
