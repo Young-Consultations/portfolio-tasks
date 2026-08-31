@@ -98,7 +98,10 @@ def test_all_four_target_selections(target: str) -> None:
 
 def test_source_accepts_syntactically_valid_target_and_router_owns_membership() -> None:
     value = revision(target_repository="Young-Consultations/future-target")
-    assert canonical_task(value, approved(value))["target_repository"] == "Young-Consultations/future-target"
+    assert (
+        canonical_task(value, approved(value))["target_repository"]
+        == "Young-Consultations/future-target"
+    )
 
 
 @pytest.mark.parametrize("target", ["", "two targets", "owner/"])

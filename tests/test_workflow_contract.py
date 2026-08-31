@@ -92,14 +92,14 @@ def test_admission_rereads_current_revision_and_delegates_journal_ownership() ->
     construct = text[text.index("      - name: Construct and validate") :]
     assert 'gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE"' in construct
     assert "current-issue.json" in construct
-    assert 'event_revision.task_id != current_revision.task_id' in construct
+    assert "event_revision.task_id != current_revision.task_id" in construct
     assert '"status:approved" not in labels' in construct
     assert 'status="approved"' in construct
     assert "toJSON(github.event.issue)" not in construct
     assert 'open(os.environ["GITHUB_EVENT_PATH"]' in construct
     assert "issues/$ISSUE/events?per_page=100" in construct
-    assert "latest_approval.get(\"created_at\") != event_issue.get(\"updated_at\")" in construct
-    assert "latest_actor.get(\"login\") != os.environ[\"GITHUB_ACTOR\"]" in construct
+    assert 'latest_approval.get("created_at") != event_issue.get("updated_at")' in construct
+    assert 'latest_actor.get("login") != os.environ["GITHUB_ACTOR"]' in construct
     assert "EVENT_UPDATED_AT" not in text
     assert "Execution status" not in text
     assert "<!-- ai-sdlc-admission:v2 " not in text
