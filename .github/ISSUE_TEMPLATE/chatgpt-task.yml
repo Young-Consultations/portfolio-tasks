@@ -9,7 +9,7 @@ body:
       value: |
         Use this form as the authoritative portfolio backlog intake contract for work proposed by ChatGPT or a human collaborator. Submission records requested work only; it does not authorize Codex execution, grant repository access, or bypass any later approval gate.
 
-        Codex dispatch requires explicit metadata approval: **Executor** must be `codex` and **Execution status** must be `approved`. Human-only and planning-only work remains in the backlog without dispatch.
+        Codex dispatch requires **Executor** to be `codex` and an authorized human to add the `status:approved` label after reviewing the complete issue. That label is the only approval action. Editing the issue removes approval and requires a fresh review.
 
         Do not include credentials, API keys, private keys, client secrets, tokens, passwords, export-controlled information, or other sensitive data.
 
@@ -44,22 +44,6 @@ body:
         - codex
         - human
         - chatgpt-planning
-    validations:
-      required: true
-
-  - type: dropdown
-    id: execution_status
-    attributes:
-      label: Execution status
-      description: Intake starts as proposed. Codex dispatch requires an explicit later change to `approved`.
-      options:
-        - proposed
-        - approved
-        - queued
-        - running
-        - draft-pr
-        - blocked
-        - done
     validations:
       required: true
 

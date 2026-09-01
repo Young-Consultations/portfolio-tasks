@@ -16,14 +16,6 @@ from enum import Enum
 from typing import Any
 
 CONTRACT = "ai-sdlc-contract/v2"
-SUPPORTED_TARGETS = frozenset(
-    {
-        "Young-Consultations/.github",
-        "Young-Consultations/consulting-playbook",
-        "Young-Consultations/portfolio-tasks",
-        "Young-Consultations/slugger",
-    }
-)
 SUPPORTED_MODES = frozenset({"verify", "implement"})
 TASK_TYPES = frozenset(
     {
@@ -74,6 +66,7 @@ TERMINAL_STATUSES = frozenset(
     }
 )
 _ISSUE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}#[1-9][0-9]*$")
+_REPOSITORY = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}$")
 _IDENTITY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
@@ -186,8 +179,8 @@ def canonical_task(revision: SourceRevision, approval: Approval) -> dict[str, ob
         violations.append("only approved is admissible")
     if revision.executor != "codex":
         violations.append("executor must be codex")
-    if revision.target_repository not in SUPPORTED_TARGETS:
-        violations.append("target is unknown")
+    if _REPOSITORY.fullmatch(revision.target_repository) is None:
+        violations.append("target repository syntax is invalid")
     if revision.execution_mode not in SUPPORTED_MODES:
         violations.append("execution mode is unsupported")
     if revision.dependencies:
@@ -259,7 +252,7 @@ class RoutingRecord:
             raise LifecycleError("canonical task identity is missing or invalid")
         if not isinstance(source, str) or _ISSUE.fullmatch(source) is None:
             raise LifecycleError("canonical source binding is missing or invalid")
-        if not isinstance(target, str) or target not in SUPPORTED_TARGETS:
+        if not isinstance(target, str) or _REPOSITORY.fullmatch(target) is None:
             raise LifecycleError("canonical target binding is missing or invalid")
         return cls(
             identity,

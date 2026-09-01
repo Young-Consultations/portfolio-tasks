@@ -68,7 +68,7 @@ def test_target_has_least_privilege_and_credential_separation() -> None:
 def test_source_route_has_required_caller_permission_and_exact_construction() -> None:
     text = ROUTE.read_text(encoding="utf-8")
     assert "permissions:\n  actions: read\n  contents: read\n  issues: write" in text
-    assert "codex-router.yml@ai-sdlc-v2.3.2" in text
+    assert "codex-router.yml@ai-sdlc-v2.4.1" in text
     assert "contracts/task-contract.schema.json" in text
     assert "Draft202012Validator" in text
     assert "normalize_task_type" in text
@@ -87,22 +87,29 @@ def test_source_route_has_required_caller_permission_and_exact_construction() ->
     assert "c6090e5bbadcc2102a1cb91875466e9decdada1e" not in text
 
 
-def test_admission_rereads_current_revision_and_journals_receiver_binding() -> None:
+def test_admission_rereads_current_revision_and_delegates_journal_ownership() -> None:
     text = ROUTE.read_text(encoding="utf-8")
     construct = text[text.index("      - name: Construct and validate") :]
     assert 'gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE"' in construct
     assert "current-issue.json" in construct
-    assert 'issue.get("updated_at") != os.environ["EVENT_UPDATED_AT"]' in construct
+    assert "event_revision.task_id != current_revision.task_id" in construct
     assert '"status:approved" not in labels' in construct
-    assert 'form.value("Execution status") != "approved"' in construct
+    assert 'status="approved"' in construct
     assert "toJSON(github.event.issue)" not in construct
-    assert "<!-- ai-sdlc-admission:v2 " in text
-    assert "contract_version" in text
-    assert "delivery_id" in text
-    assert "correlation_id" in text
-    assert "source_issue" in text
-    assert "target_repository" in text
-    assert "ai-sdlc-admission: task=" not in text
+    assert 'open(os.environ["GITHUB_EVENT_PATH"]' in construct
+    assert "issues/$ISSUE/events?per_page=100" in construct
+    assert 'latest_approval.get("created_at") != event_issue.get("updated_at")' in construct
+    assert 'latest_actor.get("login") != os.environ["GITHUB_ACTOR"]' in construct
+    assert "EVENT_UPDATED_AT" not in text
+    assert "Execution status" not in text
+    assert "<!-- ai-sdlc-admission:v2 " not in text
+    assert "issues/$ISSUE/comments" not in text
+
+
+def test_result_projection_slurps_all_comment_pages() -> None:
+    text = PROJECTION.read_text(encoding="utf-8")
+    assert "gh api --paginate --slurp" in text
+    assert "jq -c 'add'" in text
 
 
 def test_result_projection_accepts_only_authenticated_receiver_dispatch() -> None:

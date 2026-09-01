@@ -35,7 +35,8 @@ def test_ai_context_states_portfolio_tasks_as_backlog_and_approval_source() -> N
     assert "Young-Consultations/portfolio-tasks" in text
     assert "source of truth" in text
     assert "`Executor` must be `codex`" in text
-    assert "`Execution status` must be `approved`" in text
+    assert "adding `status:approved` is the only approval action" in text
+    assert "issue body contains no second execution-status authority" in text
 
 
 def test_ai_context_relative_links_resolve_or_gap_is_declared() -> None:
