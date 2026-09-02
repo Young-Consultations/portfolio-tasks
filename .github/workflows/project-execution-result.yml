@@ -99,10 +99,8 @@ jobs:
           values = {
               "ISSUE_NUMBER": issue_number,
               "DELIVERY_ID": result["delivery_id"],
-              "ADMISSION_MARKER": (
-                  "<!-- ai-sdlc-admission:v2 "
-                  + json.dumps(binding, sort_keys=True, separators=(",", ":"))
-                  + " -->"
+              "ADMISSION_BINDING": json.dumps(
+                  binding, sort_keys=True, separators=(",", ":")
               ),
               "RESULT_MARKER": (
                   "<!-- ai-sdlc-source-result:v2 "
@@ -122,8 +120,20 @@ jobs:
           comment_pages="$(gh api --paginate --slurp \
             "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100")"
           comments="$(jq -c 'add' <<< "$comment_pages")"
-          admission_count="$(jq --arg marker "$ADMISSION_MARKER" \
-            '[.[] | select((.body // "") | contains($marker))] | length' <<< "$comments")"
+          comments_file="$RUNNER_TEMP/issue-comments.json"
+          printf '%s' "$comments" > "$comments_file"
+          admission_count="$(COMMENTS_FILE="$comments_file" python - <<'PY'
+          import json
+          import os
+
+          from portfolio_tasks.source_lifecycle import matching_admission_count
+
+          with open(os.environ["COMMENTS_FILE"], encoding="utf-8") as stream:
+              comments = json.load(stream)
+          binding = json.loads(os.environ["ADMISSION_BINDING"])
+          print(matching_admission_count(comments, binding))
+          PY
+          )"
           if [[ "$admission_count" -ne 1 ]]; then
             gh api --method POST "repos/$PORTFOLIO_REPOSITORY/issues/$ISSUE_NUMBER/labels" \
               -f 'labels[]=status:result-quarantined' >/dev/null
