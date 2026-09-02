@@ -69,7 +69,7 @@ _ISSUE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}#[
 _REPOSITORY = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}$")
 _IDENTITY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _ADMISSION_MARKER = re.compile(
-    r"^<!-- ai-sdlc-admission:v2 (?P<payload>\\{[^\\r\\n]*\\}) -->$", re.MULTILINE
+    r"^<!-- ai-sdlc-admission:v2 (?P<payload>\{[^\r\n]*\}) -->$", re.MULTILINE
 )
 ADMISSION_BINDING_FIELDS = frozenset(
     {
