@@ -68,6 +68,19 @@ TERMINAL_STATUSES = frozenset(
 _ISSUE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}#[1-9][0-9]*$")
 _REPOSITORY = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}$")
 _IDENTITY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_ADMISSION_MARKER = re.compile(
+    r"^[ \t]*<!-- ai-sdlc-admission:v2 (?P<payload>\{[^\r\n]*\}) -->[ \t]*\r?$",
+    re.MULTILINE,
+)
+ADMISSION_BINDING_FIELDS = frozenset(
+    {
+        "contract_version",
+        "delivery_id",
+        "correlation_id",
+        "source_issue",
+        "target_repository",
+    }
+)
 
 
 class LifecycleError(ValueError):
@@ -91,6 +104,34 @@ def normalize_task_type(label: str) -> str:
     if normalized is None:
         raise LifecycleError("task type is unsupported")
     return normalized
+
+
+def matching_admission_count(comments: object, expected_binding: Mapping[str, object]) -> int:
+    """Count v2 markers whose required binding matches the receiver result.
+
+    Admission records may carry control-plane release and activation evidence in
+    addition to the stable source binding. Those additive fields are preserved
+    and ignored here; every required binding field must still match exactly.
+    """
+    if set(expected_binding) != ADMISSION_BINDING_FIELDS:
+        raise LifecycleError("expected admission binding does not match the closed contract")
+    if not isinstance(comments, list):
+        raise LifecycleError("issue comments are not a list")
+
+    count = 0
+    for comment in comments:
+        if not isinstance(comment, Mapping) or not isinstance(comment.get("body"), str):
+            continue
+        for marker in _ADMISSION_MARKER.finditer(comment["body"]):
+            try:
+                payload = json.loads(marker.group("payload"))
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict) and all(
+                payload.get(field) == expected_binding[field] for field in ADMISSION_BINDING_FIELDS
+            ):
+                count += 1
+    return count
 
 
 def task_id(source_issue: str, authority: Mapping[str, object]) -> str:

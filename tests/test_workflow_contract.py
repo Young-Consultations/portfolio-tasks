@@ -123,7 +123,10 @@ def test_result_projection_accepts_only_authenticated_receiver_dispatch() -> Non
     assert "contracts/execution-result.schema.json" in text
     assert "Draft202012Validator" in text
     assert "TERMINAL_STATUSES" in text
-    assert "<!-- ai-sdlc-admission:v2 " in text
+    assert "matching_admission_count" in text
+    assert 'json.loads(os.environ["ADMISSION_BINDING"])' in text
+    assert 'jq --arg marker "$ADMISSION_MARKER"' not in text
+    assert '"ADMISSION_BINDING"' in text
     assert "<!-- ai-sdlc-source-result:v2 " in text
     assert "status:result-quarantined" in text
 
