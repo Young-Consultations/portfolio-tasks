@@ -13,6 +13,7 @@ from portfolio_tasks.source_lifecycle import (
     RoutingRecord,
     SourceRevision,
     canonical_task,
+    matching_admission_count,
     normalize_task_type,
 )
 
@@ -44,6 +45,34 @@ def revision(**changes: object) -> SourceRevision:
 
 def approved(value: SourceRevision) -> Approval:
     return Approval(value.task_id, "human-reviewer", True)
+
+
+def test_projection_matches_release_enriched_admission_marker_by_stable_binding() -> None:
+    binding = {
+        "contract_version": "ai-sdlc-contract/v2",
+        "correlation_id": "task-af9b0ed1cfbe6f88d671da896603fabf",
+        "delivery_id": "task-af9b0ed1cfbe6f88d671da896603fabf",
+        "source_issue": "Young-Consultations/portfolio-tasks#139",
+        "target_repository": "Young-Consultations/consulting-playbook",
+    }
+    enriched = {
+        "activation_revision": "ef7f9ab664b8be4fffc29161caaad5f9a26ef8e9",
+        "activation_sha256": "d1ade8bf193022e72a35738f5baf61528d98441bee28285c5e65a4c7e1dbd9aa",
+        **binding,
+        "control_plane_release": "ai-sdlc-v2.4.1",
+    }
+    marker = (
+        "<!-- ai-sdlc-admission:v2 "
+        + json.dumps(enriched, sort_keys=True, separators=(",", ":"))
+        + " -->"
+    )
+
+    assert matching_admission_count([{"body": marker}], binding) == 1
+    assert (
+        matching_admission_count([{"body": marker}], binding | {"delivery_id": "task-conflict"})
+        == 0
+    )
+    assert matching_admission_count([{"body": marker + "\n" + marker}], binding) == 2
 
 
 def test_approved_task_is_exact_schema_valid_and_uses_safe_identity() -> None:
