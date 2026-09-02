@@ -68,11 +68,15 @@ def test_projection_matches_release_enriched_admission_marker_by_stable_binding(
     )
 
     assert matching_admission_count([{"body": marker}], binding) == 1
+    assert matching_admission_count([{"body": f" \t{marker}\t \r\n"}], binding) == 1
     assert (
         matching_admission_count([{"body": marker}], binding | {"delivery_id": "task-conflict"})
         == 0
     )
     assert matching_admission_count([{"body": marker + "\n" + marker}], binding) == 2
+    assert matching_admission_count([{"body": "prefix " + marker}], binding) == 0
+    assert matching_admission_count([{"body": marker + " suffix"}], binding) == 0
+    assert matching_admission_count([{"body": marker.replace("}", "", 1)}], binding) == 0
 
 
 def test_approved_task_is_exact_schema_valid_and_uses_safe_identity() -> None:
