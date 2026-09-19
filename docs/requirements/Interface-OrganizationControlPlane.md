@@ -2,20 +2,23 @@
 
 ## Compatibility recovery boundary
 
-The next MVP uses payload `ai-sdlc-contract/v2` and the corrected
-`Young-Consultations/.github` published compatibility unit `ai-sdlc-v2.3.2`. Its schema and fixture baseline derives from
+The selected payload is `ai-sdlc-contract/v2`. The approved 2.3.2 compatibility
+evidence retains its schema and fixture baseline derived from
 corrected recovery commit `e27b8a541afbd27b4be5606a19ffa43637ad312a`. Historical commit
 `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0 evidence and MUST NOT be
 amended or retagged.
 
 Exact closed schemas and shared fixtures are vendored here only for deterministic validation and
-bound by their approved Git blob identities. The organization remains their owner. Workflow references use the published immutable `ai-sdlc-v2.3.2` tag; absence of that tag fails closed and
-does not permit a mutable `main` fallback.
+bound by their approved Git blob identities. The organization remains their owner.
+The portfolio source router consumer selects the published immutable
+`ai-sdlc-v2.4.2` tag in this release. Absence of the selected tag fails closed;
+a mutable `main` fallback is forbidden. The portfolio target's result receiver
+remains on its separately pinned 2.3.2 compatibility unit.
 
 ## Router
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.3.2`.
+`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.4.2`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |
