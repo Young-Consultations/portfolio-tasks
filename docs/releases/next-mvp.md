@@ -1,12 +1,17 @@
 # portfolio-tasks next-MVP baseline
 
-**Status:** issue 135 recovery implementation and compatibility publication are complete. Repository-local source, target, and zero-effect conformance work is complete. The published organization compatibility unit is `ai-sdlc-v2.3.2`; mutable target activation and the controlled real acceptance run remain gated.
+**Status:** approved 2.3.2 compatibility and scope baseline. Its recovery and
+activation sequence below is historical. The current source router selection is
+`ai-sdlc-v2.4.2` as governed by the [2.4.2 release record](2.4.2.md) and
+[organization control-plane interface](../requirements/Interface-OrganizationControlPlane.md).
+The selected v2 payload, requirement scope, and immutable schema/fixture
+identities remain in force.
 
 ## Immutable compatibility baseline
 
-The selected payload remains `ai-sdlc-contract/v2`. The current published organization compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`, pointing to immutable commit `5738ace3ee90dde11336f8f8099e64e5645f7139`.
+The selected payload remains `ai-sdlc-contract/v2`. The 2.3.2 compatibility unit is immutable in `Young-Consultations/.github`, pointing to commit `5738ace3ee90dde11336f8f8099e64e5645f7139`.
 
-The historical reviewed baseline `c6090e5bbadcc2102a1cb91875466e9decdada1e` is rejected 2.3.0-era evidence and MUST NOT be restored as the active baseline. The 2.3.1 recovery commit `e27b8a541afbd27b4be5606a19ffa43637ad312a` is also historical. The 2.3.2 patch is the current corrected compatibility release and records complete immutable evidence bindings for all four core repositories.
+The historical reviewed baseline `c6090e5bbadcc2102a1cb91875466e9decdada1e` is rejected 2.3.0-era evidence and MUST NOT be restored as the active baseline. The 2.3.1 recovery commit `e27b8a541afbd27b4be5606a19ffa43637ad312a` is also historical. The 2.3.2 patch records corrected immutable compatibility evidence bindings for all four core repositories.
 
 The local non-recursive conformance pin binds:
 
@@ -69,7 +74,7 @@ After schema, caller, admission, and replay validation, the organization receive
 
 The report is [`.ai-sdlc/conformance/tc-mvp-ci-001.json`](../../.ai-sdlc/conformance/tc-mvp-ci-001.json). Normal CI regenerates/validates the evidence and fails on drift. This proves deterministic adapter compatibility, not target activation or organization MVP acceptance.
 
-## Remaining gated sequence
+## Historical recovery sequence
 
 1. Close issue #135 after the compatibility reconciliation and DEF-0030 capture are complete.
 2. Execute issue #117 against published `ai-sdlc-v2.3.2`, initially activating only `Young-Consultations/consulting-playbook` unless current evidence blocks it.
