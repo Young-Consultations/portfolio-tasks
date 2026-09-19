@@ -12,12 +12,11 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 3. approved architecture and interface documents
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
-The current production source consumer remains pinned to the published
-[`ai-sdlc-v2.4.1` release](docs/releases/2.4.1.md). The staged
-[`ai-sdlc-v2.4.2` consumer repin](docs/releases/2.4.2.md) must remain unmerged
-until the immutable control-plane tag, publication attestation, Runtime
-Preflight, and registered target-tag checks all pass. Older recovery sections
-below remain historical compatibility evidence.
+Production `main` remains on the published [`ai-sdlc-v2.4.1`
+release](docs/releases/2.4.1.md) until this PR merges. This branch selects the
+published [`ai-sdlc-v2.4.2` router](docs/releases/2.4.2.md) after its
+publication, attestation, Runtime Preflight, and registered target-tag checks.
+Older recovery sections below remain historical compatibility evidence.
 
 ## Issue 135 recovery state
 
