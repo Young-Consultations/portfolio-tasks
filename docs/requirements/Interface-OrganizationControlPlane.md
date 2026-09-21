@@ -11,14 +11,14 @@ amended or retagged.
 Exact closed schemas and shared fixtures are vendored here only for deterministic validation and
 bound by their approved Git blob identities. The organization remains their owner.
 The portfolio source router consumer selects the published immutable
-`ai-sdlc-v2.4.2` tag in this release. Absence of the selected tag fails closed;
+`ai-sdlc-v2.4.3` tag in this release. Absence of the selected tag fails closed;
 a mutable `main` fallback is forbidden. The portfolio target's result receiver
 remains on its separately pinned 2.3.2 compatibility unit.
 
 ## Router
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.4.2`.
+`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.4.3`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |

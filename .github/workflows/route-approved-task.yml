@@ -163,7 +163,7 @@ jobs:
 
   route:
     needs: prepare
-    uses: Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.4.2
+    uses: Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.4.3
     with:
       task_payload: ${{ needs.prepare.outputs.task_payload }}
       execution_mode: ${{ needs.prepare.outputs.execution_mode }}

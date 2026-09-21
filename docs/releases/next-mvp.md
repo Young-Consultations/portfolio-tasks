@@ -2,7 +2,7 @@
 
 **Status:** approved 2.3.2 compatibility and scope baseline. Its recovery and
 activation sequence below is historical. The current source router selection is
-`ai-sdlc-v2.4.2` as governed by the [2.4.2 release record](2.4.2.md) and
+`ai-sdlc-v2.4.3` as governed by the [2.4.3 release record](2.4.3.md) and
 [organization control-plane interface](../requirements/Interface-OrganizationControlPlane.md).
 The selected v2 payload, requirement scope, and immutable schema/fixture
 identities remain in force.
