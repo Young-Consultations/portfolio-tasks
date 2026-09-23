@@ -59,7 +59,7 @@ def test_projection_matches_release_enriched_admission_marker_by_stable_binding(
         "activation_revision": "ef7f9ab664b8be4fffc29161caaad5f9a26ef8e9",
         "activation_sha256": "d1ade8bf193022e72a35738f5baf61528d98441bee28285c5e65a4c7e1dbd9aa",
         **binding,
-        "control_plane_release": "ai-sdlc-v2.4.3",
+        "control_plane_release": "ai-sdlc-v2.4.4",
     }
     marker = (
         "<!-- ai-sdlc-admission:v2 "
