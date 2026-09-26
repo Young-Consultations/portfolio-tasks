@@ -12,11 +12,10 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 3. approved architecture and interface documents
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
-Production `main` selects the published [`ai-sdlc-v2.4.3`
-router](docs/releases/2.4.3.md) until this consumer PR merges. This branch
-selects the published [`ai-sdlc-v2.4.4` router](docs/releases/2.4.4.md)
-subject to its release and preflight gates. Older recovery sections below
-remain historical compatibility evidence.
+Production `main` selects the published [`ai-sdlc-v2.4.5`
+router](docs/releases/2.4.5.md) after its publication attestation, deployed
+Runtime Preflight, and immutable REAL preflight passed. Older recovery
+sections below remain historical compatibility evidence.
 
 ## Issue 135 recovery state
 
