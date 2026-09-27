@@ -57,11 +57,17 @@ Changes to Vision or Requirements update this matrix before architecture or impl
 
 ## Next-MVP decision status
 
-The v2 source, target, receiver, and conformance decisions are implemented locally against the
-published `ai-sdlc-v2.3.2` compatibility unit. The portfolio target report passes all 29 shared
-scenarios with all effects trapped, and immutable adapter tags and registry evidence are published
-for all four core targets. Reviewed receiver identities, the controlled live verification run, and
-disabled-target activation remain external gates.
+The v2 source, target, receiver, and conformance decisions are implemented with payload
+`ai-sdlc-contract/v2`. Source routing now selects published `ai-sdlc-v2.4.5`; the portfolio
+target remains disabled and retains immutable 2.3.2 target-compatibility evidence. The portfolio
+target report passes all 29 shared scenarios with all effects trapped, and immutable adapter tags
+and registry evidence remain published for the core targets.
+
+The reviewed mutable activation state enables only `Young-Consultations/consulting-playbook`.
+Fresh issue #154 completed the initial controlled live path through source admission, 2.4.5 routing,
+consulting target execution, one managed draft PR, receiver delivery, and source projection. The
+remaining external acceptance gate is the equivalent redelivery/idempotency exercise tracked by
+issue #121; full REAL acceptance is not yet claimed.
 
 ## Next-MVP architecture trace
 
