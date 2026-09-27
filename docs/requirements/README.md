@@ -34,10 +34,14 @@ and traceability in the same change set.
 [`../releases/next-mvp.md`](../releases/next-mvp.md) is the repository-level release selection. It
 lists the exact included and deferred requirement IDs, lifecycle/authorization decisions,
 continuous interface-validation requirement `FR-CIV-01`, acceptance scenario, external blockers,
-and exit criteria. The selected payload is `ai-sdlc-contract/v2`; the published compatibility unit is `ai-sdlc-v2.3.2`. It supersedes the incompatible historical
-2.3.0 commit `c6090e5bbadcc2102a1cb91875466e9decdada1e` and the 2.3.1 recovery derived
-from `e27b8a541afbd27b4be5606a19ffa43637ad312a`. The release baseline records exact interfaces,
-schema/fixture blob identities, immutable target capabilities, complete shared-oracle evidence,
-and the organization-owned receiver trust boundary. Mutable target activation remains separately
-owned and enforced by the organization router. A `Must` priority outside the selected list is not
-automatically MVP scope.
+and exit criteria. The selected payload remains `ai-sdlc-contract/v2`; the current published
+source/control-plane release is `ai-sdlc-v2.4.5`. This repository's disabled target still retains
+immutable 2.3.2 compatibility evidence derived from
+`e27b8a541afbd27b4be5606a19ffa43637ad312a`; that evidence does not define the current source
+router release. Historical 2.3.0 commit
+`c6090e5bbadcc2102a1cb91875466e9decdada1e` and the 2.3.1 recovery remain immutable history.
+The release baseline records exact interfaces, schema/fixture blob identities, immutable target
+capabilities, complete shared-oracle evidence, and the organization-owned receiver trust boundary.
+Mutable target activation remains separately owned and enforced by the organization router; the
+current reviewed state enables only `Young-Consultations/consulting-playbook`. A `Must` priority
+outside the selected list is not automatically MVP scope.
