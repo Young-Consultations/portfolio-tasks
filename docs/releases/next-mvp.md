@@ -1,8 +1,11 @@
 # portfolio-tasks next-MVP baseline
 
-**Status:** approved 2.3.2 compatibility and scope baseline. Its recovery and
-activation sequence below is historical. The current source router selection is
-`ai-sdlc-v2.4.5` as governed by the [2.4.5 release record](2.4.5.md) and
+**Status:** approved MVP scope with current source routing on published
+`ai-sdlc-v2.4.5`. The 2.3.2 recovery/compatibility sequence below is
+historical target evidence. Initial live-path verification completed through
+fresh issue #154; full REAL acceptance still requires the equivalent
+redelivery/idempotency exercise tracked by issue #121. The current source router
+selection is governed by the [2.4.5 release record](2.4.5.md) and
 [organization control-plane interface](../requirements/Interface-OrganizationControlPlane.md).
 The selected v2 payload, requirement scope, and immutable schema/fixture
 identities remain in force.
@@ -24,7 +27,10 @@ The authoritative local record is [`config/mvp-conformance-pin.json`](../../conf
 
 The organization registry now records immutable adapter tags/commits and committed report digests for all four core targets with `status: pass` and `activation_evidence_sufficient: true`. Current enabled/disabled state remains separate mutable `.github` control-plane state and is not part of target-side compatibility semantics.
 
-All four targets remain disabled until issue #117 deliberately activates the first reviewed low-blast-radius target. Activation does not require repinning consumers solely because an enabled/disabled boolean changes.
+Mutable target activation is separate organization control-plane state. The reviewed current state
+enables only `Young-Consultations/consulting-playbook`; `.github`,
+`portfolio-tasks`, and `slugger` remain disabled as targets. Activation changes do not require
+repinning source consumers solely because an enabled/disabled boolean changes.
 
 ## Included and deferred requirements
 
@@ -74,12 +80,18 @@ After schema, caller, admission, and replay validation, the organization receive
 
 The report is [`.ai-sdlc/conformance/tc-mvp-ci-001.json`](../../.ai-sdlc/conformance/tc-mvp-ci-001.json). Normal CI regenerates/validates the evidence and fails on drift. This proves deterministic adapter compatibility, not target activation or organization MVP acceptance.
 
-## Historical recovery sequence
+## Historical recovery sequence and current completion state
 
-1. Close issue #135 after the compatibility reconciliation and DEF-0030 capture are complete.
-2. Execute issue #117 against published `ai-sdlc-v2.3.2`, initially activating only `Young-Consultations/consulting-playbook` unless current evidence blocks it.
-3. Execute issue #119 and run one deliberately harmless human-controlled `TC-MVP-E2E-001` task through the enabled target.
-4. Run issue #120 independently in all four repositories to reconcile final requirements, architecture, implementation, tests, AI context, and acceptance evidence.
-5. Complete issue #121 and close epic #109 only after the real acceptance evidence is reviewed and no P0/P1 MVP blocker remains.
+The former 2.3.x recovery sequence led to the current 2.4.5 path and is retained
+only as history. Current disposition:
 
-No local green check may skip these gates. Historical 2.3.0/2.3.1 records remain evidence, not current execution instructions.
+1. Issue #135 recovery is complete and its older release identities remain immutable evidence.
+2. Issue #117 completed the first-target activation decision; only `consulting-playbook` is enabled.
+3. Issue #119's production-shaped path was exercised by fresh issue #154 on published 2.4.5,
+   producing one managed draft PR and accepted receiver/source projection.
+4. Issue #120 is reconciling the final authority/context layer across the four repositories.
+5. Issue #121 remains open for the equivalent retry/redelivery check, final human evidence review,
+   and MVP acceptance decision.
+
+No local green check may skip the remaining #121 gate. Historical 2.3.0/2.3.1/2.3.2 records remain
+evidence, not current source execution instructions.

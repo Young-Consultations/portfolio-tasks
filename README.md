@@ -17,11 +17,13 @@ router](docs/releases/2.4.5.md) after its publication attestation, deployed
 Runtime Preflight, and immutable REAL preflight passed. Older recovery
 sections below remain historical compatibility evidence.
 
-## Issue 135 recovery state
+## Historical Issue 135 recovery state
 
-The current published compatibility unit is `ai-sdlc-v2.3.2` in `Young-Consultations/.github`,
-pointing to immutable commit `5738ace3ee90dde11336f8f8099e64e5645f7139`. Its schema and fixture
-baseline derives from corrected recovery commit
+The historical 2.3.2 target-compatibility unit is `ai-sdlc-v2.3.2` in
+`Young-Consultations/.github`, pointing to immutable commit
+`5738ace3ee90dde11336f8f8099e64e5645f7139`. It remains compatibility evidence
+for this repository's disabled target adapter, not the current source-routing release. Its schema
+and fixture baseline derives from corrected recovery commit
 `e27b8a541afbd27b4be5606a19ffa43637ad312a`. Historical commit
 `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0 evidence and is never
 amended or retagged.
@@ -56,10 +58,12 @@ write token.
 invocations, with all prohibited Codex, branch, commit, push, PR, merge, release, deployment,
 production, and secret-output counters at zero.
 
-This evidence is compatibility evidence, not activation or production readiness. The portfolio
-target remains disabled. The published `ai-sdlc-v2.3.2` unit and accepted immutable evidence cover all four core targets.
-Mutable activation remains disabled; reviewed receiver identities and a controlled live acceptance
-run are still required.
+This evidence is target compatibility evidence, not activation or production readiness. The
+portfolio target remains disabled. Source routing on production `main` uses published
+`ai-sdlc-v2.4.5`; organization activation enables only `consulting-playbook`.
+Fresh issue #154 verified the initial live route and produced one managed draft PR with accepted
+receiver/source projection. The remaining full-acceptance gate is the equivalent
+redelivery/idempotency exercise tracked by issue #121.
 
 GitHub Projects synchronization and Slugger issue mirroring remain outside the selected MVP. No
 workflow here mutates a Project or a sibling repository.

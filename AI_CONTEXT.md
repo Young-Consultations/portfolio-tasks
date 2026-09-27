@@ -133,9 +133,10 @@ sources.
   code, workflows, schemas, tests, fixtures, packages, and examples. Git history is the recovery
   mechanism for removed implementation and historical behavior.
 - The repository must converge on **one supported MVP contract and one active implementation path
-  for each responsibility**. The local recovery baseline selects payload
-  `ai-sdlc-contract/v2` and the published `ai-sdlc-v2.3.2` compatibility unit. Its
-  schema and fixture baseline derives from the corrected recovery commit
+  for each responsibility**. The current source-routing baseline selects payload
+  `ai-sdlc-contract/v2` through published organization control-plane release
+  `ai-sdlc-v2.4.5`. Historical 2.3.2 compatibility evidence for this repository's
+  disabled target adapter remains immutable and derives from corrected recovery commit
   `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`.
   Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0
   evidence and must never be amended or retagged.
@@ -220,13 +221,16 @@ these statuses and gaps rather than inventing solutions:
 
 - [ADR.md](docs/architecture/ADR.md) remains **Proposed normative architecture**, not approved.
 - The portfolio adapter has complete accepted `TC-MVP-CI-001` evidence: 29 scenarios pass, 22
-  invoke the real adapter seam, and all prohibited-effect counters are zero. The published
-  `ai-sdlc-v2.3.2` compatibility unit and immutable registry evidence cover all four core targets;
-  this does not prove mutable activation or that a controlled live forwarding run succeeds.
-- Current target activation is mutable organization control-plane state. This repository neither
-  records it as immutable compatibility nor changes or bypasses it.
-- All four targets remain disabled. Issue #117 owns deliberate first-target activation; reviewed
-  receiver identities and the controlled live acceptance run remain external gates.
+  invoke the real adapter seam, and all prohibited-effect counters are zero. Its 2.3.2 target
+  compatibility evidence remains valid for the disabled portfolio target but is not the current
+  organization control-plane release.
+- Current target activation is mutable organization control-plane state. The reviewed organization
+  state enables only `Young-Consultations/consulting-playbook`; this repository's target remains
+  disabled and this repository neither changes nor bypasses activation.
+- Published `ai-sdlc-v2.4.5` is the current source router. Fresh issue #154 verified the initial
+  live source -> router -> consulting target -> managed draft -> receiver -> source projection
+  path. Full REAL acceptance remains incomplete until the equivalent redelivery/idempotency
+  exercise tracked by issue #121 is completed and reviewed.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or
