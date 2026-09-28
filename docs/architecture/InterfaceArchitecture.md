@@ -35,7 +35,7 @@ exception is a contract.
 
 ## Recovered next-MVP interface profile
 
-The current published source/control-plane release is `ai-sdlc-v2.4.5` with payload
+The current published source/control-plane release is `ai-sdlc-v3.0.1` with payload
 `ai-sdlc-contract/v2`. This repository's disabled target retains immutable 2.3.2 target
 compatibility evidence whose schema/fixture baseline derives from
 `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, as detailed in
@@ -69,7 +69,7 @@ draft publication reference. Missing evidence is `not supplied`, never success.
 Payload `ai-sdlc-contract/v2`, the portfolio target's immutable 2.3.2 compatibility evidence,
 target workflow signature, exact schema/fixture blob identities, receiver boundary, and executable
 adapter files are bound by the non-recursive conformance pin. Source routing currently selects
-published `ai-sdlc-v2.4.5`. Target activation is separate mutable control-plane state that the
+published `ai-sdlc-v3.0.1`. Target activation is separate mutable control-plane state that the
 router enforces before dispatch; only `consulting-playbook` is enabled and the portfolio target
 remains disabled. Normal CI executes all 29 shared scenarios through the real portfolio adapter
 seam and requires every prohibited-effect counter to remain zero.
