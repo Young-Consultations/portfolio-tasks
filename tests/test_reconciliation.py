@@ -24,9 +24,11 @@ def comments(*extra: str) -> list[dict[str, str]]:
         "source_issue": SOURCE,
         "target_repository": TARGET,
     }
-    marker = "<!-- ai-sdlc-admission:v2 " + json.dumps(
-        admission, sort_keys=True, separators=(",", ":")
-    ) + " -->"
+    marker = (
+        "<!-- ai-sdlc-admission:v2 "
+        + json.dumps(admission, sort_keys=True, separators=(",", ":"))
+        + " -->"
+    )
     return [{"body": marker}, *({"body": body} for body in extra)]
 
 
@@ -103,11 +105,15 @@ def test_target_run_must_be_completed_failed_evidence(run_change: dict[str, obje
 
 
 def test_existing_terminal_result_blocks_reconciliation() -> None:
-    result = "<!-- ai-sdlc-source-result:v2 " + json.dumps(
-        {"delivery_id": DELIVERY, "result_sha256": "a" * 64},
-        sort_keys=True,
-        separators=(",", ":"),
-    ) + " -->"
+    result = (
+        "<!-- ai-sdlc-source-result:v2 "
+        + json.dumps(
+            {"delivery_id": DELIVERY, "result_sha256": "a" * 64},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + " -->"
+    )
     with pytest.raises(ReconciliationError, match="terminal result"):
         decide_missing_result_reconciliation(
             issue=issue("status:queued"),
