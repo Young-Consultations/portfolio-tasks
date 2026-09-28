@@ -34,6 +34,16 @@ For uncertain side effects, query external status. Retry is permitted only when 
 the effect absent and safe. Compensating actions cannot erase history or revoke a target effect
 without contract authority; they create new audited transitions.
 
+For an admitted source delivery that has no receiver-validated terminal result, the current recovery
+implementation provides the operator-only `reconcile-missing-result.yml` workflow. An authorized
+human supplies the exact source issue, delivery identity, and completed failed/cancelled/timed-out
+target workflow run. The workflow requires one matching durable admission, rejects any existing
+terminal source-result marker or mismatched/nonterminal target run, records a deterministic
+`ai-sdlc-reconciliation:v1` source marker, and clears the `status:queued` UI projection. This is
+recovery evidence, not a fabricated target result, and it never retries execution automatically.
+Automatic missing-result deadlines remain a separate governance decision; this recovery path does
+not invent one.
+
 ## Fault isolation
 
 Project, reporting and optional mirror faults never alter or block safe canonical issue updates.
