@@ -35,7 +35,8 @@ and traceability in the same change set.
 lists the exact included and deferred requirement IDs, lifecycle/authorization decisions,
 continuous interface-validation requirement `FR-CIV-01`, acceptance scenario, external blockers,
 and exit criteria. The selected payload remains `ai-sdlc-contract/v2`; the current published
-source/control-plane release is `ai-sdlc-v2.4.5`. This repository's disabled target still retains
+source/control-plane release is `ai-sdlc-v3.0.1`. The 2.4.5 release remains immutable
+initial-live-path evidence. This repository's disabled target still retains
 immutable 2.3.2 compatibility evidence derived from
 `e27b8a541afbd27b4be5606a19ffa43637ad312a`; that evidence does not define the current source
 router release. Historical 2.3.0 commit
