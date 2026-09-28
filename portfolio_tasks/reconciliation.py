@@ -214,9 +214,7 @@ def decide_missing_result_reconciliation(
     expected_url = f"https://github.com/{target}/actions/runs/{run_id}"
     if run_url != expected_url:
         raise ReconciliationError("target workflow run URL does not match its repository and id")
-    if not _run_is_bound_to_delivery(
-        target_run_log, binding=binding, delivery_id=delivery_id
-    ):
+    if not _run_is_bound_to_delivery(target_run_log, binding=binding, delivery_id=delivery_id):
         raise ReconciliationError("target workflow logs do not bind the run to this delivery")
 
     evidence = {
