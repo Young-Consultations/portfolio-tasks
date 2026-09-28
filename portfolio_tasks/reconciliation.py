@@ -8,9 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-_ISSUE = re.compile(
-    r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}#[1-9][0-9]*$"
-)
+_ISSUE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}#[1-9][0-9]*$")
 _IDENTITY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _ADMISSION = re.compile(
     r"^[ \t]*<!-- ai-sdlc-admission:v2 (?P<payload>\{[^\r\n]*\}) -->[ \t]*\r?$",
@@ -69,9 +67,7 @@ def _marker_payloads(pattern: re.Pattern[str], comments: object) -> list[dict[st
     return values
 
 
-def admission_binding(
-    comments: object, *, source_issue: str, delivery_id: str
-) -> dict[str, str]:
+def admission_binding(comments: object, *, source_issue: str, delivery_id: str) -> dict[str, str]:
     """Return the unique durable admission binding for one logical delivery."""
     if _ISSUE.fullmatch(source_issue) is None or _IDENTITY.fullmatch(delivery_id) is None:
         raise ReconciliationError("source or delivery identity is invalid")
@@ -150,9 +146,11 @@ def decide_missing_result_reconciliation(
         "target_run_id": run_id,
         "target_run_url": run_url,
     }
-    marker = "<!-- ai-sdlc-reconciliation:v1 " + json.dumps(
-        evidence, sort_keys=True, separators=(",", ":")
-    ) + " -->"
+    marker = (
+        "<!-- ai-sdlc-reconciliation:v1 "
+        + json.dumps(evidence, sort_keys=True, separators=(",", ":"))
+        + " -->"
+    )
 
     prior = _marker_payloads(_RECONCILIATION, comments)
     if any(item == evidence for item in prior):
@@ -166,10 +164,14 @@ def decide_missing_result_reconciliation(
     if issue.get("state") != "open" or "status:queued" not in _labels(issue):
         raise ReconciliationError("source is not an open queued delivery")
 
-    comment = marker + "\n" + """### Execution reconciliation required
+    comment = (
+        marker
+        + "\n"
+        + """### Execution reconciliation required
 
 The admitted delivery has no receiver-validated terminal result. The cited target workflow completed unsuccessfully, so the queued projection is being cleared for human reconciliation. This record does **not** infer a target execution result.
 
 Repair the failed prerequisite, review the evidence, and explicitly authorize any unchanged retry. Preserve the existing delivery and correlation identity; do not create a replacement delivery merely to escape the failed attempt.
 """
+    )
     return ReconciliationDecision("apply", marker, comment, target)
