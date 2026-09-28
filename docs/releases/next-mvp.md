@@ -1,11 +1,14 @@
 # portfolio-tasks next-MVP baseline
 
 **Status:** approved MVP scope with current source routing on published
-`ai-sdlc-v2.4.5`. The 2.3.2 recovery/compatibility sequence below is
-historical target evidence. Initial live-path verification completed through
-fresh issue #154; full REAL acceptance still requires the equivalent
-redelivery/idempotency exercise tracked by issue #121. The current source router
-selection is governed by the [2.4.5 release record](2.4.5.md) and
+`ai-sdlc-v3.0.1`. The 2.3.2 recovery/compatibility sequence below is
+historical target evidence. Initial live-path verification completed on 2.4.5
+through fresh issue #154; issue #156 exposed result-writer defect #83 during
+same-delivery redelivery. The 3.0.1 correction has passed deployed Runtime
+Preflight and immutable REAL preflight. Full REAL acceptance still requires a
+corrected REAL delivery plus equivalent redelivery/idempotency evidence tracked
+by issue #121. The current source router selection is governed by the
+[3.0.1 consumer record](3.0.1.md) and
 [organization control-plane interface](../requirements/Interface-OrganizationControlPlane.md).
 The selected v2 payload, requirement scope, and immutable schema/fixture
 identities remain in force.
@@ -82,16 +85,18 @@ The report is [`.ai-sdlc/conformance/tc-mvp-ci-001.json`](../../.ai-sdlc/conform
 
 ## Historical recovery sequence and current completion state
 
-The former 2.3.x recovery sequence led to the current 2.4.5 path and is retained
+The former 2.3.x recovery sequence led to the 2.4.5 initial-live path and is retained
 only as history. Current disposition:
 
 1. Issue #135 recovery is complete and its older release identities remain immutable evidence.
 2. Issue #117 completed the first-target activation decision; only `consulting-playbook` is enabled.
 3. Issue #119's production-shaped path was exercised by fresh issue #154 on published 2.4.5,
    producing one managed draft PR and accepted receiver/source projection.
-4. Issue #120 is reconciling the final authority/context layer across the four repositories.
-5. Issue #121 remains open for the equivalent retry/redelivery check, final human evidence review,
-   and MVP acceptance decision.
+4. Same-delivery issue #156 exposed organization control-plane defect #83; published 3.0.1 repairs
+   the result-writer path and has passed deployed Runtime Preflight plus immutable REAL preflight.
+5. Issue #120 completed final authority/context reconciliation across the four repositories.
+6. Issue #121 remains open for corrected REAL delivery, equivalent retry/redelivery, final human
+   evidence review, and the MVP acceptance decision.
 
 No local green check may skip the remaining #121 gate. Historical 2.3.0/2.3.1/2.3.2 records remain
 evidence, not current source execution instructions.

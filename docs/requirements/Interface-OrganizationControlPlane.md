@@ -11,14 +11,14 @@ amended or retagged.
 Exact closed schemas and shared fixtures are vendored here only for deterministic validation and
 bound by their approved Git blob identities. The organization remains their owner.
 The portfolio source router consumer selects the published immutable
-`ai-sdlc-v2.4.5` tag in this release. Absence of the selected tag fails closed;
+`ai-sdlc-v3.0.1` tag in this release. Absence of the selected tag fails closed;
 a mutable `main` fallback is forbidden. The portfolio target's result receiver
 remains on its separately pinned 2.3.2 compatibility unit.
 
 ## Router
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v2.4.5`.
+`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v3.0.1`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |
@@ -77,8 +77,11 @@ binding, and replay state, the receiver forwards exactly
 `repository_dispatch` event `ai-sdlc-execution-result-v2`.
 
 The source authenticates the receiver dispatch identity, repeats exact result-schema and
-admission-binding validation, projects identical results once, and quarantines conflicts. The
-target never directly invokes source projection and never receives a portfolio result-write token.
+admission-binding validation, projects identical results once, and quarantines conflicts. For the
+current 3.0.1 source path, repository variable `PORTFOLIO_RESULT_SENDERS` must exactly authorize
+the immutable organization result-writer identity `ai-sdlc-result-writer[bot]`; deployed Runtime
+Preflight is the required evidence for that live binding. The target never directly invokes source
+projection and never receives a portfolio result-write token.
 
 ## Approval data boundary
 

@@ -12,8 +12,8 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 3. approved architecture and interface documents
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
-Production `main` selects the published [`ai-sdlc-v2.4.5`
-router](docs/releases/2.4.5.md) after its publication attestation, deployed
+Production `main` selects the published [`ai-sdlc-v3.0.1`
+router](docs/releases/3.0.1.md) after its publication attestation, deployed
 Runtime Preflight, and immutable REAL preflight passed. Older recovery
 sections below remain historical compatibility evidence.
 
@@ -60,10 +60,11 @@ production, and secret-output counters at zero.
 
 This evidence is target compatibility evidence, not activation or production readiness. The
 portfolio target remains disabled. Source routing on production `main` uses published
-`ai-sdlc-v2.4.5`; organization activation enables only `consulting-playbook`.
-Fresh issue #154 verified the initial live route and produced one managed draft PR with accepted
-receiver/source projection. The remaining full-acceptance gate is the equivalent
-redelivery/idempotency exercise tracked by issue #121.
+`ai-sdlc-v3.0.1`; organization activation enables only `consulting-playbook`.
+Fresh issue #154 verified the initial live route on 2.4.5. Issue #156 then exposed the
+result-writer redelivery defect repaired by the 3.0.1 control plane. The remaining
+full-acceptance gate is a corrected REAL delivery plus equivalent redelivery/idempotency
+exercise tracked by issue #121.
 
 GitHub Projects synchronization and Slugger issue mirroring remain outside the selected MVP. No
 workflow here mutates a Project or a sibling repository.
