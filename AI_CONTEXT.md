@@ -135,7 +135,7 @@ sources.
 - The repository must converge on **one supported MVP contract and one active implementation path
   for each responsibility**. The current source-routing baseline selects payload
   `ai-sdlc-contract/v2` through published organization control-plane release
-  `ai-sdlc-v2.4.5`. Historical 2.3.2 compatibility evidence for this repository's
+  `ai-sdlc-v3.0.1`. Historical 2.3.2 compatibility evidence for this repository's
   disabled target adapter remains immutable and derives from corrected recovery commit
   `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`.
   Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0
@@ -227,10 +227,12 @@ these statuses and gaps rather than inventing solutions:
 - Current target activation is mutable organization control-plane state. The reviewed organization
   state enables only `Young-Consultations/consulting-playbook`; this repository's target remains
   disabled and this repository neither changes nor bypasses activation.
-- Published `ai-sdlc-v2.4.5` is the current source router. Fresh issue #154 verified the initial
-  live source -> router -> consulting target -> managed draft -> receiver -> source projection
-  path. Full REAL acceptance remains incomplete until the equivalent redelivery/idempotency
-  exercise tracked by issue #121 is completed and reviewed.
+- Published `ai-sdlc-v3.0.1` is the current source router. Fresh issue #154 verified the initial
+  live path on 2.4.5; issue #156 then exposed organization result-writer defect #83 during
+  same-delivery redelivery. The 3.0.1 correction has passed deployed Runtime Preflight and
+  immutable REAL preflight. Full REAL acceptance remains incomplete until a corrected REAL
+  delivery and equivalent redelivery/idempotency exercise tracked by issue #121 are completed
+  and reviewed.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or
