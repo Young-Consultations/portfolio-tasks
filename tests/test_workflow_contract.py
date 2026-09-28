@@ -135,11 +135,23 @@ def test_result_projection_accepts_only_authenticated_receiver_dispatch() -> Non
 
 def test_missing_result_reconciliation_is_operator_owned_and_non_executing() -> None:
     text = RECONCILIATION.read_text(encoding="utf-8")
+    projection = PROJECTION.read_text(encoding="utf-8")
     assert "workflow_dispatch:" in text
     assert "PORTFOLIO_APPROVERS" in text
     assert "CODEX_ROUTER_TOKEN" in text
     assert "portfolio_tasks.reconciliation" in text
     assert "status%3Aqueued" in text
+    assert "CONTROL_PLANE_RELEASE: ai-sdlc-v3.0.1" in text
+    assert "config/codex-result-trust.json?ref=$CONTROL_PLANE_RELEASE" in text
+    assert 'gh run view "$TARGET_RUN_ID"' in text
+    assert "target-run.log" in text
+    assert 'index("status:queued") != null' in text
+    assert 'status%3Aqueued" --silent || true' not in text
+    assert "group: portfolio-result-${{ github.event.client_payload.source_issue }}" in projection
+    assert (
+        "group: portfolio-result-Young-Consultations/portfolio-tasks#"
+        "${{ inputs.issue_number }}" in text
+    )
     for forbidden in (
         "codex exec",
         "OPENAI_API_KEY",
