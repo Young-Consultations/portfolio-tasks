@@ -9,7 +9,7 @@ ROUTE = WORKFLOWS / "route-approved-task.yml"
 PROJECTION = WORKFLOWS / "project-execution-result.yml"
 
 
-def test_exactly_one_active_target_path_and_four_expected_workflows() -> None:
+def test_exactly_one_active_target_path_and_five_expected_workflows() -> None:
     workflows = tuple(sorted(WORKFLOWS.glob("*.yml")))
     assert workflows == (
         WORKFLOWS / "ci.yml",
