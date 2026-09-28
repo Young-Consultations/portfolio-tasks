@@ -133,7 +133,6 @@ def test_result_projection_accepts_only_authenticated_receiver_dispatch() -> Non
     assert "status:result-quarantined" in text
 
 
-
 def test_missing_result_reconciliation_is_operator_owned_and_non_executing() -> None:
     text = RECONCILIATION.read_text(encoding="utf-8")
     assert "workflow_dispatch:" in text
