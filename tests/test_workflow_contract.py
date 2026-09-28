@@ -7,6 +7,7 @@ WORKFLOWS = Path(".github/workflows")
 TARGET = WORKFLOWS / "codex-execute.yml"
 ROUTE = WORKFLOWS / "route-approved-task.yml"
 PROJECTION = WORKFLOWS / "project-execution-result.yml"
+RECONCILIATION = WORKFLOWS / "reconcile-missing-result.yml"
 
 
 def test_exactly_one_active_target_path_and_five_expected_workflows() -> None:
@@ -15,6 +16,7 @@ def test_exactly_one_active_target_path_and_five_expected_workflows() -> None:
         WORKFLOWS / "ci.yml",
         TARGET,
         PROJECTION,
+        RECONCILIATION,
         ROUTE,
     )
     for obsolete in (
@@ -129,6 +131,26 @@ def test_result_projection_accepts_only_authenticated_receiver_dispatch() -> Non
     assert '"ADMISSION_BINDING"' in text
     assert "<!-- ai-sdlc-source-result:v2 " in text
     assert "status:result-quarantined" in text
+
+
+
+def test_missing_result_reconciliation_is_operator_owned_and_non_executing() -> None:
+    text = RECONCILIATION.read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in text
+    assert "PORTFOLIO_APPROVERS" in text
+    assert "CODEX_ROUTER_TOKEN" in text
+    assert "portfolio_tasks.reconciliation" in text
+    assert "status%3Aqueued" in text
+    for forbidden in (
+        "codex exec",
+        "OPENAI_API_KEY",
+        "TARGET_PUBLICATION_TOKEN",
+        "codex-result-receiver",
+        "gh workflow run",
+        "gh pr create",
+        "git push",
+    ):
+        assert forbidden not in text
 
 
 def test_normal_ci_has_no_codex_or_publication_effect() -> None:
