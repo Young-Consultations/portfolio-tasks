@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping, Set
+from collections.abc import Mapping, Set as AbstractSet
 from dataclasses import dataclass
 from typing import Any
 
@@ -84,7 +84,7 @@ def admission_binding(
     *,
     source_issue: str,
     delivery_id: str,
-    trusted_admission_authors: Set[str],
+    trusted_admission_authors: AbstractSet[str],
     expected_control_plane_release: str,
 ) -> dict[str, str]:
     """Return the unique trusted durable admission binding for one logical delivery."""
@@ -177,7 +177,7 @@ def decide_missing_result_reconciliation(
     delivery_id: str,
     target_run: Mapping[str, Any],
     target_run_log: str,
-    trusted_admission_authors: Set[str],
+    trusted_admission_authors: AbstractSet[str],
     expected_control_plane_release: str,
 ) -> ReconciliationDecision:
     """Validate failed workflow evidence without inventing a target execution result."""
