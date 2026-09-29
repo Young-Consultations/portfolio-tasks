@@ -135,7 +135,7 @@ sources.
 - The repository must converge on **one supported MVP contract and one active implementation path
   for each responsibility**. The current source-routing baseline selects payload
   `ai-sdlc-contract/v2` through published organization control-plane release
-  `ai-sdlc-v3.0.1`. Historical 2.3.2 compatibility evidence for this repository's
+  `ai-sdlc-v3.0.2`. Historical 2.3.2 compatibility evidence for this repository's
   disabled target adapter remains immutable and derives from corrected recovery commit
   `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`.
   Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0
@@ -227,12 +227,14 @@ these statuses and gaps rather than inventing solutions:
 - Current target activation is mutable organization control-plane state. The reviewed organization
   state enables only `Young-Consultations/consulting-playbook`; this repository's target remains
   disabled and this repository neither changes nor bypasses activation.
-- Published `ai-sdlc-v3.0.1` is the current source router. Fresh issue #154 verified the initial
-  live path on 2.4.5; issue #156 then exposed organization result-writer defect #83 during
-  same-delivery redelivery. The 3.0.1 correction has passed deployed Runtime Preflight and
-  immutable REAL preflight. Full REAL acceptance remains incomplete until a corrected REAL
-  delivery and equivalent redelivery/idempotency exercise tracked by issue #121 are completed
-  and reviewed.
+- Published `ai-sdlc-v3.0.2` is the current source router. Deployed Runtime
+  Preflight run 36640642872 and immutable REAL preflight run 36640734704 passed
+  before this source cutover. Fresh issue #154 remains initial-live-path
+  evidence; issue #156 exposed the result-writer identity defect; and issue
+  #159 is the active DEF-0073 recovery delivery. Full REAL acceptance remains
+  incomplete until #159 produces one corrected terminal projection and the
+  unchanged same-delivery retry returns `duplicate-reused` before Codex with
+  no second receiver/source effect.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or
