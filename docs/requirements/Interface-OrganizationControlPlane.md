@@ -11,14 +11,14 @@ amended or retagged.
 Exact closed schemas and shared fixtures are vendored here only for deterministic validation and
 bound by their approved Git blob identities. The organization remains their owner.
 The portfolio source router consumer selects the published immutable
-`ai-sdlc-v3.0.1` tag in this release. Absence of the selected tag fails closed;
+`ai-sdlc-v3.0.2` tag in this release. Absence of the selected tag fails closed;
 a mutable `main` fallback is forbidden. The portfolio target's result receiver
 remains on its separately pinned 2.3.2 compatibility unit.
 
 ## Router
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v3.0.1`.
+`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v3.0.2`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |
@@ -78,10 +78,18 @@ binding, and replay state, the receiver forwards exactly
 
 The source authenticates the receiver dispatch identity, repeats exact result-schema and
 admission-binding validation, projects identical results once, and quarantines conflicts. For the
-current 3.0.1 source path, repository variable `PORTFOLIO_RESULT_SENDERS` must exactly authorize
+current 3.0.2 source path, repository variable `PORTFOLIO_RESULT_SENDERS` must exactly authorize
 the immutable organization result-writer identity `ai-sdlc-result-writer[bot]`; deployed Runtime
 Preflight is the required evidence for that live binding. The target never directly invokes source
 projection and never receives a portfolio result-write token.
+
+
+The source-owned missing-result reconciliation workflow is intentionally pinned to
+`ai-sdlc-v3.0.1` while recovering existing issue #159 because its durable
+admission marker was created by 3.0.1. That recovery pin does not define the
+current router consumer for new admissions and must not be rewritten to 3.0.2
+until the #159 recovery path no longer depends on the original admission
+identity.
 
 ## Approval data boundary
 
