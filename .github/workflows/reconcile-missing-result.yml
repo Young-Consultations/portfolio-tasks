@@ -25,7 +25,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CONTROL_PLANE_RELEASE: ai-sdlc-v3.0.1
+  TRUST_POLICY_RELEASE: ai-sdlc-v3.0.2
+  ACCEPTED_CONTROL_PLANE_RELEASES_JSON: '["ai-sdlc-v3.0.1","ai-sdlc-v3.0.2"]'
 
 jobs:
   reconcile:
@@ -53,7 +54,7 @@ jobs:
         run: |
           set -euo pipefail; set +x
           gh api \
-            "repos/Young-Consultations/.github/contents/config/codex-result-trust.json?ref=$CONTROL_PLANE_RELEASE" \
+            "repos/Young-Consultations/.github/contents/config/codex-result-trust.json?ref=$TRUST_POLICY_RELEASE" \
             --jq .content | base64 --decode > "$RUNNER_TEMP/result-trust.json"
       - name: Load source evidence and resolve admitted target
         id: source
@@ -80,15 +81,25 @@ jobs:
           with open(root + "/result-trust.json", encoding="utf-8") as stream:
               trust = json.load(stream)
           authors = trust.get("trusted_admission_authors")
-          if trust.get("policy_format_version") != 2 or not isinstance(authors, list):
-              raise SystemExit("control-plane admission trust policy is invalid")
+          try:
+              releases = json.loads(os.environ["ACCEPTED_CONTROL_PLANE_RELEASES_JSON"])
+          except json.JSONDecodeError as exc:
+              raise SystemExit("reconciliation release policy is invalid") from exc
+          if (
+              trust.get("policy_format_version") != 2
+              or not isinstance(authors, list)
+              or not isinstance(releases, list)
+              or not releases
+              or not all(isinstance(item, str) and item for item in releases)
+          ):
+              raise SystemExit("control-plane reconciliation policy is invalid")
           source = f'{os.environ["GITHUB_REPOSITORY"]}#{os.environ["ISSUE_NUMBER"]}'
           binding = admission_binding(
               comments,
               source_issue=source,
               delivery_id=os.environ["DELIVERY_ID"],
               trusted_admission_authors=frozenset(authors),
-              expected_control_plane_release=os.environ["CONTROL_PLANE_RELEASE"],
+              accepted_control_plane_releases=frozenset(releases),
           )
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
               stream.write(f'target_repository={binding["target_repository"]}\n')
@@ -132,8 +143,18 @@ jobs:
           with open(root + "/result-trust.json", encoding="utf-8") as stream:
               trust = json.load(stream)
           authors = trust.get("trusted_admission_authors")
-          if trust.get("policy_format_version") != 2 or not isinstance(authors, list):
-              raise SystemExit("control-plane admission trust policy is invalid")
+          try:
+              releases = json.loads(os.environ["ACCEPTED_CONTROL_PLANE_RELEASES_JSON"])
+          except json.JSONDecodeError as exc:
+              raise SystemExit("reconciliation release policy is invalid") from exc
+          if (
+              trust.get("policy_format_version") != 2
+              or not isinstance(authors, list)
+              or not isinstance(releases, list)
+              or not releases
+              or not all(isinstance(item, str) and item for item in releases)
+          ):
+              raise SystemExit("control-plane reconciliation policy is invalid")
 
           source = f'{os.environ["GITHUB_REPOSITORY"]}#{os.environ["ISSUE_NUMBER"]}'
           decision = decide_missing_result_reconciliation(
@@ -144,7 +165,7 @@ jobs:
               target_run=target_run,
               target_run_log=target_run_log,
               trusted_admission_authors=frozenset(authors),
-              expected_control_plane_release=os.environ["CONTROL_PLANE_RELEASE"],
+              accepted_control_plane_releases=frozenset(releases),
           )
           if decision.comment:
               with open(root + "/reconciliation.md", "w", encoding="utf-8") as stream:
