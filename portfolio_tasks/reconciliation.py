@@ -86,12 +86,12 @@ def admission_binding(
     source_issue: str,
     delivery_id: str,
     trusted_admission_authors: AbstractSet[str],
-    expected_control_plane_release: str,
+    accepted_control_plane_releases: AbstractSet[str],
 ) -> dict[str, str]:
     """Return the unique trusted durable admission binding for one logical delivery."""
     if _ISSUE.fullmatch(source_issue) is None or _IDENTITY.fullmatch(delivery_id) is None:
         raise ReconciliationError("source or delivery identity is invalid")
-    if not trusted_admission_authors or not expected_control_plane_release:
+    if not trusted_admission_authors or not accepted_control_plane_releases:
         raise ReconciliationError("trusted admission policy is unavailable")
 
     matches: list[dict[str, str]] = []
@@ -101,7 +101,7 @@ def admission_binding(
             continue
         if payload.get("delivery_id") != delivery_id or payload.get("source_issue") != source_issue:
             continue
-        if payload.get("control_plane_release") != expected_control_plane_release:
+        if payload.get("control_plane_release") not in accepted_control_plane_releases:
             continue
         if not _ADMISSION_FIELDS <= set(payload):
             continue
@@ -179,7 +179,7 @@ def decide_missing_result_reconciliation(
     target_run: Mapping[str, Any],
     target_run_log: str,
     trusted_admission_authors: AbstractSet[str],
-    expected_control_plane_release: str,
+    accepted_control_plane_releases: AbstractSet[str],
 ) -> ReconciliationDecision:
     """Validate failed workflow evidence without inventing a target execution result."""
     binding = admission_binding(
@@ -187,7 +187,7 @@ def decide_missing_result_reconciliation(
         source_issue=source_issue,
         delivery_id=delivery_id,
         trusted_admission_authors=trusted_admission_authors,
-        expected_control_plane_release=expected_control_plane_release,
+        accepted_control_plane_releases=accepted_control_plane_releases,
     )
     if binding["contract_version"] != "ai-sdlc-contract/v2":
         raise ReconciliationError("admission uses an unsupported contract")
