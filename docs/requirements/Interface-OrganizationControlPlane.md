@@ -84,12 +84,12 @@ Preflight is the required evidence for that live binding. The target never direc
 projection and never receives a portfolio result-write token.
 
 
-The source-owned missing-result reconciliation workflow is intentionally pinned to
-`ai-sdlc-v3.0.1` while recovering existing issue #159 because its durable
-admission marker was created by 3.0.1. That recovery pin does not define the
-current router consumer for new admissions and must not be rewritten to 3.0.2
-until the #159 recovery path no longer depends on the original admission
-identity.
+The source-owned missing-result reconciliation workflow loads the immutable
+3.0.2 trust policy and accepts exactly the reviewed admission releases
+`ai-sdlc-v3.0.1` and `ai-sdlc-v3.0.2`. This preserves #159's original 3.0.1
+admission while allowing current 3.0.2 admissions to enter the same
+operator-authorized missing-result recovery path. The accepted release set is
+static source policy, not an operator input; any other release fails closed.
 
 ## Approval data boundary
 
