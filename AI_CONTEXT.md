@@ -235,6 +235,12 @@ these statuses and gaps rather than inventing solutions:
   incomplete until #159 produces one corrected terminal projection and the
   unchanged same-delivery retry returns `duplicate-reused` before Codex with
   no second receiver/source effect.
+- Missing-result reconciliation is version-bounded source policy. While #159
+  recovery remains active, the operator-owned reconciliation workflow loads the
+  immutable 3.0.2 trust policy and accepts only admissions from
+  `ai-sdlc-v3.0.1` or `ai-sdlc-v3.0.2`. The accepted set is not an operator
+  input. This preserves #159's original 3.0.1 admission while supporting new
+  3.0.2 admissions; every other release fails closed.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or
