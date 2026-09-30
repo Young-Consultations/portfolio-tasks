@@ -70,7 +70,7 @@ def test_target_has_least_privilege_and_credential_separation() -> None:
 def test_source_route_has_required_caller_permission_and_exact_construction() -> None:
     text = ROUTE.read_text(encoding="utf-8")
     assert "permissions:\n  actions: read\n  contents: read\n  issues: write" in text
-    assert "codex-router.yml@ai-sdlc-v3.0.1" in text
+    assert "codex-router.yml@ai-sdlc-v3.0.2" in text
     assert "contracts/task-contract.schema.json" in text
     assert "Draft202012Validator" in text
     assert "normalize_task_type" in text
@@ -141,8 +141,9 @@ def test_missing_result_reconciliation_is_operator_owned_and_non_executing() -> 
     assert "CODEX_ROUTER_TOKEN" in text
     assert "portfolio_tasks.reconciliation" in text
     assert "status%3Aqueued" in text
-    assert "CONTROL_PLANE_RELEASE: ai-sdlc-v3.0.1" in text
-    assert "config/codex-result-trust.json?ref=$CONTROL_PLANE_RELEASE" in text
+    assert "TRUST_POLICY_RELEASE: ai-sdlc-v3.0.2" in text
+    assert 'ACCEPTED_CONTROL_PLANE_RELEASES_JSON: \'["ai-sdlc-v3.0.1","ai-sdlc-v3.0.2"]\'' in text
+    assert "config/codex-result-trust.json?ref=$TRUST_POLICY_RELEASE" in text
     assert 'gh run view "$TARGET_RUN_ID"' in text
     assert "target-run.log" in text
     assert 'index("status:queued") != null' in text
