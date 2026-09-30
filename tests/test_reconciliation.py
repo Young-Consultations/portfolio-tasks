@@ -11,7 +11,11 @@ from portfolio_tasks.reconciliation import (
 SOURCE = "Young-Consultations/portfolio-tasks#159"
 DELIVERY = "task-b72eaf2503fc3d27c82f8921e8cfbfff"
 TARGET = "Young-Consultations/consulting-playbook"
-CONTROL_PLANE_RELEASE = "ai-sdlc-v3.0.1"
+LEGACY_CONTROL_PLANE_RELEASE = "ai-sdlc-v3.0.1"
+CURRENT_CONTROL_PLANE_RELEASE = "ai-sdlc-v3.0.2"
+ACCEPTED_CONTROL_PLANE_RELEASES = frozenset(
+    {LEGACY_CONTROL_PLANE_RELEASE, CURRENT_CONTROL_PLANE_RELEASE}
+)
 TRUSTED_ADMISSION_AUTHORS = frozenset({"mightyjoe909"})
 SOURCE_WORKFLOW_AUTHOR = "github-actions[bot]"
 
@@ -24,7 +28,7 @@ def comments(
     *extra: str,
     admission_author: str = "mightyjoe909",
     target_repository: str = TARGET,
-    control_plane_release: str = CONTROL_PLANE_RELEASE,
+    control_plane_release: str = LEGACY_CONTROL_PLANE_RELEASE,
 ) -> list[dict[str, object]]:
     admission = {
         "activation_revision": "3efbe6227a93fa23020ca807387e310f026a1528",
@@ -98,7 +102,7 @@ def decide(
         target_run=run or target_run(),
         target_run_log=run_log or target_log(),
         trusted_admission_authors=TRUSTED_ADMISSION_AUTHORS,
-        expected_control_plane_release=CONTROL_PLANE_RELEASE,
+        accepted_control_plane_releases=ACCEPTED_CONTROL_PLANE_RELEASES,
     )
 
 
@@ -111,6 +115,15 @@ def test_live_pre_adapter_failure_enters_reconciliation_without_terminal_result(
     assert ".github/workflows/codex-execute.yml" in decision.marker
     assert "does **not** infer a target execution result" in decision.comment
     assert "ai-sdlc-source-result" not in decision.comment
+
+
+def test_current_3_0_2_admission_enters_reconciliation() -> None:
+    decision = decide(
+        comment_values=comments(control_plane_release=CURRENT_CONTROL_PLANE_RELEASE),
+        run=target_run(head_branch="codex-adapter-v3.0.2"),
+    )
+    assert decision.action == "apply"
+    assert "codex-adapter-v3.0.2" in decision.marker
 
 
 def test_reconciliation_is_idempotent_for_same_delivery_and_target_run() -> None:
@@ -205,7 +218,7 @@ def test_missing_or_duplicate_admission_fails_closed() -> None:
             source_issue=SOURCE,
             delivery_id=DELIVERY,
             trusted_admission_authors=TRUSTED_ADMISSION_AUTHORS,
-            expected_control_plane_release=CONTROL_PLANE_RELEASE,
+            accepted_control_plane_releases=ACCEPTED_CONTROL_PLANE_RELEASES,
         )
     duplicated = comments()
     duplicated.append(duplicated[0].copy())
@@ -215,7 +228,7 @@ def test_missing_or_duplicate_admission_fails_closed() -> None:
             source_issue=SOURCE,
             delivery_id=DELIVERY,
             trusted_admission_authors=TRUSTED_ADMISSION_AUTHORS,
-            expected_control_plane_release=CONTROL_PLANE_RELEASE,
+            accepted_control_plane_releases=ACCEPTED_CONTROL_PLANE_RELEASES,
         )
 
 
