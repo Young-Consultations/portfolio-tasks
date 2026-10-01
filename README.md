@@ -66,9 +66,11 @@ Fresh issue #154 verified the initial live route on 2.4.5. Issue #156 exposed th
 result-writer identity defect; issue #159 exposed the split-release receiver
 compatibility defect repaired by 3.0.2, then exposed DEF-0086 when an unchanged
 retry could not reuse its preserved 3.0.1 admission. Published 3.0.3 repairs that
-cross-release reuse boundary. Full acceptance still requires #159 to produce
-one corrected terminal projection and an unchanged same-delivery
-`duplicate-reused` redelivery with no second Codex or source effect.
+cross-release reuse boundary. Fresh #159 REAL acceptance is complete: first
+delivery produced one receiver-validated `draft-pr-created` projection and PR
+#82; the unchanged second delivery returned `duplicate-reused` for the same
+branch and PR before Codex, with no second receiver forwarding or source
+terminal projection. Final MVP disposition remains human-owned under #121.
 
 GitHub Projects synchronization and Slugger issue mirroring remain outside the selected MVP. No
 workflow here mutates a Project or a sibling repository.
