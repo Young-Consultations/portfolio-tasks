@@ -135,7 +135,7 @@ sources.
 - The repository must converge on **one supported MVP contract and one active implementation path
   for each responsibility**. The current source-routing baseline selects payload
   `ai-sdlc-contract/v2` through published organization control-plane release
-  `ai-sdlc-v3.0.2`. Historical 2.3.2 compatibility evidence for this repository's
+  `ai-sdlc-v3.0.3`. Historical 2.3.2 compatibility evidence for this repository's
   disabled target adapter remains immutable and derives from corrected recovery commit
   `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`.
   Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0
@@ -227,20 +227,22 @@ these statuses and gaps rather than inventing solutions:
 - Current target activation is mutable organization control-plane state. The reviewed organization
   state enables only `Young-Consultations/consulting-playbook`; this repository's target remains
   disabled and this repository neither changes nor bypasses activation.
-- Published `ai-sdlc-v3.0.2` is the current source router. Deployed Runtime
-  Preflight run 36640642872 and immutable REAL preflight run 36640734704 passed
-  before this source cutover. Fresh issue #154 remains initial-live-path
-  evidence; issue #156 exposed the result-writer identity defect; and issue
-  #159 is the active DEF-0073 recovery delivery. Full REAL acceptance remains
-  incomplete until #159 produces one corrected terminal projection and the
-  unchanged same-delivery retry returns `duplicate-reused` before Codex with
-  no second receiver/source effect.
+- Published `ai-sdlc-v3.0.3` is the current source router. Deployed Runtime
+  Preflight run 36867504568 and immutable REAL readiness preflight run
+  36867939797 passed on attested control-plane main before this source cutover.
+  Fresh issue #154 remains initial-live-path evidence; issue #156 exposed the
+  result-writer identity defect; issue #159 exposed DEF-0073 and then DEF-0086
+  while preserving its original trusted 3.0.1 admission. Full REAL acceptance
+  remains incomplete until #159 produces one corrected terminal projection and
+  the unchanged same-delivery retry returns `duplicate-reused` before Codex
+  with no second receiver/source effect.
 - Missing-result reconciliation is version-bounded source policy. While #159
   recovery remains active, the operator-owned reconciliation workflow loads the
-  immutable 3.0.2 trust policy and accepts only admissions from
-  `ai-sdlc-v3.0.1` or `ai-sdlc-v3.0.2`. The accepted set is not an operator
-  input. This preserves #159's original 3.0.1 admission while supporting new
-  3.0.2 admissions; every other release fails closed.
+  immutable 3.0.3 trust policy and accepts only admissions from
+  `ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, or `ai-sdlc-v3.0.3`. The accepted set
+  is not an operator input. This preserves #159's original 3.0.1 admission,
+  preserves recovery for 3.0.2 admissions, and supports new 3.0.3 admissions;
+  every other release fails closed.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or

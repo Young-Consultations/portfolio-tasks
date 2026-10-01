@@ -12,9 +12,14 @@ SOURCE = "Young-Consultations/portfolio-tasks#159"
 DELIVERY = "task-b72eaf2503fc3d27c82f8921e8cfbfff"
 TARGET = "Young-Consultations/consulting-playbook"
 LEGACY_CONTROL_PLANE_RELEASE = "ai-sdlc-v3.0.1"
-CURRENT_CONTROL_PLANE_RELEASE = "ai-sdlc-v3.0.2"
+PREVIOUS_CONTROL_PLANE_RELEASE = "ai-sdlc-v3.0.2"
+CURRENT_CONTROL_PLANE_RELEASE = "ai-sdlc-v3.0.3"
 ACCEPTED_CONTROL_PLANE_RELEASES = frozenset(
-    {LEGACY_CONTROL_PLANE_RELEASE, CURRENT_CONTROL_PLANE_RELEASE}
+    {
+        LEGACY_CONTROL_PLANE_RELEASE,
+        PREVIOUS_CONTROL_PLANE_RELEASE,
+        CURRENT_CONTROL_PLANE_RELEASE,
+    }
 )
 TRUSTED_ADMISSION_AUTHORS = frozenset({"mightyjoe909"})
 SOURCE_WORKFLOW_AUTHOR = "github-actions[bot]"
@@ -117,13 +122,22 @@ def test_live_pre_adapter_failure_enters_reconciliation_without_terminal_result(
     assert "ai-sdlc-source-result" not in decision.comment
 
 
-def test_current_3_0_2_admission_enters_reconciliation() -> None:
+def test_previous_3_0_2_admission_enters_reconciliation() -> None:
     decision = decide(
-        comment_values=comments(control_plane_release=CURRENT_CONTROL_PLANE_RELEASE),
+        comment_values=comments(control_plane_release=PREVIOUS_CONTROL_PLANE_RELEASE),
         run=target_run(head_branch="codex-adapter-v3.0.2"),
     )
     assert decision.action == "apply"
     assert "codex-adapter-v3.0.2" in decision.marker
+
+
+def test_current_3_0_3_admission_enters_reconciliation() -> None:
+    decision = decide(
+        comment_values=comments(control_plane_release=CURRENT_CONTROL_PLANE_RELEASE),
+        run=target_run(head_branch="codex-adapter-v3.0.3"),
+    )
+    assert decision.action == "apply"
+    assert "codex-adapter-v3.0.3" in decision.marker
 
 
 def test_reconciliation_is_idempotent_for_same_delivery_and_target_run() -> None:

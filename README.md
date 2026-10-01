@@ -12,10 +12,10 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 3. approved architecture and interface documents
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
-Production `main` selects the published [`ai-sdlc-v3.0.2`
-router](docs/releases/3.0.2.md) after its publication attestation, deployed
-Runtime Preflight run 36640642872, and immutable REAL preflight run
-36640734704 passed. Older recovery sections below remain historical
+Production `main` selects the published [`ai-sdlc-v3.0.3`
+router](docs/releases/3.0.3.md) after publication attestation, deployed Runtime
+Preflight run 36867504568, and immutable REAL readiness preflight run
+36867939797 passed. Older recovery sections below remain historical
 compatibility evidence.
 
 ## Historical Issue 135 recovery state
@@ -61,11 +61,13 @@ production, and secret-output counters at zero.
 
 This evidence is target compatibility evidence, not activation or production readiness. The
 portfolio target remains disabled. Source routing on production `main` uses published
-`ai-sdlc-v3.0.2`; organization activation enables only `consulting-playbook`.
+`ai-sdlc-v3.0.3`; organization activation enables only `consulting-playbook`.
 Fresh issue #154 verified the initial live route on 2.4.5. Issue #156 exposed the
-result-writer identity defect; issue #159 then exposed the split-release receiver
-compatibility defect repaired by 3.0.2. Full acceptance still requires #159 to
-produce one corrected terminal projection and an unchanged same-delivery
+result-writer identity defect; issue #159 exposed the split-release receiver
+compatibility defect repaired by 3.0.2, then exposed DEF-0086 when an unchanged
+retry could not reuse its preserved 3.0.1 admission. Published 3.0.3 repairs that
+cross-release reuse boundary. Full acceptance still requires #159 to produce
+one corrected terminal projection and an unchanged same-delivery
 `duplicate-reused` redelivery with no second Codex or source effect.
 
 GitHub Projects synchronization and Slugger issue mirroring remain outside the selected MVP. No

@@ -1,15 +1,16 @@
 # portfolio-tasks next-MVP baseline
 
 **Status:** approved MVP scope with current source routing on published
-`ai-sdlc-v3.0.2`. The 2.3.2 recovery/compatibility sequence below is
+`ai-sdlc-v3.0.3`. The 2.3.2 recovery/compatibility sequence below is
 historical target evidence. Initial live-path verification completed on 2.4.5
 through fresh issue #154; issue #156 exposed result-writer defect #83; issue
-#159 then exposed DEF-0073 when the 3.0.0 receiver rejected a valid 3.0.1
-admission. Published 3.0.2 passed deployed Runtime Preflight run 36640642872
-and immutable REAL preflight run 36640734704 before source cutover. Full REAL
-acceptance still requires #159 to produce one corrected terminal projection
-plus unchanged same-delivery `duplicate-reused` evidence. The current source
-router selection is governed by the [3.0.2 consumer record](3.0.2.md) and
+#159 then exposed DEF-0073 at the receiver and DEF-0086 when an unchanged retry
+could not reuse its preserved 3.0.1 admission. Published 3.0.3 passed deployed
+Runtime Preflight run 36867504568 and immutable REAL readiness preflight run
+36867939797 before source cutover. Full REAL acceptance still requires #159 to
+produce one corrected terminal projection plus unchanged same-delivery
+`duplicate-reused` evidence. The current source router selection is governed
+by the [3.0.3 consumer record](3.0.3.md) and
 [organization control-plane interface](../requirements/Interface-OrganizationControlPlane.md).
 The selected v2 payload, requirement scope, and immutable schema/fixture
 identities remain in force.
@@ -95,12 +96,14 @@ only as history. Current disposition:
    producing one managed draft PR and accepted receiver/source projection.
 4. Same-delivery issue #156 exposed organization control-plane defect #83; published 3.0.1
    repaired the result-writer identity/preflight path.
-5. Issue #159 then exposed DEF-0073 at the receiver; published 3.0.2 and
-   immutable `codex-adapter-v3.0.2` repair that split-release compatibility
-   boundary. Deployed Runtime Preflight run 36640642872 and immutable REAL
-   preflight run 36640734704 passed before this source cutover.
-6. Issue #120 completed final authority/context reconciliation across the four repositories.
-7. Issue #121 remains open for corrected #159 terminal delivery, equivalent
+5. Issue #159 then exposed DEF-0073 at the receiver; published 3.0.2 repaired
+   that split-release compatibility boundary.
+6. The preserved 3.0.1 admission on unchanged #159 retry then exposed DEF-0086.
+   Published 3.0.3 and immutable `codex-adapter-v3.0.3` repair cross-release
+   admission reuse. Deployed Runtime Preflight run 36867504568 and immutable
+   REAL readiness preflight run 36867939797 passed before this source cutover.
+7. Issue #120 completed final authority/context reconciliation across the four repositories.
+8. Issue #121 remains open for corrected #159 terminal delivery, equivalent
    retry/redelivery, final human evidence review, and the MVP acceptance decision.
 
 No local green check may skip the remaining #121 gate. Historical 2.3.0/2.3.1/2.3.2 records remain

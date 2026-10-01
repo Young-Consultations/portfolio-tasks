@@ -58,7 +58,7 @@ Changes to Vision or Requirements update this matrix before architecture or impl
 ## Next-MVP decision status
 
 The v2 source, target, receiver, and conformance decisions are implemented with payload
-`ai-sdlc-contract/v2`. Source routing now selects published `ai-sdlc-v3.0.2`; the portfolio
+`ai-sdlc-contract/v2`. Source routing now selects published `ai-sdlc-v3.0.3`; the portfolio
 target remains disabled and retains immutable 2.3.2 target-compatibility evidence. The portfolio
 target report passes all 29 shared scenarios with all effects trapped, and immutable adapter tags
 and registry evidence remain published for the core targets.
@@ -67,10 +67,13 @@ The reviewed mutable activation state enables only `Young-Consultations/consulti
 Fresh issue #154 completed the initial controlled live path through source admission and 2.4.5
 routing. Issue #156 then exposed organization control-plane defect #83 during same-delivery
 redelivery. Published 3.0.1 repaired the result-writer identity/preflight path. REAL #159
-then exposed DEF-0073 at the receiver. Published 3.0.2 and immutable
-`codex-adapter-v3.0.2` repair that compatibility boundary; deployed Runtime
-Preflight run 36640642872 and immutable REAL preflight run 36640734704 passed
-before source cutover. The remaining external acceptance gate is corrected #159
+then exposed DEF-0073 at the receiver. Published 3.0.2 repaired that
+split-release compatibility boundary, after which the preserved 3.0.1 admission
+exposed DEF-0086 on unchanged retry. Published 3.0.3 and immutable
+`codex-adapter-v3.0.3` repair the cross-release admission-reuse boundary;
+deployed Runtime Preflight run 36867504568 and immutable REAL readiness
+preflight run 36867939797 passed before source cutover. The remaining external
+acceptance gate is corrected #159
 terminal delivery plus equivalent same-delivery redelivery/idempotency evidence
 tracked by issue #121; full REAL acceptance is not yet claimed.
 
