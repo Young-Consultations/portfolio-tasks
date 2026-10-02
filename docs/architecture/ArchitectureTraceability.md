@@ -72,10 +72,14 @@ split-release compatibility boundary, after which the preserved 3.0.1 admission
 exposed DEF-0086 on unchanged retry. Published 3.0.3 and immutable
 `codex-adapter-v3.0.3` repair the cross-release admission-reuse boundary;
 deployed Runtime Preflight run 36867504568 and immutable REAL readiness
-preflight run 36867939797 passed before source cutover. The remaining external
-acceptance gate is corrected #159
-terminal delivery plus equivalent same-delivery redelivery/idempotency evidence
-tracked by issue #121; full REAL acceptance is not yet claimed.
+preflight run 36867939797 passed before source cutover. Fresh #159 then
+completed the external REAL acceptance gate: source route 36911277900 and
+target/receiver run 36911342397 produced one managed draft PR #82 and one
+source terminal projection in run 36911478182; unchanged reroute 36913373900
+and target run 36913463403 returned `duplicate-reused` for the same
+delivery/branch/PR before Codex with no second receiver/source visible effect.
+Issue #121 now owns only remaining defect disposition and the final human MVP
+acceptance decision.
 
 ## Next-MVP architecture trace
 

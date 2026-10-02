@@ -232,13 +232,15 @@ these statuses and gaps rather than inventing solutions:
   36867939797 passed on attested control-plane main before this source cutover.
   Fresh issue #154 remains initial-live-path evidence; issue #156 exposed the
   result-writer identity defect; issue #159 exposed DEF-0073 and then DEF-0086
-  while preserving its original trusted 3.0.1 admission. Full REAL acceptance
-  remains incomplete until #159 produces one corrected terminal projection and
-  the unchanged same-delivery retry returns `duplicate-reused` before Codex
-  with no second receiver/source effect.
-- Missing-result reconciliation is version-bounded source policy. While #159
-  recovery remains active, the operator-owned reconciliation workflow loads the
-  immutable 3.0.3 trust policy and accepts only admissions from
+  while preserving its original trusted 3.0.1 admission. Fresh REAL acceptance
+  is now complete: source route 36911277900, target/receiver run 36911342397,
+  and source projection 36911478182 produced one managed draft PR #82; unchanged
+  reroute 36913373900 and target run 36913463403 returned `duplicate-reused`
+  for the same delivery/branch/PR before Codex, with no second receiver or
+  source visible effect. DEF-0073, DEF-0064, and DEF-0086 are resolved.
+- Missing-result reconciliation is version-bounded source policy. The
+  operator-owned reconciliation workflow loads the immutable 3.0.3 trust policy
+  and accepts only admissions from
   `ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, or `ai-sdlc-v3.0.3`. The accepted set
   is not an operator input. This preserves #159's original 3.0.1 admission,
   preserves recovery for 3.0.2 admissions, and supports new 3.0.3 admissions;

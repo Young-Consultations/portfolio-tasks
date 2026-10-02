@@ -7,9 +7,11 @@ through fresh issue #154; issue #156 exposed result-writer defect #83; issue
 #159 then exposed DEF-0073 at the receiver and DEF-0086 when an unchanged retry
 could not reuse its preserved 3.0.1 admission. Published 3.0.3 passed deployed
 Runtime Preflight run 36867504568 and immutable REAL readiness preflight run
-36867939797 before source cutover. Full REAL acceptance still requires #159 to
-produce one corrected terminal projection plus unchanged same-delivery
-`duplicate-reused` evidence. The current source router selection is governed
+36867939797 before source cutover. Fresh #159 then completed full REAL
+acceptance: the first delivery produced one managed draft PR #82 and one source
+terminal projection, and the unchanged second delivery returned
+`duplicate-reused` for the same delivery/branch/PR before Codex with no second
+receiver/source visible effect. The current source router selection is governed
 by the [3.0.3 consumer record](3.0.3.md) and
 [organization control-plane interface](../requirements/Interface-OrganizationControlPlane.md).
 The selected v2 payload, requirement scope, and immutable schema/fixture
@@ -103,8 +105,12 @@ only as history. Current disposition:
    admission reuse. Deployed Runtime Preflight run 36867504568 and immutable
    REAL readiness preflight run 36867939797 passed before this source cutover.
 7. Issue #120 completed final authority/context reconciliation across the four repositories.
-8. Issue #121 remains open for corrected #159 terminal delivery, equivalent
-   retry/redelivery, final human evidence review, and the MVP acceptance decision.
+8. Fresh #159 completed corrected terminal delivery and unchanged same-delivery
+   redelivery/idempotency evidence: first source route 36911277900, target/receiver
+   36911342397, source projection 36911478182, second source route 36913373900,
+   and second target/receiver 36913463403.
+9. Issue #121 remains open only for disposition of any remaining unacceptable
+   MVP-risk defects and the final human MVP acceptance decision.
 
-No local green check may skip the remaining #121 gate. Historical 2.3.0/2.3.1/2.3.2 records remain
+No local green check may substitute for the remaining human #121 decision. Historical 2.3.0/2.3.1/2.3.2 records remain
 evidence, not current source execution instructions.
