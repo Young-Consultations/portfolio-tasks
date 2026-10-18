@@ -88,8 +88,6 @@ def test_source_route_has_required_caller_permission_and_exact_construction() ->
     assert "lower().replace" not in text
     assert "c6090e5bbadcc2102a1cb91875466e9decdada1e" not in text
 
-
-
 def test_source_router_and_reconciliation_select_same_immutable_control_plane_release() -> None:
     """The 3.1.0 deployed preflight requires the actual source route job pin."""
     route = ROUTE.read_text(encoding="utf-8")
@@ -97,7 +95,8 @@ def test_source_router_and_reconciliation_select_same_immutable_control_plane_re
     assert re.findall(
         r"^    uses: Young-Consultations/\.github/\.github/workflows/"
         r"codex-router\.yml@(ai-sdlc-v[0-9]+\.[0-9]+\.[0-9]+)$",
-        route, re.MULTILINE,
+        route,
+        re.MULTILINE,
     ) == ["ai-sdlc-v3.1.0"]
     assert "TRUST_POLICY_RELEASE: ai-sdlc-v3.1.0" in reconciliation
     assert "ai-sdlc-v3.0.3" in reconciliation  # preserve historical admissions
