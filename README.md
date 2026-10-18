@@ -12,11 +12,14 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 3. approved architecture and interface documents
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
-Production `main` selects the published [`ai-sdlc-v3.0.3`
-router](docs/releases/3.0.3.md) after publication attestation, deployed Runtime
-Preflight run 36867504568, and immutable REAL readiness preflight run
-36867939797 passed. Older recovery sections below remain historical
-compatibility evidence.
+Following the separately reviewed source-consumer migration, production
+`main` selects the published and attested [`ai-sdlc-v3.1.0`
+router](docs/releases/3.1.0.md), with the closed `ai-sdlc-contract/v2`
+payload unchanged. This source repin does **not** establish deployed 3.1.0
+Runtime Preflight, no-cost REAL readiness, or new-delivery REAL acceptance.
+Those remain separate evidence gates. Historical 3.0.3 deployed Runtime
+Preflight 36867504568 and immutable REAL readiness 36867939797 apply only
+to the earlier release.
 
 ## Historical Issue 135 recovery state
 
@@ -61,8 +64,14 @@ production, and secret-output counters at zero.
 
 This evidence is target compatibility evidence, not activation or production readiness. The
 portfolio target remains disabled. Source routing on production `main` uses published
-`ai-sdlc-v3.0.3`; organization activation enables only `consulting-playbook`.
-Fresh issue #154 verified the initial live route on 2.4.5. Issue #156 exposed the
+`ai-sdlc-v3.1.0` after this migration; organization activation continues
+to enable only `consulting-playbook`. The 3.1.0 control-plane release is
+attested, but deployed Runtime Preflight and fresh-identity REAL acceptance
+are still outstanding. The independent stale-content-baseline defect
+[consulting-playbook #93](https://github.com/Young-Consultations/consulting-playbook/issues/93)
+must be assessed before cost-bearing acceptance. Never replay the finalized
+delivery in [.github #111](https://github.com/Young-Consultations/.github/issues/111).
+The following 3.0.3 path is historical evidence. Fresh issue #154 verified the initial live route on 2.4.5. Issue #156 exposed the
 result-writer identity defect; issue #159 exposed the split-release receiver
 compatibility defect repaired by 3.0.2, then exposed DEF-0086 when an unchanged
 retry could not reuse its preserved 3.0.1 admission. Published 3.0.3 repairs that
