@@ -35,8 +35,10 @@ exception is a contract.
 
 ## Recovered next-MVP interface profile
 
-The current published source/control-plane release is `ai-sdlc-v3.0.3` with payload
-`ai-sdlc-contract/v2`. This repository's disabled target retains immutable 2.3.2 target
+The current source selection uses published and attested `ai-sdlc-v3.1.0`
+with unchanged payload `ai-sdlc-contract/v2`, after the separately reviewed
+consumer migration. The deployed 3.1.0 Runtime Preflight and REAL acceptance
+remain independent outstanding gates. This repository's disabled target retains immutable 2.3.2 target
 compatibility evidence whose schema/fixture baseline derives from
 `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, as detailed in
 [`../requirements/Interface-OrganizationControlPlane.md`](../requirements/Interface-OrganizationControlPlane.md).
@@ -68,11 +70,13 @@ draft publication reference. Missing evidence is `not supplied`, never success.
 
 Payload `ai-sdlc-contract/v2`, the portfolio target's immutable 2.3.2 compatibility evidence,
 target workflow signature, exact schema/fixture blob identities, receiver boundary, and executable
-adapter files are bound by the non-recursive conformance pin. Source routing currently selects
-published `ai-sdlc-v3.0.3`. The dedicated #159 delivery and missing-result
-reconciliation path intentionally retain its original 3.0.1 admission identity;
-3.0.2 remains accepted predecessor evidence and 3.0.3 is accepted for new
-admissions after this cutover. Target
+adapter files are bound by the non-recursive conformance pin. Source routing selects
+published `ai-sdlc-v3.1.0` only after this consumer migration. The
+operator-owned missing-result reconciliation policy remains immutable-source
+bounded: legacy #159 admission 3.0.1 and reviewed 3.0.2/3.0.3 predecessor
+admissions remain accepted, with new 3.1.0 admissions added to the explicit
+allowlist. No missing-result reconciliation grants authority to replay an
+already terminally failed delivery. Target
 activation is separate mutable control-plane state that the
 router enforces before dispatch; only `consulting-playbook` is enabled and the portfolio target
 remains disabled. Normal CI executes all 29 shared scenarios through the real portfolio adapter
