@@ -95,8 +95,8 @@ def test_source_router_and_reconciliation_select_same_immutable_control_plane_re
     route = ROUTE.read_text(encoding="utf-8")
     reconciliation = RECONCILIATION.read_text(encoding="utf-8")
     assert re.findall(
-        r"^    uses: Young-Consultations/\\.github/\\.github/workflows/"
-        r"codex-router\\.yml@(ai-sdlc-v[0-9]+\\.[0-9]+\\.[0-9]+)$",
+        r"^    uses: Young-Consultations/\.github/\.github/workflows/"
+        r"codex-router\.yml@(ai-sdlc-v[0-9]+\.[0-9]+\.[0-9]+)$",
         route, re.MULTILINE,
     ) == ["ai-sdlc-v3.1.0"]
     assert "TRUST_POLICY_RELEASE: ai-sdlc-v3.1.0" in reconciliation
