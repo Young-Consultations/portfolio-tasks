@@ -88,6 +88,7 @@ def test_source_route_has_required_caller_permission_and_exact_construction() ->
     assert "lower().replace" not in text
     assert "c6090e5bbadcc2102a1cb91875466e9decdada1e" not in text
 
+
 def test_source_router_and_reconciliation_select_same_immutable_control_plane_release() -> None:
     """The 3.1.0 deployed preflight requires the actual source route job pin."""
     route = ROUTE.read_text(encoding="utf-8")
