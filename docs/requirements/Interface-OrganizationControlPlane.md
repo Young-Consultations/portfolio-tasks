@@ -10,15 +10,22 @@ amended or retagged.
 
 Exact closed schemas and shared fixtures are vendored here only for deterministic validation and
 bound by their approved Git blob identities. The organization remains their owner.
-The portfolio source router consumer selects the published immutable
-`ai-sdlc-v3.0.3` tag in this release. Absence of the selected tag fails closed;
-a mutable `main` fallback is forbidden. The portfolio target's result receiver
-remains on its separately pinned 2.3.2 compatibility unit.
+The portfolio source router consumer selects the published and attested
+immutable `ai-sdlc-v3.1.0` tag after this reviewed migration. The tag
+resolves to control-plane release commit
+`e9d11fc99fee73d247c93699f058ed64786bd4c0`, with separate
+publication-attestation PR #114 merged at
+`bd0b94dec217bccb4ecd8c3c10650f057ab8d392`. Absence of the
+selected immutable tag fails closed; a mutable `main` fallback is forbidden.
+The portfolio repository's **disabled** local target still retains its
+separately pinned historical 2.3.2 compatibility receiver; that local target
+is not a second enabled dispatch path. This source pin change does not
+constitute deployed Runtime Preflight or REAL acceptance.
 
 ## Router
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v3.0.3`.
+`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v3.1.0`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |
@@ -78,19 +85,25 @@ binding, and replay state, the receiver forwards exactly
 
 The source authenticates the receiver dispatch identity, repeats exact result-schema and
 admission-binding validation, projects identical results once, and quarantines conflicts. For the
-current 3.0.3 source path, repository variable `PORTFOLIO_RESULT_SENDERS` must exactly authorize
-the immutable organization result-writer identity `ai-sdlc-result-writer[bot]`; deployed Runtime
-Preflight is the required evidence for that live binding. The target never directly invokes source
+3.1.0 source path, repository variable `PORTFOLIO_RESULT_SENDERS` must
+exactly authorize the immutable organization result-writer identity
+`ai-sdlc-result-writer[bot]`. After the source PR is merged, the
+organization's deployed Runtime Preflight shall independently verify the
+actual `portfolio-tasks@main` router-job pin equals `ai-sdlc-v3.1.0`,
+the registered target, secret metadata and the result sender binding.
+This source migration does **not** claim preflight has already passed. The target never directly invokes source
 projection and never receives a portfolio result-write token.
 
 
 The source-owned missing-result reconciliation workflow loads the immutable
-3.0.3 trust policy and accepts exactly the reviewed admission releases
-`ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, and `ai-sdlc-v3.0.3`. This preserves
-#159's original 3.0.1 admission, preserves recovery for 3.0.2 admissions, and
-allows current 3.0.3 admissions to enter the same operator-authorized
-missing-result recovery path. The accepted release set is
-static source policy, not an operator input; any other release fails closed.
+3.1.0 trust policy and accepts **only** reviewed admission releases
+`ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, `ai-sdlc-v3.0.3`, and
+`ai-sdlc-v3.1.0`, matching the tagged 3.1.0 receiver compatibility
+policy. This preserves #159's trusted 3.0.1 admission and reviewed 3.0.2/3.0.3
+recoveries, and permits new 3.1.0 admissions in the same human-owned,
+non-Codex reconciliation path. Reconciliation cannot replay a terminal
+delivery or authorize new cost-bearing execution. The allowlist is static
+source policy, not an operator input; unreviewed releases fail closed.
 
 ## Approval data boundary
 
