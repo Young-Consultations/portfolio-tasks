@@ -133,9 +133,14 @@ sources.
   code, workflows, schemas, tests, fixtures, packages, and examples. Git history is the recovery
   mechanism for removed implementation and historical behavior.
 - The repository must converge on **one supported MVP contract and one active implementation path
-  for each responsibility**. The current source-routing baseline selects payload
-  `ai-sdlc-contract/v2` through published organization control-plane release
-  `ai-sdlc-v3.0.3`. Historical 2.3.2 compatibility evidence for this repository's
+  for each responsibility**. Following this separately reviewed source
+  migration, the one source-routing baseline selects payload
+  `ai-sdlc-contract/v2` through published and attested organization control-plane
+  release `ai-sdlc-v3.1.0`. The immutable tag resolves to
+  `e9d11fc99fee73d247c93699f058ed64786bd4c0`, and the publication
+  attestation is merged [.github PR #114](https://github.com/Young-Consultations/.github/pull/114).
+  This pin change is **not** proof of deployed preflight or REAL acceptance.
+  Historical 2.3.2 compatibility evidence for this repository's
   disabled target adapter remains immutable and derives from corrected recovery commit
   `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`.
   Historical `c6090e5bbadcc2102a1cb91875466e9decdada1e` remains immutable 2.3.0
@@ -227,9 +232,15 @@ these statuses and gaps rather than inventing solutions:
 - Current target activation is mutable organization control-plane state. The reviewed organization
   state enables only `Young-Consultations/consulting-playbook`; this repository's target remains
   disabled and this repository neither changes nor bypasses activation.
-- Published `ai-sdlc-v3.0.3` is the current source router. Deployed Runtime
-  Preflight run 36867504568 and immutable REAL readiness preflight run
-  36867939797 passed on attested control-plane main before this source cutover.
+- Published and attested `ai-sdlc-v3.1.0` is the new source router after
+  this reviewed migration. Its target registry selects immutable
+  `codex-adapter-v3.1.0` at
+  `4f15841efcba4883770b5e32c0582f733d73eb91`. Deployed 3.1.0 Runtime
+  Preflight must verify the *actual* router pin at `portfolio-tasks@main`
+  after the source merge; until then it must fail closed. No 3.1.0 REAL
+  acceptance is established. The previous 3.0.3 deployed Runtime Preflight
+  36867504568 and immutable REAL readiness 36867939797 remain historical
+  evidence, not 3.1.0 rollout authorization.
   Fresh issue #154 remains initial-live-path evidence; issue #156 exposed the
   result-writer identity defect; issue #159 exposed DEF-0073 and then DEF-0086
   while preserving its original trusted 3.0.1 admission. Fresh REAL acceptance
@@ -239,12 +250,14 @@ these statuses and gaps rather than inventing solutions:
   for the same delivery/branch/PR before Codex, with no second receiver or
   source visible effect. DEF-0073, DEF-0064, and DEF-0086 are resolved.
 - Missing-result reconciliation is version-bounded source policy. The
-  operator-owned reconciliation workflow loads the immutable 3.0.3 trust policy
+  operator-owned reconciliation workflow loads the immutable 3.1.0 trust policy
   and accepts only admissions from
-  `ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, or `ai-sdlc-v3.0.3`. The accepted set
-  is not an operator input. This preserves #159's original 3.0.1 admission,
-  preserves recovery for 3.0.2 admissions, and supports new 3.0.3 admissions;
-  every other release fails closed.
+  `ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, `ai-sdlc-v3.0.3`, or
+  `ai-sdlc-v3.1.0`, matching the tagged receiver release policy. The set is
+  not an operator input. It preserves #159's 3.0.1 admission and supported
+  3.0.2/3.0.3 predecessors while admitting 3.1.0; all unreviewed versions
+  fail closed. Reconciliation never authorizes a new cost-bearing replay of
+  a previously terminal failed delivery.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or

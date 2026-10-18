@@ -1,8 +1,12 @@
 # portfolio-tasks next-MVP baseline
 
-**Status:** approved MVP scope with current source routing on published
-`ai-sdlc-v3.0.3`. The 2.3.2 recovery/compatibility sequence below is
-historical target evidence. Initial live-path verification completed on 2.4.5
+**Status:** approved MVP scope with source router selecting published
+and attested `ai-sdlc-v3.1.0` only after this reviewed source-consumer
+migration. The selected `ai-sdlc-contract/v2` payload and historical
+disabled-target 2.3.2 compatibility evidence remain unchanged. This is a
+source-pin selection update, **not** proof of deployed 3.1.0 Runtime
+Preflight or REAL acceptance. The 3.0.3 recovery and 2.3.2 compatibility
+sequence below are historical target evidence. Initial live-path verification completed on 2.4.5
 through fresh issue #154; issue #156 exposed result-writer defect #83; issue
 #159 then exposed DEF-0073 at the receiver and DEF-0086 when an unchanged retry
 could not reuse its preserved 3.0.1 admission. Published 3.0.3 passed deployed
@@ -11,8 +15,10 @@ Runtime Preflight run 36867504568 and immutable REAL readiness preflight run
 acceptance: the first delivery produced one managed draft PR #82 and one source
 terminal projection, and the unchanged second delivery returned
 `duplicate-reused` for the same delivery/branch/PR before Codex with no second
-receiver/source visible effect. The current source router selection is governed
-by the [3.0.3 consumer record](3.0.3.md) and
+receiver/source visible effect. Historical 3.0.3 source acceptance is recorded in the
+[3.0.3 consumer record](3.0.3.md); the new immutable 3.1.0 router pin
+and pending rollout gates are recorded in the
+[3.1.0 consumer record](3.1.0.md) and
 [organization control-plane interface](../requirements/Interface-OrganizationControlPlane.md).
 The selected v2 payload, requirement scope, and immutable schema/fixture
 identities remain in force.
