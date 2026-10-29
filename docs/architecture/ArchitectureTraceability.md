@@ -59,10 +59,10 @@ Changes to Vision or Requirements update this matrix before architecture or impl
 
 The v2 source, target, receiver, and conformance decisions are implemented with payload
 `ai-sdlc-contract/v2`. After the separately reviewed consumer migration,
-source routing selects published `ai-sdlc-v3.1.0` at immutable control-plane
-commit `e9d11fc99fee73d247c93699f058ed64786bd4c0`. Its target
-adapter `codex-adapter-v3.1.0` is immutable at
-`4f15841efcba4883770b5e32c0582f733d73eb91`.
+source routing selects published `ai-sdlc-v4.0.0` at immutable control-plane
+commit `6e51f058bf828b0732cb1b773ba1835acaa1d5cd`. Its target
+adapter `codex-adapter-v4.0.0` is immutable at
+`84964d3ba099630cd5c6101e598bfca5433c74c5`.
 This is source-pin selection and SIM compatibility, **not** verified deployed
 Runtime Preflight, REAL readiness, or new-identity REAL acceptance. The portfolio
 target remains disabled and retains immutable 2.3.2 target-compatibility evidence. The portfolio
@@ -79,7 +79,7 @@ exposed DEF-0086 on unchanged retry. Historical published 3.0.3 and immutable
 `codex-adapter-v3.0.3` repaired that specific cross-release admission-reuse
 boundary, **not** the later terminal-failed-delivery replay defect in
 [organization #111](https://github.com/Young-Consultations/.github/issues/111);
-3.1.0 adds pre-Codex trusted terminal-receipt checking. The following
+4.0.0 retains pre-Codex trusted terminal-receipt checking. The following
 3.0.3 operational evidence remains historical:
 deployed Runtime Preflight run 36867504568 and immutable REAL readiness
 preflight run 36867939797 passed before source cutover. Fresh #159 then

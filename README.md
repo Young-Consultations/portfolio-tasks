@@ -13,9 +13,9 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
 Following the separately reviewed source-consumer migration, production
-`main` selects the published and attested [`ai-sdlc-v3.1.0`
-router](docs/releases/3.1.0.md), with the closed `ai-sdlc-contract/v2`
-payload unchanged. This source repin does **not** establish deployed 3.1.0
+`main` selects the published and attested [`ai-sdlc-v4.0.0`
+router](docs/releases/4.0.0.md), with the closed `ai-sdlc-contract/v2`
+payload unchanged. This source repin does **not** establish deployed 4.0.0
 Runtime Preflight, no-cost REAL readiness, or new-delivery REAL acceptance.
 Those remain separate evidence gates. Historical 3.0.3 deployed Runtime
 Preflight 36867504568 and immutable REAL readiness 36867939797 apply only
@@ -64,8 +64,8 @@ production, and secret-output counters at zero.
 
 This evidence is target compatibility evidence, not activation or production readiness. The
 portfolio target remains disabled. Source routing on production `main` uses published
-`ai-sdlc-v3.1.0` after this migration; organization activation continues
-to enable only `consulting-playbook`. The 3.1.0 control-plane release is
+`ai-sdlc-v4.0.0` after this migration; organization activation continues
+to enable only `consulting-playbook`. The 4.0.0 control-plane release is
 attested, but deployed Runtime Preflight and fresh-identity REAL acceptance
 are still outstanding. The independent stale-content-baseline defect
 [consulting-playbook #93](https://github.com/Young-Consultations/consulting-playbook/issues/93)

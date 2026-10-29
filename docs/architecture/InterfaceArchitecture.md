@@ -35,9 +35,9 @@ exception is a contract.
 
 ## Recovered next-MVP interface profile
 
-The current source selection uses published and attested `ai-sdlc-v3.1.0`
+The current source selection uses published and attested `ai-sdlc-v4.0.0`
 with unchanged payload `ai-sdlc-contract/v2`, after the separately reviewed
-consumer migration. The deployed 3.1.0 Runtime Preflight and REAL acceptance
+consumer migration. The deployed 4.0.0 Runtime Preflight and REAL acceptance
 remain independent outstanding gates. This repository's disabled target retains immutable 2.3.2 target
 compatibility evidence whose schema/fixture baseline derives from
 `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`, as detailed in
@@ -71,10 +71,10 @@ draft publication reference. Missing evidence is `not supplied`, never success.
 Payload `ai-sdlc-contract/v2`, the portfolio target's immutable 2.3.2 compatibility evidence,
 target workflow signature, exact schema/fixture blob identities, receiver boundary, and executable
 adapter files are bound by the non-recursive conformance pin. Source routing selects
-published `ai-sdlc-v3.1.0` only after this consumer migration. The
+published `ai-sdlc-v4.0.0` only after this consumer migration. The
 operator-owned missing-result reconciliation policy remains immutable-source
-bounded: legacy #159 admission 3.0.1 and reviewed 3.0.2/3.0.3 predecessor
-admissions remain accepted, with new 3.1.0 admissions added to the explicit
+bounded: legacy #159 admission 3.0.1 and reviewed 3.0.2/3.0.3/3.1.0 predecessor
+admissions remain accepted, with new 4.0.0 admissions added to the explicit
 allowlist. No missing-result reconciliation grants authority to replay an
 already terminally failed delivery. Target
 activation is separate mutable control-plane state that the

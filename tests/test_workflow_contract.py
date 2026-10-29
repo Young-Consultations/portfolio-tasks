@@ -70,7 +70,7 @@ def test_target_has_least_privilege_and_credential_separation() -> None:
 def test_source_route_has_required_caller_permission_and_exact_construction() -> None:
     text = ROUTE.read_text(encoding="utf-8")
     assert "permissions:\n  actions: read\n  contents: read\n  issues: write" in text
-    assert "codex-router.yml@ai-sdlc-v3.1.0" in text
+    assert "codex-router.yml@ai-sdlc-v4.0.0" in text
     assert "contracts/task-contract.schema.json" in text
     assert "Draft202012Validator" in text
     assert "normalize_task_type" in text
@@ -90,7 +90,7 @@ def test_source_route_has_required_caller_permission_and_exact_construction() ->
 
 
 def test_source_router_and_reconciliation_select_same_immutable_control_plane_release() -> None:
-    """The 3.1.0 deployed preflight requires the actual source route job pin."""
+    """The 4.0.0 deployed preflight requires the actual source route job pin."""
     route = ROUTE.read_text(encoding="utf-8")
     reconciliation = RECONCILIATION.read_text(encoding="utf-8")
     assert re.findall(
@@ -98,10 +98,11 @@ def test_source_router_and_reconciliation_select_same_immutable_control_plane_re
         r"codex-router\.yml@(ai-sdlc-v[0-9]+\.[0-9]+\.[0-9]+)$",
         route,
         re.MULTILINE,
-    ) == ["ai-sdlc-v3.1.0"]
-    assert "TRUST_POLICY_RELEASE: ai-sdlc-v3.1.0" in reconciliation
+    ) == ["ai-sdlc-v4.0.0"]
+    assert "TRUST_POLICY_RELEASE: ai-sdlc-v4.0.0" in reconciliation
     assert "ai-sdlc-v3.0.3" in reconciliation  # preserve historical admissions
     assert '"ai-sdlc-v3.1.0"' in reconciliation
+    assert '"ai-sdlc-v4.0.0"' in reconciliation
     assert "ai-sdlc-v3.0.3" not in route
 
 
@@ -157,9 +158,9 @@ def test_missing_result_reconciliation_is_operator_owned_and_non_executing() -> 
     assert "CODEX_ROUTER_TOKEN" in text
     assert "portfolio_tasks.reconciliation" in text
     assert "status%3Aqueued" in text
-    assert "TRUST_POLICY_RELEASE: ai-sdlc-v3.1.0" in text
+    assert "TRUST_POLICY_RELEASE: ai-sdlc-v4.0.0" in text
     assert (
-        'ACCEPTED_CONTROL_PLANE_RELEASES_JSON: \'["ai-sdlc-v3.0.1","ai-sdlc-v3.0.2","ai-sdlc-v3.0.3","ai-sdlc-v3.1.0"]\''
+        'ACCEPTED_CONTROL_PLANE_RELEASES_JSON: \'["ai-sdlc-v3.0.1","ai-sdlc-v3.0.2","ai-sdlc-v3.0.3","ai-sdlc-v3.1.0","ai-sdlc-v4.0.0"]\''
         in text
     )
     assert "config/codex-result-trust.json?ref=$TRUST_POLICY_RELEASE" in text
