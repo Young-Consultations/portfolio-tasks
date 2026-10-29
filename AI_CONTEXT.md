@@ -136,9 +136,9 @@ sources.
   for each responsibility**. Following this separately reviewed source
   migration, the one source-routing baseline selects payload
   `ai-sdlc-contract/v2` through published and attested organization control-plane
-  release `ai-sdlc-v3.1.0`. The immutable tag resolves to
-  `e9d11fc99fee73d247c93699f058ed64786bd4c0`, and the publication
-  attestation is merged [.github PR #114](https://github.com/Young-Consultations/.github/pull/114).
+  release `ai-sdlc-v4.0.0`. The immutable tag resolves to
+  `6e51f058bf828b0732cb1b773ba1835acaa1d5cd`, and the publication
+  attestation is merged [.github PR #117](https://github.com/Young-Consultations/.github/pull/114).
   This pin change is **not** proof of deployed preflight or REAL acceptance.
   Historical 2.3.2 compatibility evidence for this repository's
   disabled target adapter remains immutable and derives from corrected recovery commit
@@ -232,15 +232,15 @@ these statuses and gaps rather than inventing solutions:
 - Current target activation is mutable organization control-plane state. The reviewed organization
   state enables only `Young-Consultations/consulting-playbook`; this repository's target remains
   disabled and this repository neither changes nor bypasses activation.
-- Published and attested `ai-sdlc-v3.1.0` is the new source router after
+- Published and attested `ai-sdlc-v4.0.0` is the new source router after
   this reviewed migration. Its target registry selects immutable
-  `codex-adapter-v3.1.0` at
-  `4f15841efcba4883770b5e32c0582f733d73eb91`. Deployed 3.1.0 Runtime
+  `codex-adapter-v4.0.0` at
+  `84964d3ba099630cd5c6101e598bfca5433c74c5`. Deployed 4.0.0 Runtime
   Preflight must verify the *actual* router pin at `portfolio-tasks@main`
-  after the source merge; until then it must fail closed. No 3.1.0 REAL
+  after the source merge; until then it must fail closed. No 4.0.0 REAL
   acceptance is established. The previous 3.0.3 deployed Runtime Preflight
   36867504568 and immutable REAL readiness 36867939797 remain historical
-  evidence, not 3.1.0 rollout authorization.
+  evidence, not 4.0.0 rollout authorization.
   Fresh issue #154 remains initial-live-path evidence; issue #156 exposed the
   result-writer identity defect; issue #159 exposed DEF-0073 and then DEF-0086
   while preserving its original trusted 3.0.1 admission. Fresh REAL acceptance
@@ -250,12 +250,12 @@ these statuses and gaps rather than inventing solutions:
   for the same delivery/branch/PR before Codex, with no second receiver or
   source visible effect. DEF-0073, DEF-0064, and DEF-0086 are resolved.
 - Missing-result reconciliation is version-bounded source policy. The
-  operator-owned reconciliation workflow loads the immutable 3.1.0 trust policy
+  operator-owned reconciliation workflow loads the immutable 4.0.0 trust policy
   and accepts only admissions from
   `ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, `ai-sdlc-v3.0.3`, or
-  `ai-sdlc-v3.1.0`, matching the tagged receiver release policy. The set is
+  `ai-sdlc-v3.1.0`, `ai-sdlc-v4.0.0`, matching the tagged receiver release policy. The set is
   not an operator input. It preserves #159's 3.0.1 admission and supported
-  3.0.2/3.0.3 predecessors while admitting 3.1.0; all unreviewed versions
+  3.0.2/3.0.3 predecessors while admitting 4.0.0; all unreviewed versions
   fail closed. Reconciliation never authorizes a new cost-bearing replay of
   a previously terminal failed delivery.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
