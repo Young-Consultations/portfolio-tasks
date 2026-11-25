@@ -22,11 +22,14 @@ from portfolio_tasks.source_lifecycle import (
     normalize_task_type,
 )
 
+from portfolio_tasks import verify_smoke
+
 REPOSITORY = "Young-Consultations/portfolio-tasks"
 CONTROL = "Young-Consultations/.github"
 TRUST = {
     "ai-sdlc-v3.0.3": "f3229bfa4a06da963cae7c390c6075b4f6c12f7b",
     "ai-sdlc-v4.0.0": "6e51f058bf828b0732cb1b773ba1835acaa1d5cd",
+    verify_smoke.RELEASE: verify_smoke.CONTROL_SHA,
 }
 SOURCE_AUTHOR = "github-actions[bot]"
 KINDS = {
@@ -214,6 +217,11 @@ def decide(
         and binding.get("control_plane_release") in TRUST,
         "untrusted admission or binding mismatch",
     )
+    smoke = binding.get("control_plane_release") == verify_smoke.RELEASE
+    if smoke:
+        require(mode == "result", "v5 maintenance result only; no queue or replay")
+        verify_smoke.issue_policy(issue, revision)
+        require(verify_smoke.reservation_matches(comments, revision), "missing smoke reservation")
     receipt = receipt_digest(comments, binding, trust, mode == "plan")
     existing = markers(comments, "source")
     require(len(existing) <= 1, "ambiguous source result")
@@ -242,6 +250,14 @@ def decide(
         result = incoming
     if mode == "plan":
         require(result is not None, "historical terminal projection missing")
+    if smoke:
+        require(
+            result is not None
+            and result["execution_status"] in {"verified", "rejected", "failed", "blocked", "ambiguous-rejected"}
+            and result["branch_name"] is None
+            and result["pull_request_url"] is None,
+            "v5 smoke result is outside verify-only policy",
+        )
     current = labels(issue)
     require(issue.get("state") == "open", "closed issue; preserve disposition")
     require(
