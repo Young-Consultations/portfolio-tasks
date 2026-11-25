@@ -73,18 +73,7 @@ def test_source_route_has_required_caller_permission_and_exact_construction() ->
     assert "codex-router.yml@ai-sdlc-v4.0.0" in text
     assert "contracts/task-contract.schema.json" in text
     assert "Draft202012Validator" in text
-    assert "normalize_task_type" in text
-    for field in (
-        '"project"',
-        '"priority"',
-        '"task_type"',
-        '"parallel_safe"',
-        '"risk"',
-        '"scope"',
-        '"instructions"',
-        '"created_by"',
-    ):
-        assert field in text
+    assert "revision_from" in text
     assert "lower().replace" not in text
     assert "c6090e5bbadcc2102a1cb91875466e9decdada1e" not in text
 
@@ -113,7 +102,7 @@ def test_admission_rereads_current_revision_and_delegates_journal_ownership() ->
     assert "current-issue.json" in construct
     assert "event_revision.task_id != current_revision.task_id" in construct
     assert '"status:approved" not in labels' in construct
-    assert 'status="approved"' in construct
+    assert "revision_from(current_issue, source)" in construct
     assert "toJSON(github.event.issue)" not in construct
     assert 'open(os.environ["GITHUB_EVENT_PATH"]' in construct
     assert "issues/$ISSUE/events?per_page=100" in construct
@@ -127,8 +116,9 @@ def test_admission_rereads_current_revision_and_delegates_journal_ownership() ->
 
 def test_result_projection_slurps_all_comment_pages() -> None:
     text = PROJECTION.read_text(encoding="utf-8")
-    assert "gh api --paginate --slurp" in text
-    assert "jq -c 'add'" in text
+    module = Path("portfolio_tasks/terminal_projection.py").read_text(encoding="utf-8")
+    assert '"--paginate", "--slurp"' in module
+    assert "portfolio_tasks.terminal_projection" in text
 
 
 def test_result_projection_accepts_only_authenticated_receiver_dispatch() -> None:
@@ -138,16 +128,16 @@ def test_result_projection_accepts_only_authenticated_receiver_dispatch() -> Non
     assert "workflow_call:" not in text
     assert "PORTFOLIO_RESULT_SENDERS" in text
     assert "secrets:" not in text
-    assert 'set(payload) != {"source_issue", "execution_result"}' in text
-    assert "contracts/execution-result.schema.json" in text
-    assert "Draft202012Validator" in text
-    assert "TERMINAL_STATUSES" in text
-    assert "matching_admission_count" in text
-    assert 'json.loads(os.environ["ADMISSION_BINDING"])' in text
-    assert 'jq --arg marker "$ADMISSION_MARKER"' not in text
-    assert '"ADMISSION_BINDING"' in text
-    assert "<!-- ai-sdlc-source-result:v2 " in text
-    assert "status:result-quarantined" in text
+    module = Path("portfolio_tasks/terminal_projection.py").read_text(encoding="utf-8")
+    assert 'set(payload) == {"source_issue", "execution_result"}' in module
+    assert "contracts/execution-result.schema.json" in module
+    assert "Draft202012Validator" in module
+    assert "TERMINAL_STATUSES" in module
+    assert "trusted_admission_authors" in module
+    assert "trusted_result_authors" in module
+    assert "ai-sdlc-source-result:v2" in module
+    assert "SOURCE_PROJECTION_BLOCKED" in module
+    assert "portfolio_tasks.terminal_projection" in text
 
 
 def test_missing_result_reconciliation_is_operator_owned_and_non_executing() -> None:
