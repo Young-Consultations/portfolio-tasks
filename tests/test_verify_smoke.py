@@ -272,6 +272,8 @@ def test_workflow_has_only_manual_trigger_and_literal_verify():
     }
     route = workflow["jobs"]["route"]
     assert route["needs"] == "prepare"
+    assert "github.run_attempt == 1" in route["if"]
+    assert "github.triggering_actor" in route["if"]
     assert route["with"]["execution_mode"] == "verify"
     assert route["uses"].endswith("@ai-sdlc-v5.0.0")
     assert set(route["secrets"]) == {"CODEX_ROUTER_TOKEN"}
