@@ -21,7 +21,6 @@ from portfolio_tasks.source_lifecycle import (
     SourceRevision,
     normalize_task_type,
 )
-
 from portfolio_tasks import verify_smoke
 
 REPOSITORY = "Young-Consultations/portfolio-tasks"
@@ -253,7 +252,8 @@ def decide(
     if smoke:
         require(
             result is not None
-            and result["execution_status"] in {"verified", "rejected", "failed", "blocked", "ambiguous-rejected"}
+            and result["execution_status"]
+            in {"verified", "rejected", "failed", "blocked", "ambiguous-rejected"}
             and result["branch_name"] is None
             and result["pull_request_url"] is None,
             "v5 smoke result is outside verify-only policy",

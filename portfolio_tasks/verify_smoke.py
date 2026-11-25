@@ -130,10 +130,8 @@ def prepare(
     require(api.api(api.path + "/events?per_page=1") == [])
     require(revision.task_id == env["EXPECTED_TASK_ID"])
     require(api.api(f"repos/{REPO}/commits/main")["sha"] == env["EXPECTED_MAIN_SHA"])
-    require(
-        api.api(f"repos/Young-Consultations/.github/git/ref/tags/{RELEASE}")["object"]["sha"]
-        == CONTROL_SHA
-    )
+    tag = api.api(f"repos/Young-Consultations/.github/git/ref/tags/{RELEASE}")["object"]
+    require(tag["type"] == "commit" and tag["sha"] == CONTROL_SHA)
     payload = canonical_task(revision, Approval(revision.task_id, OWNER, True))
     require(Draft202012Validator(schema).is_valid(payload))
     # Write a consumed reservation BEFORE allowing the reusable router to run.
