@@ -307,3 +307,49 @@ def test_source_state_changed_before_mutation():
     with pytest.raises(LifecycleError):
         apply(api, SOURCE, identity, "result", result)
     assert not api.effects
+
+
+def test_queued_projection_retries_as_no_op_after_readback_failure():
+    issue, identity, _, comments = fixture()
+    issue["labels"][-1]["name"] = "status:approved"
+
+    class ReadbackFailure(Fake):
+        reads = 0
+
+        def read(self):
+            self.reads += 1
+            if self.reads == 3:
+                raise LifecycleError("simulated readback failure")
+            return super().read()
+
+    api = ReadbackFailure(issue, comments[:1])
+    with pytest.raises(LifecycleError):
+        apply(api, SOURCE, identity, "queued")
+    assert api.effects == ["add", "remove"]
+    result = apply(api, SOURCE, identity, "queued")
+    assert result["add"] == result["remove"] == []
+    assert api.effects == ["add", "remove"]
+    assert api.issue["labels"][-1]["name"] == "status:queued"
+
+
+def test_queued_projection_repairs_partial_approval_removal():
+    issue, identity, _, comments = fixture()
+    issue["labels"].append({"name": "status:approved"})
+    api = Fake(issue, comments[:1])
+    apply(api, SOURCE, identity, "queued")
+    assert api.effects == ["remove"]
+    apply(api, SOURCE, identity, "queued")
+    assert api.effects == ["remove"]
+
+
+def test_queued_retry_requires_active_state_and_unchanged_revision():
+    issue, identity, _, comments = fixture()
+    api = Fake(issue, comments[:1])
+    api.issue["labels"] = [{"name": "chatgpt-task"}]
+    with pytest.raises(LifecycleError):
+        apply(api, SOURCE, identity, "queued")
+    api.issue["labels"].append({"name": "status:queued"})
+    api.issue["body"] += "\nnew material"
+    with pytest.raises(LifecycleError):
+        apply(api, SOURCE, identity, "queued")
+    assert not api.effects

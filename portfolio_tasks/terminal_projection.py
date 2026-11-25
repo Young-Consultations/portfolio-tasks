@@ -250,11 +250,11 @@ def decide(
     )
     if result is None:
         require(mode == "queued" and receipt is None, "terminal receipt awaits projection")
-        require("status:approved" in current, "approval no longer current")
+        require(current & ACTIVE, "approval no longer current")
         return {
             "comment": None,
             "add": ["status:queued"] if "status:queued" not in current else [],
-            "remove": ["status:approved"],
+            "remove": ["status:approved"] if "status:approved" in current else [],
             "terminal": None,
         }
     return {
