@@ -253,3 +253,57 @@ def test_historical_plan_is_read_only_and_requires_forwarding():
     with pytest.raises(LifecycleError):
         apply(api, SOURCE, identity, "plan")
     assert not api.effects
+
+
+def test_forward_marker_arrives_between_initial_and_final_validation():
+    issue, identity, result, comments = fixture()
+
+    class Arrival(Fake):
+        reads = 0
+
+        def read(self):
+            self.reads += 1
+            if self.reads == 2:
+                self.comments.append(comments[2])
+            return super().read()
+
+    api = Arrival(issue, comments[:2])
+    apply(api, SOURCE, identity, "result", result)
+    assert api.effects == ["comment", "remove"]
+
+
+def test_terminal_receipt_arrives_before_queued_write():
+    issue, identity, _, comments = fixture()
+    issue["labels"][-1]["name"] = "status:approved"
+
+    class Arrival(Fake):
+        reads = 0
+
+        def read(self):
+            self.reads += 1
+            if self.reads == 2:
+                self.comments.extend(comments[1:])
+            return super().read()
+
+    api = Arrival(issue, comments[:1])
+    with pytest.raises(LifecycleError):
+        apply(api, SOURCE, identity, "queued")
+    assert not api.effects
+
+
+def test_source_state_changed_before_mutation():
+    issue, identity, result, comments = fixture()
+
+    class Change(Fake):
+        reads = 0
+
+        def read(self):
+            self.reads += 1
+            if self.reads == 2:
+                self.issue["labels"].append({"name": "status:done"})
+            return super().read()
+
+    api = Change(issue, comments)
+    with pytest.raises(LifecycleError):
+        apply(api, SOURCE, identity, "result", result)
+    assert not api.effects

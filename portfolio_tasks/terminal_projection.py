@@ -346,11 +346,19 @@ def apply(api: Any, source: str, identity: str, mode: str, incoming: Any = None)
             "mutation_authorized": False,
         }
     before, latest = api.read()
-    require(snapshot(before) == snapshot(issue) and latest == comments, "source changed")
+    require(snapshot(before) == snapshot(issue), "source changed")
+    # Re-evaluate authority rather than comparing all comments byte-for-byte:
+    # a matching forwarded marker may arrive between the two reads.
+    require(markers(latest, "admission") == markers(comments, "admission"), "admission changed")
+    require(
+        decide(before, latest, trust, source, identity, mode, incoming) == decision,
+        "projection decision changed",
+    )
     if decision["comment"] is not None:
         api.comment(decision["comment"])
         before, latest = api.read()
         require(snapshot(before) == snapshot(issue), "source changed after comment")
+        require(markers(latest, "admission") == markers(comments, "admission"), "admission changed")
         decision = decide(before, latest, trust, source, identity, mode, incoming)
         require(decision["comment"] is None, "source comment not verified")
     for label in decision["add"]:
@@ -364,7 +372,15 @@ def apply(api: Any, source: str, identity: str, mode: str, incoming: Any = None)
     )
     expected = (labels(issue) | set(decision["add"])) - set(decision["remove"])
     require(labels(final) == expected, "label projection incomplete")
-    if decision["terminal"] is not None:
+    require(markers(latest, "admission") == markers(comments, "admission"), "admission changed")
+    if decision["terminal"] is None:
+        require(
+            not markers(latest, "receipt")
+            and not markers(latest, "forwarded")
+            and not markers(latest, "source"),
+            "terminal evidence arrived during queued projection; reconcile",
+        )
+    else:
         proof = decide(final, latest, trust, source, identity, mode, incoming)
         require(not proof["comment"] and not proof["remove"], "terminal readback incomplete")
     return decision
