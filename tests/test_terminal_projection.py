@@ -87,11 +87,16 @@ def fixture(status="failed"):
         "effect_sha256": "a" * 64,
         "effect_class": status,
     }
-    return issue, identity, result, [
-        admission,
-        comment("result-receipt", receipt, WRITER),
-        comment("result-forwarded", receipt, WRITER),
-    ]
+    return (
+        issue,
+        identity,
+        result,
+        [
+            admission,
+            comment("result-receipt", receipt, WRITER),
+            comment("result-forwarded", receipt, WRITER),
+        ],
+    )
 
 
 class Fake:
@@ -213,7 +218,9 @@ def test_unsafe_evidence_denied(fault):
         if kind == "source":
             comments.append({"body": projection_body(result), "user": {"login": "foreign"}})
         else:
-            comments[{"admission": 0, "receipt": 1, "forward": 2}[kind]]["user"]["login"] = "foreign"
+            comments[{"admission": 0, "receipt": 1, "forward": 2}[kind]]["user"]["login"] = (
+                "foreign"
+            )
     elif fault == "duplicate":
         comments.append(deepcopy(comments[1]))
     elif fault == "conflict":

@@ -332,9 +332,7 @@ def snapshot(issue: Mapping[str, Any]) -> tuple[object, ...]:
     )
 
 
-def apply(
-    api: Any, source: str, identity: str, mode: str, incoming: Any = None
-) -> dict[str, Any]:
+def apply(api: Any, source: str, identity: str, mode: str, incoming: Any = None) -> dict[str, Any]:
     issue, comments = api.read()
     trust = api.trust(comments)
     decision = decide(issue, comments, trust, source, identity, mode, incoming)
