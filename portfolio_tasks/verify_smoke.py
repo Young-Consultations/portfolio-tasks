@@ -21,6 +21,7 @@ OWNER = "mightyjoe909"
 RELEASE = "ai-sdlc-v5.0.0"
 CONTROL_SHA = "3cce887fc393fa80ed8f79308ca9b9c7241ce622"
 TITLE = "[Maintenance] v5 verify-only smoke"
+RESULT_STATUSES = {"verified", "rejected", "failed", "blocked", "ambiguous-rejected"}
 MARKER = "<!-- ai-sdlc-v5-smoke-reservation:v1 "
 BODY = "\n\n".join(
     "### " + key + "\n" + value
@@ -105,7 +106,11 @@ def reservation_matches(comments: Any, revision: SourceRevision) -> bool:
             return False
         row = rows[0]
         body = row["body"]
-        if row["user"]["login"] != "github-actions[bot]" or not body.startswith(MARKER):
+        if (
+            row["user"]["login"] != "github-actions[bot]"
+            or not isinstance(body, str)
+            or not body.startswith(MARKER)
+        ):
             return False
         record = json.loads(body[len(MARKER) : -4])
         return body == reservation(revision, record["run_id"])
@@ -124,7 +129,7 @@ def prepare(
     source = f"{REPO}#{env['ISSUE_NUMBER']}"
     revision = revision_from(issue, source)
     issue_policy(issue, revision)
-    created = datetime.fromisoformat(issue["created_at"].replace("Z", "+00:00"))
+    created = datetime.fromisoformat(issue["created_at"])
     require(timedelta(0) <= now - created <= timedelta(hours=24))
     require(issue.get("comments") == 0 and comments == [])
     require(api.api(api.path + "/events?per_page=1") == [])

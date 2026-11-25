@@ -13,6 +13,7 @@ from typing import Any, cast
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from portfolio_tasks import verify_smoke
 from portfolio_tasks.issue_parser import IssueFormParser, TargetRepositoryParser
 from portfolio_tasks.source_lifecycle import (
     CONTRACT,
@@ -21,7 +22,6 @@ from portfolio_tasks.source_lifecycle import (
     SourceRevision,
     normalize_task_type,
 )
-from portfolio_tasks import verify_smoke
 
 REPOSITORY = "Young-Consultations/portfolio-tasks"
 CONTROL = "Young-Consultations/.github"
@@ -252,8 +252,7 @@ def decide(
     if smoke:
         require(
             result is not None
-            and result["execution_status"]
-            in {"verified", "rejected", "failed", "blocked", "ambiguous-rejected"}
+            and result["execution_status"] in verify_smoke.RESULT_STATUSES
             and result["branch_name"] is None
             and result["pull_request_url"] is None,
             "v5 smoke result is outside verify-only policy",
