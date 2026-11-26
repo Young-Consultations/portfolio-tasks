@@ -72,14 +72,22 @@ def run_evidence(issue):
 def job_evidence():
     return {
         "total_count": 1,
-        "jobs": [{
-            "name": "prepare", "run_id": 123, "head_sha": MAIN,
-            "status": "completed", "conclusion": "success",
-            "steps": [{
-                "name": "Validate owner-bound issue and consume one-shot reservation",
-                "status": "completed", "conclusion": "success",
-            }],
-        }],
+        "jobs": [
+            {
+                "name": "prepare",
+                "run_id": 123,
+                "head_sha": MAIN,
+                "status": "completed",
+                "conclusion": "success",
+                "steps": [
+                    {
+                        "name": "Validate owner-bound issue and consume one-shot reservation",
+                        "status": "completed",
+                        "conclusion": "success",
+                    }
+                ],
+            }
+        ],
     }
 
 
@@ -294,7 +302,9 @@ def result_fixture(status="verified"):
 
 def test_reserved_v5_verify_result_projects_once_without_labels():
     api, identity, result = result_fixture()
-    assert apply(api, SOURCE, identity, "result", result, reviewed_sha=MAIN)["terminal"] == "verified"
+    assert (
+        apply(api, SOURCE, identity, "result", result, reviewed_sha=MAIN)["terminal"] == "verified"
+    )
     assert api.effects == ["comment"]
     assert api.issue["labels"] == []
     apply(api, SOURCE, identity, "result", result, reviewed_sha=MAIN)
@@ -410,7 +420,9 @@ def test_contradictory_effect_evidence_denied(field, scope):
 def test_forwarding_may_arrive_after_receipt():
     api, identity, result = result_fixture()
     api.comments.pop()
-    assert apply(api, SOURCE, identity, "result", result, reviewed_sha=MAIN)["terminal"] == "verified"
+    assert (
+        apply(api, SOURCE, identity, "result", result, reviewed_sha=MAIN)["terminal"] == "verified"
+    )
     assert api.effects == ["comment"]
 
 

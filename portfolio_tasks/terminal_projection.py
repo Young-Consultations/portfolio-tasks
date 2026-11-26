@@ -385,8 +385,13 @@ def snapshot(issue: Mapping[str, Any]) -> tuple[object, ...]:
 
 
 def apply(
-    api: Any, source: str, identity: str, mode: str, incoming: Any = None,
-    *, reviewed_sha: str = "",
+    api: Any,
+    source: str,
+    identity: str,
+    mode: str,
+    incoming: Any = None,
+    *,
+    reviewed_sha: str = "",
 ) -> dict[str, Any]:
     issue, comments = api.read()
     trust = api.trust(comments)
@@ -406,7 +411,8 @@ def apply(
             require(
                 verify_smoke.prove_reservation(
                     api, current, journal, revision_from(current, source), reviewed_sha
-                ) == smoke_proof,
+                )
+                == smoke_proof,
                 "smoke reservation provenance changed",
             )
         return decide(current, journal, trust, source, identity, mode, incoming, smoke_proof)
@@ -480,7 +486,11 @@ def main() -> int:
         else:
             identity = os.environ["DELIVERY_ID"]
         result = apply(
-            GitHub(number), source, identity, mode, incoming,
+            GitHub(number),
+            source,
+            identity,
+            mode,
+            incoming,
             reviewed_sha=os.environ.get("GITHUB_SHA", ""),
         )
         print(json.dumps({k: v for k, v in result.items() if k != "comment"}, sort_keys=True))

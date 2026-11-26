@@ -132,8 +132,12 @@ def run_title(revision: SourceRevision, sha: str) -> str:
 
 
 def prove_run(
-    api: Any, revision: SourceRevision, record: Mapping[str, Any], sha: str,
-    *, prepared: bool,
+    api: Any,
+    revision: SourceRevision,
+    record: Mapping[str, Any],
+    sha: str,
+    *,
+    prepared: bool,
 ) -> None:
     """Bind the bot marker to GitHub's first-attempt run and exact dispatch identity."""
     require(re.fullmatch(r"[0-9a-f]{40}", sha))
@@ -177,7 +181,8 @@ def prove_run(
             and job.get("conclusion") == "success"
         )
         steps = [
-            step for step in job.get("steps", [])
+            step
+            for step in job.get("steps", [])
             if step.get("name") == "Validate owner-bound issue and consume one-shot reservation"
         ]
         require(
@@ -188,8 +193,11 @@ def prove_run(
 
 
 def prove_reservation(
-    api: Any, issue: Mapping[str, Any], comments: Any,
-    revision: SourceRevision, sha: str,
+    api: Any,
+    issue: Mapping[str, Any],
+    comments: Any,
+    revision: SourceRevision,
+    sha: str,
 ) -> dict[str, Any]:
     issue_policy(issue, revision)
     record = reservation_record(comments, revision)
