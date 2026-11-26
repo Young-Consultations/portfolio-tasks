@@ -104,3 +104,8 @@ git diff --check
 
 Normal CI is deterministic and has no Codex, routing, branch, push, PR, receiver, tag, release,
 deployment, or production effect.
+
+## Proposed v5 maintenance verification (not operational authority)
+
+See [the one-shot maintenance proposal](docs/releases/v5-maintenance-smoke.md).
+The draft change does not migrate the production source pin or authorize a live run.

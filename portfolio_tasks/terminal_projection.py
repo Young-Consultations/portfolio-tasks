@@ -13,6 +13,7 @@ from typing import Any, cast
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from portfolio_tasks import verify_smoke
 from portfolio_tasks.issue_parser import IssueFormParser, TargetRepositoryParser
 from portfolio_tasks.source_lifecycle import (
     CONTRACT,
@@ -27,6 +28,7 @@ CONTROL = "Young-Consultations/.github"
 TRUST = {
     "ai-sdlc-v3.0.3": "f3229bfa4a06da963cae7c390c6075b4f6c12f7b",
     "ai-sdlc-v4.0.0": "6e51f058bf828b0732cb1b773ba1835acaa1d5cd",
+    verify_smoke.RELEASE: verify_smoke.CONTROL_SHA,
 }
 SOURCE_AUTHOR = "github-actions[bot]"
 KINDS = {
@@ -170,6 +172,36 @@ def receipt_digest(
     return str(receipt["result_sha256"])
 
 
+def verify_smoke_effect(comments: Any, result: dict[str, Any]) -> None:
+    # Exact visible_effect semantics at immutable ai-sdlc-v5.0.0
+    # scripts/codex_result_receiver.py:124-156. For verify-only outcomes the
+    # class is the status itself; managed-draft equivalence is forbidden.
+    effect_class = result["execution_status"]
+    effect = {
+        key: result[key]
+        for key in (
+            "contract_version",
+            "correlation_id",
+            "delivery_id",
+            "target_repository",
+            "branch_name",
+            "pull_request_url",
+            "validation_result",
+            "test_result",
+            "failure_category",
+        )
+    }
+    effect["effect_class"] = effect_class
+    expected = digest(effect)
+    for kind in ("receipt", "forwarded"):
+        for _, marker, _ in markers(comments, kind):
+            require(
+                marker.get("effect_class") == effect_class
+                and marker.get("effect_sha256") == expected,
+                "v5 receiver effect mismatch",
+            )
+
+
 def projection_body(result: dict[str, Any]) -> str:
     marker = {"delivery_id": result["delivery_id"], "result_sha256": digest(result)}
     return (
@@ -195,6 +227,7 @@ def decide(
     identity: str,
     mode: str,
     incoming: Any = None,
+    smoke_proof: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     require(mode in {"result", "queued", "plan"}, "unknown mode")
     require(source == f"{REPOSITORY}#{issue['number']}", "source mismatch")
@@ -214,6 +247,15 @@ def decide(
         and binding.get("control_plane_release") in TRUST,
         "untrusted admission or binding mismatch",
     )
+    smoke = binding.get("control_plane_release") == verify_smoke.RELEASE
+    if smoke:
+        require(mode == "result", "v5 maintenance result only; no queue or replay")
+        verify_smoke.issue_policy(issue, revision)
+        require(
+            smoke_proof is not None
+            and verify_smoke.reservation_record(comments, revision) == smoke_proof,
+            "missing or changed proven smoke reservation",
+        )
     receipt = receipt_digest(comments, binding, trust, mode == "plan")
     existing = markers(comments, "source")
     require(len(existing) <= 1, "ambiguous source result")
@@ -242,6 +284,16 @@ def decide(
         result = incoming
     if mode == "plan":
         require(result is not None, "historical terminal projection missing")
+    if smoke:
+        require(
+            result is not None
+            and result["execution_status"] in verify_smoke.RESULT_STATUSES
+            and result["branch_name"] is None
+            and result["pull_request_url"] is None,
+            "v5 smoke result is outside verify-only policy",
+        )
+        assert result is not None
+        verify_smoke_effect(comments, result)
     current = labels(issue)
     require(issue.get("state") == "open", "closed issue; preserve disposition")
     require(
@@ -332,10 +384,40 @@ def snapshot(issue: Mapping[str, Any]) -> tuple[object, ...]:
     )
 
 
-def apply(api: Any, source: str, identity: str, mode: str, incoming: Any = None) -> dict[str, Any]:
+def apply(
+    api: Any,
+    source: str,
+    identity: str,
+    mode: str,
+    incoming: Any = None,
+    *,
+    reviewed_sha: str = "",
+) -> dict[str, Any]:
     issue, comments = api.read()
     trust = api.trust(comments)
-    decision = decide(issue, comments, trust, source, identity, mode, incoming)
+    admissions = markers(comments, "admission")
+    smoke = len(admissions) == 1 and (
+        admissions[0][1].get("control_plane_release") == verify_smoke.RELEASE
+    )
+    smoke_proof = None
+    if smoke:
+        require(mode == "result", "v5 maintenance result only")
+        smoke_proof = verify_smoke.prove_reservation(
+            api, issue, comments, revision_from(issue, source), reviewed_sha
+        )
+
+    def checked(current: Any, journal: Any) -> dict[str, Any]:
+        if smoke:
+            require(
+                verify_smoke.prove_reservation(
+                    api, current, journal, revision_from(current, source), reviewed_sha
+                )
+                == smoke_proof,
+                "smoke reservation provenance changed",
+            )
+        return decide(current, journal, trust, source, identity, mode, incoming, smoke_proof)
+
+    decision = decide(issue, comments, trust, source, identity, mode, incoming, smoke_proof)
     if mode == "plan":
         return {
             **decision,
@@ -351,7 +433,7 @@ def apply(api: Any, source: str, identity: str, mode: str, incoming: Any = None)
     # a matching forwarded marker may arrive between the two reads.
     require(markers(latest, "admission") == markers(comments, "admission"), "admission changed")
     require(
-        decide(before, latest, trust, source, identity, mode, incoming) == decision,
+        checked(before, latest) == decision,
         "projection decision changed",
     )
     if decision["comment"] is not None:
@@ -359,7 +441,7 @@ def apply(api: Any, source: str, identity: str, mode: str, incoming: Any = None)
         before, latest = api.read()
         require(snapshot(before) == snapshot(issue), "source changed after comment")
         require(markers(latest, "admission") == markers(comments, "admission"), "admission changed")
-        decision = decide(before, latest, trust, source, identity, mode, incoming)
+        decision = checked(before, latest)
         require(decision["comment"] is None, "source comment not verified")
     for label in decision["add"]:
         api.add(label)
@@ -381,7 +463,7 @@ def apply(api: Any, source: str, identity: str, mode: str, incoming: Any = None)
             "terminal evidence arrived during queued projection; reconcile",
         )
     else:
-        proof = decide(final, latest, trust, source, identity, mode, incoming)
+        proof = checked(final, latest)
         require(not proof["comment"] and not proof["remove"], "terminal readback incomplete")
     return decision
 
@@ -403,7 +485,14 @@ def main() -> int:
             identity = incoming["delivery_id"]
         else:
             identity = os.environ["DELIVERY_ID"]
-        result = apply(GitHub(number), source, identity, mode, incoming)
+        result = apply(
+            GitHub(number),
+            source,
+            identity,
+            mode,
+            incoming,
+            reviewed_sha=os.environ.get("GITHUB_SHA", ""),
+        )
         print(json.dumps({k: v for k, v in result.items() if k != "comment"}, sort_keys=True))
         return 0
     except (KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError):

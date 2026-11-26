@@ -221,6 +221,8 @@ Before removing or replacing an artifact, the implementing agent must:
 
 ## Open issues
 
+- Proposed temporary [v5 maintenance verification exception](docs/releases/v5-maintenance-smoke.md) requires explicit owner acceptance before merge/use. Normal label-only approval and v4 routing remain the approved production baseline.
+
 No material contradiction among approved repository-owned next-MVP sources was identified. Preserve
 these statuses and gaps rather than inventing solutions:
 

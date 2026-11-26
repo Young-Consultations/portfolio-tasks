@@ -10,7 +10,7 @@ PROJECTION = WORKFLOWS / "project-execution-result.yml"
 RECONCILIATION = WORKFLOWS / "reconcile-missing-result.yml"
 
 
-def test_exactly_one_active_target_path_and_five_expected_workflows() -> None:
+def test_exactly_one_active_target_path_and_six_expected_workflows() -> None:
     workflows = tuple(sorted(WORKFLOWS.glob("*.yml")))
     assert workflows == (
         WORKFLOWS / "ci.yml",
@@ -18,6 +18,7 @@ def test_exactly_one_active_target_path_and_five_expected_workflows() -> None:
         PROJECTION,
         RECONCILIATION,
         ROUTE,
+        WORKFLOWS / "verify-v5-smoke.yml",
     )
     for obsolete in (
         Path("portfolio_tasks/target_adapter.py"),
