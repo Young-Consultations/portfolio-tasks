@@ -22,7 +22,9 @@ RELEASE = "ai-sdlc-v5.0.0"
 CONTROL_SHA = "3cce887fc393fa80ed8f79308ca9b9c7241ce622"
 TITLE = "[Maintenance] v5 verify-only smoke"
 RESULT_STATUSES = {"verified", "rejected", "failed", "blocked", "ambiguous-rejected"}
-MARKER = "<!-- ai-sdlc-v5-smoke-reservation:v1 "
+WORKFLOW_PATH = ".github/workflows/verify-v5-smoke.yml"
+WORKFLOW_REF = f"{REPO}/{WORKFLOW_PATH}@refs/heads/main"
+MARKER = "<!-- ai-sdlc-v5-smoke-reservation:v2 "
 BODY = "\n\n".join(
     "### " + key + "\n" + value
     for key, value in (
@@ -80,11 +82,14 @@ def dispatch_policy(env: Mapping[str, str]) -> None:
         and re.fullmatch(r"task-[0-9a-f]{32}", env.get("EXPECTED_TASK_ID", ""))
         and re.fullmatch(r"[0-9a-f]{40}", env.get("EXPECTED_MAIN_SHA", ""))
         and env.get("GITHUB_SHA") == env.get("EXPECTED_MAIN_SHA")
+        and env.get("GITHUB_WORKFLOW_SHA") == env.get("EXPECTED_MAIN_SHA")
+        and env.get("GITHUB_WORKFLOW_REF") == WORKFLOW_REF
     )
 
 
-def reservation(revision: SourceRevision, run_id: str) -> str:
+def reservation(revision: SourceRevision, run_id: str, sha: str) -> str:
     require(re.fullmatch(r"[1-9][0-9]*", run_id))
+    require(re.fullmatch(r"[0-9a-f]{40}", sha))
     record = {
         "owner": OWNER,
         "source_issue": revision.source_issue,
@@ -93,17 +98,19 @@ def reservation(revision: SourceRevision, run_id: str) -> str:
         "release": RELEASE,
         "run_id": run_id,
         "attempt": "1",
+        "workflow_ref": WORKFLOW_REF,
+        "workflow_sha": sha,
     }
     return MARKER + json.dumps(record, sort_keys=True, separators=(",", ":")) + " -->"
 
 
-def reservation_matches(comments: Any, revision: SourceRevision) -> bool:
+def reservation_record(comments: Any, revision: SourceRevision) -> dict[str, Any] | None:
     if not isinstance(comments, list):
-        return False
+        return None
     try:
         rows = [row for row in comments if "ai-sdlc-v5-smoke-reservation:" in row["body"]]
         if len(rows) != 1:
-            return False
+            return None
         row = rows[0]
         body = row["body"]
         if (
@@ -111,11 +118,85 @@ def reservation_matches(comments: Any, revision: SourceRevision) -> bool:
             or not isinstance(body, str)
             or not body.startswith(MARKER)
         ):
-            return False
+            return None
         record = json.loads(body[len(MARKER) : -4])
-        return body == reservation(revision, record["run_id"])
+        if body != reservation(revision, record["run_id"], record["workflow_sha"]):
+            return None
+        return record
     except (KeyError, TypeError, ValueError, AttributeError):
-        return False
+        return None
+
+
+def run_title(revision: SourceRevision, sha: str) -> str:
+    return f"v5 verify smoke {revision.source_issue} {revision.task_id} @{sha}"
+
+
+def prove_run(
+    api: Any, revision: SourceRevision, record: Mapping[str, Any], sha: str,
+    *, prepared: bool,
+) -> None:
+    """Bind the bot marker to GitHub's first-attempt run and exact dispatch identity."""
+    require(re.fullmatch(r"[0-9a-f]{40}", sha))
+    require(record["workflow_sha"] == sha and record["workflow_ref"] == WORKFLOW_REF)
+    run_id = record["run_id"]
+    require(re.fullmatch(r"[1-9][0-9]*", run_id))
+    path = f"repos/{REPO}/actions/runs/{run_id}"
+    run = api.api(path)
+    require(
+        type(run.get("id")) is int
+        and str(run["id"]) == run_id
+        and type(run.get("run_attempt")) is int
+        and run["run_attempt"] == 1
+        and run.get("path") == WORKFLOW_PATH
+        and run.get("event") == "workflow_dispatch"
+        and run.get("head_branch") == "main"
+        and run.get("head_sha") == sha
+        and run.get("repository", {}).get("full_name") == REPO
+        and run.get("head_repository", {}).get("full_name") == REPO
+        and run.get("actor", {}).get("login") == OWNER
+        and run.get("triggering_actor", {}).get("login") == OWNER
+        and run.get("display_title") == run_title(revision, sha)
+    )
+    if prepared:
+        # The receiver may forward while the route job is still running.
+        # Do not require the whole source run to have completed.
+        evidence = api.api(path + "/attempts/1/jobs?per_page=100")
+        jobs = evidence.get("jobs")
+        require(
+            isinstance(jobs, list)
+            and type(evidence.get("total_count")) is int
+            and evidence["total_count"] == len(jobs)
+        )
+        candidates = [job for job in jobs if job.get("name") == "prepare"]
+        require(len(candidates) == 1)
+        job = candidates[0]
+        require(
+            job.get("run_id") == int(run_id)
+            and job.get("head_sha") == sha
+            and job.get("status") == "completed"
+            and job.get("conclusion") == "success"
+        )
+        steps = [
+            step for step in job.get("steps", [])
+            if step.get("name") == "Validate owner-bound issue and consume one-shot reservation"
+        ]
+        require(
+            len(steps) == 1
+            and steps[0].get("status") == "completed"
+            and steps[0].get("conclusion") == "success"
+        )
+
+
+def prove_reservation(
+    api: Any, issue: Mapping[str, Any], comments: Any,
+    revision: SourceRevision, sha: str,
+) -> dict[str, Any]:
+    issue_policy(issue, revision)
+    record = reservation_record(comments, revision)
+    require(record is not None)
+    assert record is not None
+    prove_run(api, revision, record, sha, prepared=True)
+    return record
 
 
 def prepare(
@@ -141,12 +222,16 @@ def prepare(
     require(Draft202012Validator(schema).is_valid(payload))
     # Write a consumed reservation BEFORE allowing the reusable router to run.
     # A failed/ambiguous write stops. Never erase or reuse the reservation.
-    marker = reservation(revision, env["GITHUB_RUN_ID"])
+    sha = env["EXPECTED_MAIN_SHA"]
+    marker = reservation(revision, env["GITHUB_RUN_ID"], sha)
+    record = json.loads(marker[len(MARKER) : -4])
+    prove_run(api, revision, record, sha, prepared=False)
     api.comment(marker)
     after, journal = api.read()
     issue_policy(after, revision)
     require(after.get("comments") == 1 and len(journal) == 1)
-    require(reservation_matches(journal, revision) and journal[0]["body"] == marker)
+    require(reservation_record(journal, revision) == record and journal[0]["body"] == marker)
+    prove_run(api, revision, record, sha, prepared=False)
     require(api.api(api.path + "/events?per_page=1") == [])
     require(api.api(f"repos/{REPO}/commits/main")["sha"] == env["EXPECTED_MAIN_SHA"])
     return payload

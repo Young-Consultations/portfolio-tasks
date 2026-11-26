@@ -1,8 +1,9 @@
 # Proposed V5.6 maintenance verification exception
 
-**Draft proposal; not approved operational authority.** Review and merge require
-explicit owner approval of this narrowly scoped exception to the current
-label-only source admission baseline and the one supported production path.
+**Owner accepted this temporary exception in principle on 2026-11-25.**
+Draft implementation and exact-head merge acceptance remain separate; no
+operational authority is granted. The exception applies only to the dedicated
+verify-only maintenance path, not the label-only production admission baseline.
 The normal label-triggered v4 route, historical reconciliation policy, target
 activation and target conformance evidence remain unchanged.
 
@@ -14,8 +15,8 @@ source revision and exact reviewed main SHA, NOT a status:approved label
 (which would invoke the v4 route). The closed task payload contains approved
 only after those checks and an authenticated, durable one-use reservation.
 No implementation mode, arbitrary task body, target, actor or release input
-is exposed. This proposal requires explicit acceptance of the temporary
-approval-semantics exception under requirements/README.md before merge.
+is exposed. Final owner acceptance of the exact corrected implementation
+under requirements/README.md is required before merge.
 
 ## Separately authorized future use (DO NOT RUN NOW)
 
@@ -31,6 +32,14 @@ No run is authorized by this document.
 
 The wrapper serializes maintenance attempts, denies reruns and consumes a
 github-actions[bot] reservation before calling the existing immutable router.
+The v2 marker binds workflow ref, SHA, run ID and exact task revision. Read
+GitHub run metadata to verify first-attempt owner dispatch and its canonical
+run title; projection additionally requires successful prepare job/reservation
+step evidence from attempt one. Both source workflows use Actions read only
+for this evidence. Freeze source main until projection completes: the
+projection checkout SHA must match the reserved smoke run SHA. This is a
+run-metadata binding, not an independently signed comment provenance proof;
+other privileged workflows/owner edits remain outside the trust boundary.
 Failure after reservation is terminal for that issue. Ambiguous write/readback
 stops, never delete the reservation or rerun. If no reservation was created,
 stop and review instead of retrying the same issue. Concurrent external edits
@@ -40,7 +49,8 @@ do not edit or label the smoke issue through completion.
 The normal receiver sends results through the existing authenticated source
 projector. The temporary v5 exception accepts only result-mode for the exact
 reserved verify-only issue, using the exact v5 trust policy, correlated
-admission and receipt, no branch/PR, and no lifecycle status labels. All
+admission and receipt, exact recomputed v5 effect class and digest (including
+forwarding if present), no branch/PR, and no lifecycle status labels. All
 ordinary v5 source deliveries remain denied before migration. A failed smoke
 must retain evidence, not replay. Verify fresh trusted admission, target
 verify-only path and result/receipt/forward/source projection, zero model
