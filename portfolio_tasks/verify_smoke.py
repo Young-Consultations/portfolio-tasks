@@ -120,6 +120,8 @@ def reservation_record(comments: Any, revision: SourceRevision) -> dict[str, Any
         ):
             return None
         record = json.loads(body[len(MARKER) : -4])
+        if not isinstance(record, dict):
+            return None
         if body != reservation(revision, record["run_id"], record["workflow_sha"]):
             return None
         return record
