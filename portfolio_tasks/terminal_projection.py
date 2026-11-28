@@ -13,7 +13,6 @@ from typing import Any, cast
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from portfolio_tasks import verify_smoke
 from portfolio_tasks.issue_parser import IssueFormParser, TargetRepositoryParser
 from portfolio_tasks.source_lifecycle import (
     CONTRACT,
@@ -28,9 +27,11 @@ CONTROL = "Young-Consultations/.github"
 TRUST = {
     "ai-sdlc-v3.0.3": "f3229bfa4a06da963cae7c390c6075b4f6c12f7b",
     "ai-sdlc-v4.0.0": "6e51f058bf828b0732cb1b773ba1835acaa1d5cd",
-    verify_smoke.RELEASE: verify_smoke.CONTROL_SHA,
+    "ai-sdlc-v5.0.0": "3cce887fc393fa80ed8f79308ca9b9c7241ce622",
 }
 SOURCE_AUTHOR = "github-actions[bot]"
+RETIRED_SMOKE_SOURCE = REPOSITORY + "#176"
+RETIRED_SMOKE_MARKER = "ai-sdlc-v5-smoke-reservation:v2"
 KINDS = {
     "admission": "ai-sdlc-admission:v2",
     "receipt": "ai-sdlc-result-receipt:v2",
@@ -172,11 +173,11 @@ def receipt_digest(
     return str(receipt["result_sha256"])
 
 
-def verify_smoke_effect(comments: Any, result: dict[str, Any]) -> None:
-    # Exact visible_effect semantics at immutable ai-sdlc-v5.0.0
-    # scripts/codex_result_receiver.py:124-156. For verify-only outcomes the
-    # class is the status itself; managed-draft equivalence is forbidden.
-    effect_class = result["execution_status"]
+def verify_v5_effect(comments: Any, result: dict[str, Any]) -> None:
+    # Exact visible_effect semantics at immutable ai-sdlc-v5.0.0.
+    # Attempt metadata is excluded, but the exact result receipt is still required.
+    status = result["execution_status"]
+    effect_class = "managed-draft" if status in {"draft-pr-created", "duplicate-reused"} else status
     effect = {
         key: result[key]
         for key in (
@@ -219,6 +220,15 @@ def labels(issue: Mapping[str, Any]) -> set[str]:
     return {item["name"] for item in issue["labels"]}
 
 
+def reject_retired_smoke(source: str, comments: Any) -> None:
+    require(source != RETIRED_SMOKE_SOURCE, "retired maintenance issue")
+    require(isinstance(comments, list), "comments unavailable")
+    require(
+        not any(RETIRED_SMOKE_MARKER in comment["body"] for comment in comments),
+        "retired maintenance reservation",
+    )
+
+
 def decide(
     issue: Mapping[str, Any],
     comments: Any,
@@ -227,10 +237,10 @@ def decide(
     identity: str,
     mode: str,
     incoming: Any = None,
-    smoke_proof: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     require(mode in {"result", "queued", "plan"}, "unknown mode")
     require(source == f"{REPOSITORY}#{issue['number']}", "source mismatch")
+    reject_retired_smoke(source, comments)
     require(re.fullmatch(r"task-[0-9a-f]{32}", identity), "invalid identity")
     revision = revision_from(issue, source)
     require(revision.task_id == identity, "current material revision differs")
@@ -247,15 +257,7 @@ def decide(
         and binding.get("control_plane_release") in TRUST,
         "untrusted admission or binding mismatch",
     )
-    smoke = binding.get("control_plane_release") == verify_smoke.RELEASE
-    if smoke:
-        require(mode == "result", "v5 maintenance result only; no queue or replay")
-        verify_smoke.issue_policy(issue, revision)
-        require(
-            smoke_proof is not None
-            and verify_smoke.reservation_record(comments, revision) == smoke_proof,
-            "missing or changed proven smoke reservation",
-        )
+    v5 = binding.get("control_plane_release") == "ai-sdlc-v5.0.0"
     receipt = receipt_digest(comments, binding, trust, mode == "plan")
     existing = markers(comments, "source")
     require(len(existing) <= 1, "ambiguous source result")
@@ -284,16 +286,8 @@ def decide(
         result = incoming
     if mode == "plan":
         require(result is not None, "historical terminal projection missing")
-    if smoke:
-        require(
-            result is not None
-            and result["execution_status"] in verify_smoke.RESULT_STATUSES
-            and result["branch_name"] is None
-            and result["pull_request_url"] is None,
-            "v5 smoke result is outside verify-only policy",
-        )
-        assert result is not None
-        verify_smoke_effect(comments, result)
+    if v5 and result is not None:
+        verify_v5_effect(comments, result)
     current = labels(issue)
     require(issue.get("state") == "open", "closed issue; preserve disposition")
     require(
@@ -390,34 +384,16 @@ def apply(
     identity: str,
     mode: str,
     incoming: Any = None,
-    *,
-    reviewed_sha: str = "",
 ) -> dict[str, Any]:
+    require(source != RETIRED_SMOKE_SOURCE, "retired maintenance issue")
     issue, comments = api.read()
+    reject_retired_smoke(source, comments)
     trust = api.trust(comments)
-    admissions = markers(comments, "admission")
-    smoke = len(admissions) == 1 and (
-        admissions[0][1].get("control_plane_release") == verify_smoke.RELEASE
-    )
-    smoke_proof = None
-    if smoke:
-        require(mode == "result", "v5 maintenance result only")
-        smoke_proof = verify_smoke.prove_reservation(
-            api, issue, comments, revision_from(issue, source), reviewed_sha
-        )
 
     def checked(current: Any, journal: Any) -> dict[str, Any]:
-        if smoke:
-            require(
-                verify_smoke.prove_reservation(
-                    api, current, journal, revision_from(current, source), reviewed_sha
-                )
-                == smoke_proof,
-                "smoke reservation provenance changed",
-            )
-        return decide(current, journal, trust, source, identity, mode, incoming, smoke_proof)
+        return decide(current, journal, trust, source, identity, mode, incoming)
 
-    decision = decide(issue, comments, trust, source, identity, mode, incoming, smoke_proof)
+    decision = checked(issue, comments)
     if mode == "plan":
         return {
             **decision,
@@ -491,7 +467,6 @@ def main() -> int:
             identity,
             mode,
             incoming,
-            reviewed_sha=os.environ.get("GITHUB_SHA", ""),
         )
         print(json.dumps({k: v for k, v in result.items() if k != "comment"}, sort_keys=True))
         return 0

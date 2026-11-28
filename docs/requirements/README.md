@@ -35,12 +35,10 @@ and traceability in the same change set.
 lists the exact included and deferred requirement IDs, lifecycle/authorization decisions,
 continuous interface-validation requirement `FR-CIV-01`, acceptance scenario, external blockers,
 and exit criteria. The selected payload remains `ai-sdlc-contract/v2`; the
-current published and attested source/control-plane release is
-`ai-sdlc-v4.0.0` after this controlled source migration. The immutable
-release tag is verified at `6e51f058bf828b0732cb1b773ba1835acaa1d5cd`,
-with publication-attestation PR #117 merged. The 4.0.0 source pin does not
-establish deployed Runtime Preflight or REAL acceptance, which remain separate
-gates. The historical 3.0.3/2.4.5 releases remain immutable
+proposed V5.10 source/control-plane release is published
+`ai-sdlc-v5.0.0` at `3cce887fc393fa80ed8f79308ca9b9c7241ce622`. The source pin
+requires separate merge acceptance and does not establish deployed Runtime
+Preflight or REAL acceptance, which remain separate gates. The historical 3.0.3/2.4.5 releases remain immutable
 initial-live-path evidence. This repository's disabled target still retains
 immutable 2.3.2 compatibility evidence derived from
 `e27b8a541afbd27b4be5606a19ffa43637ad312a`; that evidence does not define the current source

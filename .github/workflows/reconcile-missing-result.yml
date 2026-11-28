@@ -25,8 +25,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  TRUST_POLICY_RELEASE: ai-sdlc-v4.0.0
-  ACCEPTED_CONTROL_PLANE_RELEASES_JSON: '["ai-sdlc-v3.0.1","ai-sdlc-v3.0.2","ai-sdlc-v3.0.3","ai-sdlc-v3.1.0","ai-sdlc-v4.0.0"]'
+  TRUST_POLICY_RELEASE: ai-sdlc-v5.0.0
+  TRUST_POLICY_SHA: 3cce887fc393fa80ed8f79308ca9b9c7241ce622
+  ACCEPTED_CONTROL_PLANE_RELEASES_JSON: '["ai-sdlc-v3.0.1","ai-sdlc-v3.0.2","ai-sdlc-v3.0.3","ai-sdlc-v3.1.0","ai-sdlc-v4.0.0","ai-sdlc-v5.0.0"]'
 
 jobs:
   reconcile:
@@ -54,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail; set +x
           gh api \
-            "repos/Young-Consultations/.github/contents/config/codex-result-trust.json?ref=$TRUST_POLICY_RELEASE" \
+            "repos/Young-Consultations/.github/contents/config/codex-result-trust.json?ref=$TRUST_POLICY_SHA" \
             --jq .content | base64 --decode > "$RUNNER_TEMP/result-trust.json"
       - name: Load source evidence and resolve admitted target
         id: source
@@ -64,7 +65,7 @@ jobs:
           DELIVERY_ID: ${{ inputs.delivery_id }}
         run: |
           set -euo pipefail; set +x
-          [[ "$ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$ISSUE_NUMBER" =~ ^[1-9][0-9]*$ && "$ISSUE_NUMBER" != 176 ]]
           gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER" > "$RUNNER_TEMP/issue.json"
           gh api --paginate --slurp \
             "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100" \
@@ -157,6 +158,11 @@ jobs:
               raise SystemExit("control-plane reconciliation policy is invalid")
 
           source = f'{os.environ["GITHUB_REPOSITORY"]}#{os.environ["ISSUE_NUMBER"]}'
+          result_authors = trust.get("trusted_result_authors")
+          if not isinstance(result_authors, list) or not result_authors or not all(
+              isinstance(item, str) and item for item in result_authors
+          ):
+              raise SystemExit("control-plane result trust policy is invalid")
           decision = decide_missing_result_reconciliation(
               issue=issue,
               comments=comments,
@@ -164,6 +170,7 @@ jobs:
               delivery_id=os.environ["DELIVERY_ID"],
               target_run=target_run,
               target_run_log=target_run_log,
+              trusted_result_authors=frozenset(result_authors),
               trusted_admission_authors=frozenset(authors),
               accepted_control_plane_releases=frozenset(releases),
           )

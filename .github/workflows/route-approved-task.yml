@@ -16,7 +16,7 @@ concurrency:
 jobs:
   # Any edit revokes approval before another effect can occur.
   invalidate-material-edit:
-    if: github.event.action == 'edited'
+    if: github.event.issue.number != 176 && github.event.action == 'edited'
     runs-on: ubuntu-latest
     steps:
       - name: Invalidate approval projection before any new effect
@@ -31,7 +31,7 @@ jobs:
             -f 'labels[]=status:proposed' >/dev/null
 
   prepare:
-    if: github.event.action == 'labeled' && github.event.label.name == 'status:approved'
+    if: github.event.issue.number != 176 && github.event.action == 'labeled' && github.event.label.name == 'status:approved'
     runs-on: ubuntu-latest
     outputs:
       task_payload: ${{ steps.task.outputs.task_payload }}
@@ -133,7 +133,7 @@ jobs:
 
   route:
     needs: prepare
-    uses: Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v4.0.0
+    uses: Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v5.0.0
     with:
       task_payload: ${{ needs.prepare.outputs.task_payload }}
       execution_mode: ${{ needs.prepare.outputs.execution_mode }}

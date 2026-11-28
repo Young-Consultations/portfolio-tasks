@@ -1,5 +1,12 @@
 # Proposed V5.6 maintenance verification exception
 
+**Historical record only. V5.10 retires this exception and removes its workflow,
+runtime and tests. Do not follow the historical execution instructions below.**
+Preserve [issue #176](https://github.com/Young-Consultations/portfolio-tasks/issues/176),
+[wrapper run 45906558087](https://github.com/Young-Consultations/portfolio-tasks/actions/runs/45906558087),
+and [receiver/target run 45906615092](https://github.com/Young-Consultations/consulting-playbook/actions/runs/45906615092).
+No replay or live dispatch is authorized.
+
 **Owner accepted this temporary exception in principle on 2026-11-25.**
 Draft implementation and exact-head merge acceptance remain separate; no
 operational authority is granted. The exception applies only to the dedicated

@@ -10,13 +10,10 @@ amended or retagged.
 
 Exact closed schemas and shared fixtures are vendored here only for deterministic validation and
 bound by their approved Git blob identities. The organization remains their owner.
-The portfolio source router consumer selects the published and attested
-immutable `ai-sdlc-v4.0.0` tag after this reviewed migration. The tag
-resolves to control-plane release commit
-`6e51f058bf828b0732cb1b773ba1835acaa1d5cd`, with separate
-publication-attestation PR #117 merged at
-`a9a8c916b20685c320424d5f8d2226d9fb0fa61c`. Absence of the
-selected immutable tag fails closed; a mutable `main` fallback is forbidden.
+The V5.10 source router migration selects the published immutable
+`ai-sdlc-v5.0.0` tag at `3cce887fc393fa80ed8f79308ca9b9c7241ce622` after separately
+reviewed merge. Absence of the selected immutable tag fails closed; a mutable
+`main` fallback is forbidden. Prior 4.0.0 attestation remains historical.
 The portfolio repository's **disabled** local target still retains its
 separately pinned historical 2.3.2 compatibility receiver; that local target
 is not a second enabled dispatch path. This source pin change does not
@@ -25,7 +22,7 @@ constitute deployed Runtime Preflight or REAL acceptance.
 ## Router
 
 Reusable workflow:
-`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v4.0.0`.
+`Young-Consultations/.github/.github/workflows/codex-router.yml@ai-sdlc-v5.0.0`.
 
 | Kind | Name | Contract |
 | --- | --- | --- |
@@ -85,24 +82,24 @@ binding, and replay state, the receiver forwards exactly
 
 The source authenticates the receiver dispatch identity, repeats exact result-schema and
 admission-binding validation, projects identical results once, and quarantines conflicts. For the
-4.0.0 source path, repository variable `PORTFOLIO_RESULT_SENDERS` must
+5.0.0 source path, repository variable `PORTFOLIO_RESULT_SENDERS` must
 exactly authorize the immutable organization result-writer identity
 `ai-sdlc-result-writer[bot]`. After the source PR is merged, the
 organization's deployed Runtime Preflight shall independently verify the
-actual `portfolio-tasks@main` router-job pin equals `ai-sdlc-v4.0.0`,
+actual `portfolio-tasks@main` router-job pin equals `ai-sdlc-v5.0.0`,
 the registered target, secret metadata and the result sender binding.
 This source migration does **not** claim preflight has already passed. The target never directly invokes source
 projection and never receives a portfolio result-write token.
 
 
-The source-owned missing-result reconciliation workflow loads the immutable
-4.0.0 trust policy and accepts **only** reviewed admission releases
-`ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, `ai-sdlc-v3.0.3`, and
-`ai-sdlc-v3.1.0`, `ai-sdlc-v4.0.0`, matching the tagged 4.0.0 receiver compatibility
-policy. This preserves #159's trusted 3.0.1 admission and reviewed 3.0.2/3.0.3
-recoveries, and permits new 4.0.0 admissions in the same human-owned,
-non-Codex reconciliation path. Reconciliation cannot replay a terminal
-delivery or authorize new cost-bearing execution. The allowlist is static
+The source-owned missing-result reconciliation workflow loads the exact
+immutable V5 trust policy and retains reviewed historical admissions
+`ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, `ai-sdlc-v3.0.3`, `ai-sdlc-v3.1.0`,
+`ai-sdlc-v4.0.0`, adding `ai-sdlc-v5.0.0`. Historical source recovery is
+separate from the V5 receiver's V5-only admission compatibility. V5 recovery
+requires exact consulting adapter ref and commit, correlated failed-run evidence,
+and no trusted terminal receipt or forwarding evidence. Reconciliation cannot
+replay a terminal delivery or authorize new cost-bearing execution. The allowlist is static
 source policy, not an operator input; unreviewed releases fail closed.
 
 ## Approval data boundary
@@ -111,3 +108,7 @@ source policy, not an operator input; unreviewed releases fail closed.
 closed v2 inter-repository task contains only schema-declared fields. The schema-safe `task_id`
 binds all authoritative source material, target, mode, executor, dependencies, and sensitivity.
 Every such change creates a new identity and requires new human approval.
+
+V5 source projection recomputes the immutable receiver visible effect and requires
+an exact trusted receipt. Managed-draft equivalence does not replace exact receipt
+validation. Retired maintenance issue #176 and smoke reservations are denied.

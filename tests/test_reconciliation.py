@@ -19,6 +19,9 @@ ACCEPTED_CONTROL_PLANE_RELEASES = frozenset(
         LEGACY_CONTROL_PLANE_RELEASE,
         PREVIOUS_CONTROL_PLANE_RELEASE,
         CURRENT_CONTROL_PLANE_RELEASE,
+        "ai-sdlc-v3.1.0",
+        "ai-sdlc-v4.0.0",
+        "ai-sdlc-v5.0.0",
     }
 )
 TRUSTED_ADMISSION_AUTHORS = frozenset({"mightyjoe909"})
@@ -106,6 +109,7 @@ def decide(
         delivery_id=DELIVERY,
         target_run=run or target_run(),
         target_run_log=run_log or target_log(),
+        trusted_result_authors=frozenset({"synthetic-result-writer"}),
         trusted_admission_authors=TRUSTED_ADMISSION_AUTHORS,
         accepted_control_plane_releases=ACCEPTED_CONTROL_PLANE_RELEASES,
     )
@@ -249,3 +253,79 @@ def test_missing_or_duplicate_admission_fails_closed() -> None:
 def test_first_reconciliation_requires_open_queued_source() -> None:
     with pytest.raises(ReconciliationError, match="open queued"):
         decide(issue_value=issue("chatgpt-task"))
+
+
+@pytest.mark.parametrize("release", ["ai-sdlc-v3.1.0", "ai-sdlc-v4.0.0"])
+def test_historical_recovery_releases_remain_accepted(release):
+    assert decide(comment_values=comments(control_plane_release=release)).action == "apply"
+
+
+def v5_run(**changes):
+    value = target_run(
+        head_branch="codex-adapter-v5.0.0",
+        head_sha="e4328a6ddde2da6e691b8127b01863b659a5537b",
+    )
+    value.update(changes)
+    return value
+
+
+def test_v5_missing_result_recovery_is_nonexecuting_and_requires_exact_adapter():
+    values = comments(control_plane_release="ai-sdlc-v5.0.0")
+    decision = decide(comment_values=values, run=v5_run())
+    assert decision.action == "apply"
+    assert "reconciliation-required" in decision.marker
+    assert "ai-sdlc-source-result" not in decision.comment
+    repeated = decide(
+        comment_values=comments(decision.comment, control_plane_release="ai-sdlc-v5.0.0"),
+        run=v5_run(),
+    )
+    assert repeated.action == "no-op"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"head_branch": "codex-adapter-v4.0.0"}, {"head_sha": "a" * 40}, {"head_sha": None}],
+)
+def test_v5_recovery_rejects_wrong_immutable_adapter(change):
+    with pytest.raises(ReconciliationError, match="exact immutable consulting adapter"):
+        decide(
+            comment_values=comments(control_plane_release="ai-sdlc-v5.0.0"), run=v5_run(**change)
+        )
+
+
+@pytest.mark.parametrize("kind", ["result-receipt", "result-forwarded"])
+def test_v5_trusted_terminal_evidence_waits_for_projection_not_missing_result(kind):
+    values = comments(control_plane_release="ai-sdlc-v5.0.0")
+    values.append(marker_comment(f"<!-- ai-sdlc-{kind}:v2 {{}} -->", "synthetic-result-writer"))
+    with pytest.raises(ReconciliationError, match="terminal evidence awaits projection"):
+        decide(comment_values=values, run=v5_run())
+
+
+def test_retired_smoke_is_denied_before_target_evidence_lookup():
+    with pytest.raises(ReconciliationError, match="retired maintenance issue"):
+        admission_binding(
+            [],
+            source_issue="Young-Consultations/portfolio-tasks#176",
+            delivery_id=DELIVERY,
+            trusted_admission_authors=TRUSTED_ADMISSION_AUTHORS,
+            accepted_control_plane_releases=ACCEPTED_CONTROL_PLANE_RELEASES,
+        )
+    values = comments(
+        "<!-- ai-sdlc-v5-smoke-reservation:v2 {} -->", control_plane_release="ai-sdlc-v5.0.0"
+    )
+    with pytest.raises(ReconciliationError, match="retired maintenance reservation"):
+        decide(comment_values=values, run=v5_run())
+
+
+def test_v5_recovery_denies_other_target_before_target_lookup():
+    values = comments(
+        control_plane_release="ai-sdlc-v5.0.0", target_repository="Young-Consultations/slugger"
+    )
+    with pytest.raises(ReconciliationError, match="registered consulting target"):
+        admission_binding(
+            values,
+            source_issue=SOURCE,
+            delivery_id=DELIVERY,
+            trusted_admission_authors=TRUSTED_ADMISSION_AUTHORS,
+            accepted_control_plane_releases=ACCEPTED_CONTROL_PLANE_RELEASES,
+        )

@@ -10,7 +10,7 @@ PROJECTION = WORKFLOWS / "project-execution-result.yml"
 RECONCILIATION = WORKFLOWS / "reconcile-missing-result.yml"
 
 
-def test_exactly_one_active_target_path_and_six_expected_workflows() -> None:
+def test_exactly_one_active_target_path_and_five_expected_workflows() -> None:
     workflows = tuple(sorted(WORKFLOWS.glob("*.yml")))
     assert workflows == (
         WORKFLOWS / "ci.yml",
@@ -18,9 +18,10 @@ def test_exactly_one_active_target_path_and_six_expected_workflows() -> None:
         PROJECTION,
         RECONCILIATION,
         ROUTE,
-        WORKFLOWS / "verify-v5-smoke.yml",
     )
     for obsolete in (
+        Path("portfolio_tasks/verify_smoke.py"),
+        Path("tests/test_verify_smoke.py"),
         Path("portfolio_tasks/target_adapter.py"),
         Path("portfolio_tasks/conformance.py"),
         Path("portfolio_tasks/runtime_validation.py"),
@@ -71,7 +72,7 @@ def test_target_has_least_privilege_and_credential_separation() -> None:
 def test_source_route_has_required_caller_permission_and_exact_construction() -> None:
     text = ROUTE.read_text(encoding="utf-8")
     assert "permissions:\n  actions: read\n  contents: read\n  issues: write" in text
-    assert "codex-router.yml@ai-sdlc-v4.0.0" in text
+    assert "codex-router.yml@ai-sdlc-v5.0.0" in text
     assert "contracts/task-contract.schema.json" in text
     assert "Draft202012Validator" in text
     assert "revision_from" in text
@@ -80,7 +81,7 @@ def test_source_route_has_required_caller_permission_and_exact_construction() ->
 
 
 def test_source_router_and_reconciliation_select_same_immutable_control_plane_release() -> None:
-    """The 4.0.0 deployed preflight requires the actual source route job pin."""
+    """The 5.0.0 deployed preflight requires the actual source route job pin."""
     route = ROUTE.read_text(encoding="utf-8")
     reconciliation = RECONCILIATION.read_text(encoding="utf-8")
     assert re.findall(
@@ -88,11 +89,13 @@ def test_source_router_and_reconciliation_select_same_immutable_control_plane_re
         r"codex-router\.yml@(ai-sdlc-v[0-9]+\.[0-9]+\.[0-9]+)$",
         route,
         re.MULTILINE,
-    ) == ["ai-sdlc-v4.0.0"]
-    assert "TRUST_POLICY_RELEASE: ai-sdlc-v4.0.0" in reconciliation
+    ) == ["ai-sdlc-v5.0.0"]
+    assert "TRUST_POLICY_RELEASE: ai-sdlc-v5.0.0" in reconciliation
     assert "ai-sdlc-v3.0.3" in reconciliation  # preserve historical admissions
     assert '"ai-sdlc-v3.1.0"' in reconciliation
     assert '"ai-sdlc-v4.0.0"' in reconciliation
+    assert '"ai-sdlc-v5.0.0"' in reconciliation
+    assert "TRUST_POLICY_SHA: 3cce887fc393fa80ed8f79308ca9b9c7241ce622" in reconciliation
     assert "ai-sdlc-v3.0.3" not in route
 
 
@@ -149,12 +152,12 @@ def test_missing_result_reconciliation_is_operator_owned_and_non_executing() -> 
     assert "CODEX_ROUTER_TOKEN" in text
     assert "portfolio_tasks.reconciliation" in text
     assert "status%3Aqueued" in text
-    assert "TRUST_POLICY_RELEASE: ai-sdlc-v4.0.0" in text
+    assert "TRUST_POLICY_RELEASE: ai-sdlc-v5.0.0" in text
     assert (
-        'ACCEPTED_CONTROL_PLANE_RELEASES_JSON: \'["ai-sdlc-v3.0.1","ai-sdlc-v3.0.2","ai-sdlc-v3.0.3","ai-sdlc-v3.1.0","ai-sdlc-v4.0.0"]\''
+        'ACCEPTED_CONTROL_PLANE_RELEASES_JSON: \'["ai-sdlc-v3.0.1","ai-sdlc-v3.0.2","ai-sdlc-v3.0.3","ai-sdlc-v3.1.0","ai-sdlc-v4.0.0","ai-sdlc-v5.0.0"]\''
         in text
     )
-    assert "config/codex-result-trust.json?ref=$TRUST_POLICY_RELEASE" in text
+    assert "config/codex-result-trust.json?ref=$TRUST_POLICY_SHA" in text
     assert 'gh run view "$TARGET_RUN_ID"' in text
     assert "target-run.log" in text
     assert 'index("status:queued") != null' in text
@@ -193,3 +196,13 @@ def test_normal_ci_has_no_codex_or_publication_effect() -> None:
         assert forbidden not in text
     assert "python scripts/run_tc_mvp_ci_001.py" in text
     assert "git diff --exit-code -- .ai-sdlc/conformance/tc-mvp-ci-001.json" in text
+
+
+def test_retired_smoke_has_no_source_admission_or_recovery_entry():
+    route = ROUTE.read_text(encoding="utf-8")
+    recovery = RECONCILIATION.read_text(encoding="utf-8")
+    assert route.count("github.event.issue.number != 176") == 2
+    assert '"$ISSUE_NUMBER" != 176' in recovery
+    assert not (WORKFLOWS / "verify-v5-smoke.yml").exists()
+    module = Path("portfolio_tasks/terminal_projection.py").read_text(encoding="utf-8")
+    assert "verify_smoke" not in module

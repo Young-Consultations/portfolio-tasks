@@ -12,14 +12,12 @@ Read [`AI_CONTEXT.md`](AI_CONTEXT.md) first. The authority order is:
 3. approved architecture and interface documents
 4. [`docs/releases/next-mvp.md`](docs/releases/next-mvp.md)
 
-Following the separately reviewed source-consumer migration, production
-`main` selects the published and attested [`ai-sdlc-v4.0.0`
-router](docs/releases/4.0.0.md), with the closed `ai-sdlc-contract/v2`
-payload unchanged. This source repin does **not** establish deployed 4.0.0
-Runtime Preflight, no-cost REAL readiness, or new-delivery REAL acceptance.
-Those remain separate evidence gates. Historical 3.0.3 deployed Runtime
-Preflight 36867504568 and immutable REAL readiness 36867939797 apply only
-to the earlier release.
+V5.10 proposes production source routing through the published immutable
+[`ai-sdlc-v5.0.0` router](docs/releases/5.0.0.md), with the closed
+`ai-sdlc-contract/v2` payload unchanged. The V5 source pin takes effect only
+on separately authorized merge. Deployed Runtime Preflight, no-cost REAL
+readiness and fresh-delivery REAL acceptance remain separate evidence gates.
+Historical 3.0.3 and 4.0.0 evidence remains release-specific.
 
 ## Historical Issue 135 recovery state
 
@@ -63,11 +61,10 @@ invocations, with all prohibited Codex, branch, commit, push, PR, merge, release
 production, and secret-output counters at zero.
 
 This evidence is target compatibility evidence, not activation or production readiness. The
-portfolio target remains disabled. Source routing on production `main` uses published
-`ai-sdlc-v4.0.0` after this migration; organization activation continues
-to enable only `consulting-playbook`. The 4.0.0 control-plane release is
-attested, but deployed Runtime Preflight and fresh-identity REAL acceptance
-are still outstanding. The independent stale-content-baseline defect
+portfolio target remains disabled. The V5 source migration selects
+`ai-sdlc-v5.0.0`; organization activation continues to enable only
+`consulting-playbook`. Deployed Runtime Preflight and fresh-identity REAL
+acceptance are not established by this change. The independent stale-content-baseline defect
 [consulting-playbook #93](https://github.com/Young-Consultations/consulting-playbook/issues/93)
 must be assessed before cost-bearing acceptance. Never replay the finalized
 delivery in [.github #111](https://github.com/Young-Consultations/.github/issues/111).
@@ -105,7 +102,7 @@ git diff --check
 Normal CI is deterministic and has no Codex, routing, branch, push, PR, receiver, tag, release,
 deployment, or production effect.
 
-## Proposed v5 maintenance verification (not operational authority)
+## Retired v5 maintenance verification
 
-See [the one-shot maintenance proposal](docs/releases/v5-maintenance-smoke.md).
-The draft change does not migrate the production source pin or authorize a live run.
+See [historical one-shot maintenance evidence](docs/releases/v5-maintenance-smoke.md).
+V5.10 removes the temporary runtime; issue #176 is evidence only, never a replay input.
