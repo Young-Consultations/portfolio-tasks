@@ -30,6 +30,7 @@ _RECONCILIATION = re.compile(
 )
 _ADMISSION_FIELDS = {
     "contract_version",
+    "control_plane_release",
     "delivery_id",
     "correlation_id",
     "source_issue",
@@ -39,6 +40,12 @@ _ALLOWED_CONCLUSIONS = {"failure", "cancelled", "timed_out"}
 _EXPECTED_TARGET_WORKFLOW = ".github/workflows/codex-execute.yml"
 _SOURCE_WORKFLOW_AUTHOR = "github-actions[bot]"
 _EXECUTION_INPUT_LOG_KEY = "EXECUTION_INPUT_JSON:"
+_V5_RELEASE = "ai-sdlc-v5.0.0"
+_V5_TARGET = "Young-Consultations/consulting-playbook"
+_V5_ADAPTER_REF = "codex-adapter-v5.0.0"
+_V5_ADAPTER_SHA = "e4328a6ddde2da6e691b8127b01863b659a5537b"
+_RETIRED_SMOKE_SOURCE = "Young-Consultations/portfolio-tasks#176"
+_RETIRED_SMOKE_MARKER = "ai-sdlc-v5-smoke-reservation:v2"
 
 
 class ReconciliationError(ValueError):
@@ -89,6 +96,15 @@ def admission_binding(
     accepted_control_plane_releases: AbstractSet[str],
 ) -> dict[str, str]:
     """Return the unique trusted durable admission binding for one logical delivery."""
+    if source_issue == _RETIRED_SMOKE_SOURCE:
+        raise ReconciliationError("retired maintenance issue")
+    if isinstance(comments, list) and any(
+        isinstance(comment, Mapping)
+        and isinstance(comment.get("body"), str)
+        and _RETIRED_SMOKE_MARKER in comment["body"]
+        for comment in comments
+    ):
+        raise ReconciliationError("retired maintenance reservation")
     if _ISSUE.fullmatch(source_issue) is None or _IDENTITY.fullmatch(delivery_id) is None:
         raise ReconciliationError("source or delivery identity is invalid")
     if not trusted_admission_authors or not accepted_control_plane_releases:
@@ -113,7 +129,13 @@ def admission_binding(
         matches.append(binding)
     if len(matches) != 1:
         raise ReconciliationError("delivery does not have exactly one trusted admission binding")
-    return matches[0]
+    binding = matches[0]
+    if (
+        binding["control_plane_release"] == _V5_RELEASE
+        and binding["target_repository"] != _V5_TARGET
+    ):
+        raise ReconciliationError("v5 admission does not bind the registered consulting target")
+    return binding
 
 
 def _has_terminal_result(comments: object, delivery_id: str) -> bool:
@@ -178,6 +200,7 @@ def decide_missing_result_reconciliation(
     delivery_id: str,
     target_run: Mapping[str, Any],
     target_run_log: str,
+    trusted_result_authors: AbstractSet[str],
     trusted_admission_authors: AbstractSet[str],
     accepted_control_plane_releases: AbstractSet[str],
 ) -> ReconciliationDecision:
@@ -194,6 +217,23 @@ def decide_missing_result_reconciliation(
     if _has_terminal_result(comments, delivery_id):
         raise ReconciliationError("delivery already has a receiver-validated terminal result")
 
+    v5 = binding["control_plane_release"] == _V5_RELEASE
+    if v5:
+        if not trusted_result_authors or not isinstance(comments, list):
+            raise ReconciliationError("v5 result trust or comments unavailable")
+        terminal_markers = ("ai-sdlc-result-receipt:v2", "ai-sdlc-result-forwarded:v2")
+        for comment in comments:
+            if not isinstance(comment, Mapping):
+                raise ReconciliationError("invalid v5 comment evidence")
+            user = comment.get("user")
+            body = comment.get("body")
+            if not isinstance(user, Mapping) or not isinstance(body, str):
+                raise ReconciliationError("invalid v5 comment evidence")
+            if user.get("login") in trusted_result_authors and any(
+                kind in body for kind in terminal_markers
+            ):
+                raise ReconciliationError("trusted terminal evidence awaits projection")
+
     run_id = target_run.get("id")
     target = binding["target_repository"]
     repository = target_run.get("repository")
@@ -205,6 +245,8 @@ def decide_missing_result_reconciliation(
     adapter_ref = target_run.get("head_branch")
     if not isinstance(adapter_ref, str) or _ADAPTER_REF.fullmatch(adapter_ref) is None:
         raise ReconciliationError("target workflow run does not use an immutable adapter release")
+    if v5 and (adapter_ref != _V5_ADAPTER_REF or target_run.get("head_sha") != _V5_ADAPTER_SHA):
+        raise ReconciliationError("v5 target run is not the exact immutable consulting adapter")
     if target_run.get("event") != "workflow_dispatch" or target_run.get("status") != "completed":
         raise ReconciliationError("target workflow run is not a completed admitted dispatch")
     conclusion = target_run.get("conclusion")

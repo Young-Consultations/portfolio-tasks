@@ -136,10 +136,9 @@ sources.
   for each responsibility**. Following this separately reviewed source
   migration, the one source-routing baseline selects payload
   `ai-sdlc-contract/v2` through published and attested organization control-plane
-  release `ai-sdlc-v4.0.0`. The immutable tag resolves to
-  `6e51f058bf828b0732cb1b773ba1835acaa1d5cd`, and the publication
-  attestation is merged [.github PR #117](https://github.com/Young-Consultations/.github/pull/114).
-  This pin change is **not** proof of deployed preflight or REAL acceptance.
+  release `ai-sdlc-v5.0.0`. The immutable tag resolves to
+  `3cce887fc393fa80ed8f79308ca9b9c7241ce622`. This pin change is **not** proof of deployed preflight
+  or REAL acceptance and requires separate merge authorization.
   Historical 2.3.2 compatibility evidence for this repository's
   disabled target adapter remains immutable and derives from corrected recovery commit
   `Young-Consultations/.github@e27b8a541afbd27b4be5606a19ffa43637ad312a`.
@@ -221,7 +220,7 @@ Before removing or replacing an artifact, the implementing agent must:
 
 ## Open issues
 
-- Proposed temporary [v5 maintenance verification exception](docs/releases/v5-maintenance-smoke.md) requires explicit owner acceptance before merge/use. Normal label-only approval and v4 routing remain the approved production baseline.
+- The temporary [v5 maintenance verification exception](docs/releases/v5-maintenance-smoke.md) is retired by V5.10; preserve issue #176 evidence and deny its admission, projection and reconciliation. Normal label-only approval remains the production source authority.
 
 No material contradiction among approved repository-owned next-MVP sources was identified. Preserve
 these statuses and gaps rather than inventing solutions:
@@ -234,15 +233,13 @@ these statuses and gaps rather than inventing solutions:
 - Current target activation is mutable organization control-plane state. The reviewed organization
   state enables only `Young-Consultations/consulting-playbook`; this repository's target remains
   disabled and this repository neither changes nor bypasses activation.
-- Published and attested `ai-sdlc-v4.0.0` is the new source router after
-  this reviewed migration. Its target registry selects immutable
-  `codex-adapter-v4.0.0` at
-  `84964d3ba099630cd5c6101e598bfca5433c74c5`. Deployed 4.0.0 Runtime
-  Preflight must verify the *actual* router pin at `portfolio-tasks@main`
-  after the source merge; until then it must fail closed. No 4.0.0 REAL
-  acceptance is established. The previous 3.0.3 deployed Runtime Preflight
-  36867504568 and immutable REAL readiness 36867939797 remain historical
-  evidence, not 4.0.0 rollout authorization.
+- Published `ai-sdlc-v5.0.0` is the proposed source router after this
+  reviewed migration. The registry selects `codex-adapter-v5.0.0` at
+  `e4328a6ddde2da6e691b8127b01863b659a5537b`. Deployed Runtime Preflight must independently
+  verify the actual production router pin after merge; no V5 REAL acceptance
+  or paid execution is authorized here. Historical 3.0.3 preflight runs
+  36867504568 and 36867939797 and the 4.0.0 baseline remain historical evidence.
+  Rollback remains deny-only: no reviewed safe candidate or REAL resume.
   Fresh issue #154 remains initial-live-path evidence; issue #156 exposed the
   result-writer identity defect; issue #159 exposed DEF-0073 and then DEF-0086
   while preserving its original trusted 3.0.1 admission. Fresh REAL acceptance
@@ -252,14 +249,12 @@ these statuses and gaps rather than inventing solutions:
   for the same delivery/branch/PR before Codex, with no second receiver or
   source visible effect. DEF-0073, DEF-0064, and DEF-0086 are resolved.
 - Missing-result reconciliation is version-bounded source policy. The
-  operator-owned reconciliation workflow loads the immutable 4.0.0 trust policy
-  and accepts only admissions from
-  `ai-sdlc-v3.0.1`, `ai-sdlc-v3.0.2`, `ai-sdlc-v3.0.3`, or
-  `ai-sdlc-v3.1.0`, `ai-sdlc-v4.0.0`, matching the tagged receiver release policy. The set is
-  not an operator input. It preserves #159's 3.0.1 admission and supported
-  3.0.2/3.0.3 predecessors while admitting 4.0.0; all unreviewed versions
-  fail closed. Reconciliation never authorizes a new cost-bearing replay of
-  a previously terminal failed delivery.
+  operator-owned reconciliation workflow loads the exact immutable V5 trust
+  policy. The static recovery allowlist retains 3.0.1, 3.0.2, 3.0.3, 3.1.0 and
+  4.0.0 and adds 5.0.0. This is historical source recovery, not permission
+  to deliver an older admission to the V5-only receiver. V5 recovery requires
+  the exact registered consulting adapter, failed run evidence and absence
+  of trusted terminal evidence; no cost-bearing replay is authorized.
 - Security/governance owners, role membership, separation-of-duty classes, data classification,
   retention/legal hold, incident handling, and operational objectives remain open in
   [Assumptions and Open Questions](docs/requirements/Assumptions.md). A safety-, authority-, or

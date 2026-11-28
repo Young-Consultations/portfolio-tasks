@@ -9,10 +9,12 @@ import pytest
 from portfolio_tasks.source_lifecycle import CONTRACT, TERMINAL_STATUSES, LifecycleError
 from portfolio_tasks.terminal_projection import (
     REPOSITORY,
+    GitHub,
     apply,
     digest,
     projection_body,
     revision_from,
+    verify_v5_effect,
 )
 
 SOURCE = REPOSITORY + "#42"
@@ -33,7 +35,7 @@ def comment(kind, value, author):
     }
 
 
-def fixture(status="failed"):
+def fixture(status="failed", release="ai-sdlc-v5.0.0"):
     fields = {
         "Project": "test",
         "Priority": "P2",
@@ -77,15 +79,25 @@ def fixture(status="failed"):
     }
     admission = comment(
         "admission",
-        {**binding, "source_issue": SOURCE, "control_plane_release": "ai-sdlc-v4.0.0"},
+        {**binding, "source_issue": SOURCE, "control_plane_release": release},
         OWNER,
     )
+    effect_class = "managed-draft" if managed else status
+    effect = {
+        **binding,
+        "effect_class": effect_class,
+        "branch_name": result["branch_name"],
+        "pull_request_url": result["pull_request_url"],
+        "validation_result": result["validation_result"],
+        "test_result": result["test_result"],
+        "failure_category": result["failure_category"],
+    }
     receipt = {
         **binding,
         "source_issue": SOURCE,
         "result_sha256": digest(result),
-        "effect_sha256": "a" * 64,
-        "effect_class": status,
+        "effect_sha256": digest(effect) if release == "ai-sdlc-v5.0.0" else "a" * 64,
+        "effect_class": effect_class,
     }
     return (
         issue,
@@ -130,15 +142,20 @@ class Fake:
 @pytest.fixture(autouse=True)
 def trap_external_effects():
     with (
-        patch("subprocess.run", side_effect=AssertionError("external process")),
-        patch("socket.create_connection", side_effect=AssertionError("real socket")),
+        patch("subprocess.run", side_effect=AssertionError("external process")) as process,
+        patch("socket.create_connection", side_effect=AssertionError("real socket")) as network,
+        patch("socket.socket.connect", side_effect=AssertionError("real socket")) as connect,
     ):
         yield
+        process.assert_not_called()
+        network.assert_not_called()
+        connect.assert_not_called()
 
 
+@pytest.mark.parametrize("release", ["ai-sdlc-v3.0.3", "ai-sdlc-v4.0.0", "ai-sdlc-v5.0.0"])
 @pytest.mark.parametrize("status", sorted(TERMINAL_STATUSES))
-def test_all_terminal_outcomes_clear_queue_not_accept_task(status):
-    issue, identity, result, comments = fixture(status)
+def test_all_terminal_outcomes_clear_queue_not_accept_task(status, release):
+    issue, identity, result, comments = fixture(status, release)
     api = Fake(issue, comments)
     outcome = apply(api, SOURCE, identity, "result", result)
     assert outcome["terminal"] == status
@@ -241,8 +258,9 @@ def test_unsafe_evidence_denied(fault):
     assert not api.effects
 
 
-def test_historical_plan_is_read_only_and_requires_forwarding():
-    issue, identity, result, comments = fixture()
+@pytest.mark.parametrize("release", ["ai-sdlc-v3.0.3", "ai-sdlc-v4.0.0", "ai-sdlc-v5.0.0"])
+def test_historical_plan_is_read_only_and_requires_forwarding(release):
+    issue, identity, result, comments = fixture(release=release)
     comments.append({"body": projection_body(result), "user": {"login": "github-actions[bot]"}})
     api = Fake(issue, comments)
     plan = apply(api, SOURCE, identity, "plan")
@@ -353,3 +371,84 @@ def test_queued_retry_requires_active_state_and_unchanged_revision():
     with pytest.raises(LifecycleError):
         apply(api, SOURCE, identity, "queued")
     assert not api.effects
+
+
+@pytest.mark.parametrize("status", ["draft-pr-created", "duplicate-reused", "failed", "verified"])
+@pytest.mark.parametrize("fault", ["effect_class", "effect_sha256"])
+def test_v5_matching_but_false_effect_receipt_and_forward_are_denied(status, fault):
+    issue, identity, result, comments = fixture(status)
+    for i, kind in ((1, "result-receipt"), (2, "result-forwarded")):
+        value = json.loads(comments[i]["body"].split(":v2 ", 1)[1][:-4])
+        value[fault] = "b" * 64 if fault == "effect_sha256" else "false-effect"
+        comments[i] = comment(kind, value, WRITER)
+    api = Fake(issue, comments)
+    with pytest.raises(LifecycleError, match="v5 receiver effect mismatch"):
+        apply(api, SOURCE, identity, "result", result)
+    assert not api.effects
+
+
+def test_v5_managed_draft_equivalence_does_not_replace_exact_result_receipt():
+    issue, identity, result, comments = fixture("draft-pr-created")
+    _, _, duplicate, duplicate_comments = fixture("duplicate-reused")
+    receipt = json.loads(comments[1]["body"].split(":v2 ", 1)[1][:-4])
+    other_receipt = json.loads(duplicate_comments[1]["body"].split(":v2 ", 1)[1][:-4])
+    assert receipt["effect_class"] == other_receipt["effect_class"] == "managed-draft"
+    assert receipt["effect_sha256"] == other_receipt["effect_sha256"]
+    assert digest(result) != digest(duplicate)
+    api = Fake(issue, comments)
+    with pytest.raises(LifecycleError, match="matching trusted receipt"):
+        apply(api, SOURCE, identity, "result", duplicate)
+    assert not api.effects
+
+
+@pytest.mark.parametrize("mode", ["result", "queued", "plan"])
+@pytest.mark.parametrize("retired", ["issue", "reservation"])
+def test_retired_smoke_cannot_be_processed(mode, retired):
+    issue, identity, result, comments = fixture()
+    source = SOURCE
+    if retired == "issue":
+        issue["number"] = 176
+        source = REPOSITORY + "#176"
+    else:
+        comments.append(comment("v5-smoke-reservation", {}, OWNER))
+    api = Fake(issue, comments)
+    with patch.object(api, "trust", side_effect=AssertionError("trust must not be read")) as trust:
+        with pytest.raises(LifecycleError, match="retired maintenance"):
+            apply(api, source, identity, mode, result)
+        trust.assert_not_called()
+    assert not api.effects
+
+
+def test_v5_trust_read_uses_exact_commit_not_tag_or_main():
+    _, _, _, comments = fixture()
+    api = GitHub("42")
+    with patch.object(api, "api", return_value=TRUST) as read:
+        assert api.trust(comments) == TRUST
+    read.assert_called_once_with(
+        "-H",
+        "Accept: application/vnd.github.raw+json",
+        "repos/Young-Consultations/.github/contents/config/codex-result-trust.json"
+        "?ref=3cce887fc393fa80ed8f79308ca9b9c7241ce622",
+    )
+
+
+def test_v5_effect_matches_immutable_receiver_known_verify_vector():
+    # Recorded V5.7 effect vector; no API, issue mutation or replay.
+    identity = "task-4ce3c7676172f2956ecb0ac3a0167cec"
+    result = {
+        "contract_version": CONTRACT,
+        "correlation_id": identity,
+        "delivery_id": identity,
+        "target_repository": TARGET,
+        "execution_status": "verified",
+        "branch_name": None,
+        "pull_request_url": None,
+        "validation_result": "passed",
+        "test_result": "passed",
+        "failure_category": "none",
+    }
+    receipt = {
+        "effect_class": "verified",
+        "effect_sha256": "24315715feb466a11d09cc7e56d13d850e37b11a023de5b7d1d106cab9f28110",
+    }
+    verify_v5_effect([comment("result-receipt", receipt, WRITER)], result)
